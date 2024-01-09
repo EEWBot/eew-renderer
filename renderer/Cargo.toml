@@ -1,0 +1,31 @@
+[package]
+name = "renderer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+winit = "0.29.9"
+glium = "0.34.0"
+indexmap = "2.1.0"
+rustc-hash = "1.1.0"
+image = { version = "0.25.1", default-features = false, features = ["png"] }
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
+enum-map = "2.7.3"
+const_soft_float = "0.1.4"
+array-const-fn-init = "0.1.1"
+renderer-types = { path = "../renderer-types/" }
+renderer-assets = { path = "../renderer-assets/" }
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros", "net"] }
+axum = "0.7.5"
+
+[build-dependencies]
+protobuf-codegen = "3.3.0"
+
+[profile.release]
+opt-level = 3
+debug = "line-tables-only"
+strip = "debuginfo"
+lto = true

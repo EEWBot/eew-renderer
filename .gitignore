@@ -1,0 +1,14 @@
+/.idea/*
+!/.idea/dictionaries/
+/.idea/dictionaries/*
+!/.idea/dictionaries/*.xml
+
+/target/
+
+*.dbf
+*.shp
+*.shx
+screenshot*.png
+data.rs
+log.txt
+*.log
