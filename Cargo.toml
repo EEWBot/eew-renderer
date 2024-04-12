@@ -1,0 +1,17 @@
+[package]
+name = "eew-renderer"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+axum = { version = "0.7.5", features = ["query", "json"] }
+clap = { version = "4.5.4", features = ["derive", "env"] }
+hmac = "0.12.1"
+include_dir = { version = "0.7.3", features = ["glob"] }
+once_cell = "1.19.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.115"
+sha2 = "0.10.8"
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros", "net"] }
