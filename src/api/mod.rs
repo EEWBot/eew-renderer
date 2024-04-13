@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
 use axum::{
     async_trait,
     extract::{FromRequestParts, Path, Query},
@@ -9,6 +8,7 @@ use axum::{
     Json, RequestPartsExt,
 };
 use hmac::{Hmac, Mac};
+use serde::Deserialize;
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -70,7 +70,7 @@ pub async fn maps(_v: Version) -> impl IntoResponse {
     Json(crate::map::map_names())
 }
 
-pub async fn map(_v: Version, Path(map_id): Path<String>) -> impl IntoResponse {
+pub async fn map(_v: Version, Path((_, map_id)): Path<(String, String)>) -> impl IntoResponse {
     let Some(map) = crate::map::query_map(&map_id) else {
         return (
             StatusCode::NOT_FOUND,
