@@ -1,17 +1,9 @@
 pub mod api;
 pub mod map;
 
-use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use axum::{
-    async_trait,
-    extract::{FromRequestParts, Path},
-    http::{request::Parts, StatusCode},
-    response::{Html, IntoResponse, Response},
-    routing::get,
-    RequestPartsExt, Router,
-};
+use axum::{response::Html, routing::get, Router};
 use clap::Parser;
 use once_cell::sync::OnceCell;
 
@@ -28,33 +20,6 @@ static KEY: OnceCell<Vec<u8>> = OnceCell::new();
 
 async fn handler() -> Html<&'static str> {
     Html("<h1>EEW Renderer</h1>")
-}
-
-#[derive(Debug)]
-pub enum Version {
-    V1,
-}
-
-#[async_trait]
-impl<S> FromRequestParts<S> for Version
-where
-    S: Send + Sync,
-{
-    type Rejection = Response;
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let params: Path<HashMap<String, String>> =
-            parts.extract().await.map_err(IntoResponse::into_response)?;
-
-        let version = params
-            .get("version")
-            .ok_or_else(|| (StatusCode::NOT_FOUND, "Version param missing").into_response())?;
-
-        match version.as_str() {
-            "v1" => Ok(Version::V1),
-            _ =>  Err((StatusCode::NOT_FOUND, "Unknown API version").into_response()),
-        }
-    }
 }
 
 #[tokio::main]
