@@ -74,13 +74,23 @@ pub fn read(
 ) {
     let shp_file = std::fs::File::open(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp",
-    )
-    .unwrap();
+    );
 
     let dbf_file = std::fs::File::open(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.dbf",
-    )
-    .unwrap();
+    );
+
+    let (Ok(shp_file), Ok(dbf_file)) = (shp_file, dbf_file) else {
+        panic!(r#"EEWBot Renderer requirements is not satisfied.
+
+Simplified shape files are not found.
+ - assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp
+ - assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.dbf
+
+Please follow:
+  https://github.com/EEWBot/eew-renderer/wiki#shapefile-%E5%85%A5%E6%89%8B%E5%85%88"#
+        )
+    };
 
     let shape_reader = ShapeReader::new(shp_file).unwrap();
     let dbf_reader = shapefile::dbase::Reader::new(dbf_file).unwrap();
@@ -232,7 +242,8 @@ pub fn read(
     #[allow(non_snake_case)]
     let area_code__lines = remove_outlines(&area_code__lines);
 
-    let pref_line_set: HashSet<Line> = HashSet::from_iter(pref_code__lines.values().flatten().copied());
+    let pref_line_set: HashSet<Line> =
+        HashSet::from_iter(pref_code__lines.values().flatten().copied());
 
     let pref_lines: Vec<u32> = pref_code__lines
         .values()
