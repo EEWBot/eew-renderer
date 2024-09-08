@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-
+use itertools::Itertools;
 use shapefile::dbase::FieldValue;
 use shapefile::{Shape, ShapeReader};
 
 use renderer_types::*;
 
-#[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
+#[derive(Eq, PartialEq, Ord, PartialOrd, Debug, Copy, Clone, Hash)]
 struct Line {
     a: usize,
     b: usize,
@@ -179,8 +179,6 @@ Please follow:
         }
     }
 
-    use itertools::Itertools;
-
     fn remove_internal_lines(lines: Vec<Line>) -> Vec<Line> {
         lines
             .into_iter()
@@ -262,6 +260,21 @@ Please follow:
         .map(|v| v as u32)
         .collect();
 
+    let pref_lines = pref_lines
+        .into_iter()
+        .chunks(2)
+        .into_iter()
+        .map(|mut c| Line::new(c.next().unwrap() as usize, c.next().unwrap() as usize))
+        .collect();
+    let pref_lines = join_lines_into_continuous_line(merge_lines_segment_by_segment(pref_lines));
+    let area_lines = area_lines
+        .into_iter()
+        .chunks(2)
+        .into_iter()
+        .map(|mut c| Line::new(c.next().unwrap() as usize, c.next().unwrap() as usize))
+        .collect();
+    let area_lines = join_lines_into_continuous_line(merge_lines_segment_by_segment(area_lines));
+
     (
         code_to_center,
         vertex_buffer.into_buffer(),
@@ -269,4 +282,64 @@ Please follow:
         area_lines,
         pref_lines,
     )
+}
+
+/// ```rust
+/// let input = vec![
+///     Line::new(1, 2),
+///     Line::new(2, 3),
+///     Line::new(2, 4),
+///     Line::new(4, 5),
+/// ];
+/// let expected = vec![
+///     vec![1, 2, 3],
+///     vec![2, 4, 5],
+/// ];
+/// assert_eq!(merge_lines_segment_by_segment(input), expected);
+/// ```
+fn merge_lines_segment_by_segment(mut lines: Vec<Line>) -> Vec<Vec<u32>> {
+    let mut merged_lines = Vec::<Vec<u32>>::new();
+
+    lines.sort();
+    lines.iter().for_each(|l| {
+        let v = merged_lines
+            .iter_mut()
+            .find(|x| {
+                match x.last() {
+                    Some(x) => { x == &(l.a as u32) }
+                    None => { unreachable!() }
+                }
+            });
+
+        match v {
+            Some(v) => {
+                v.push(l.b as u32)
+            }
+            None => {
+                let mut v = Vec::new();
+                v.push(l.a as u32);
+                v.push(l.b as u32);
+                merged_lines.push(v)
+            }
+        }
+    });
+
+    merged_lines
+}
+
+/// ```rust
+/// let input = vec![
+///     vec![1, 2, 3],
+///     vec![2, 4, 5],
+/// ];
+/// let expected = vec![1, 2, 3, 0, 2, 4, 5];
+/// assert_eq!(join_lines_into_continuous_line(input), expected);
+/// ```
+fn join_lines_into_continuous_line(lines: Vec<Vec<u32>>) -> Vec<u32> {
+    let v = lines.into_iter().reduce(|mut acc, v| {
+        acc.push(0);
+        acc.extend(v);
+        acc
+    });
+    v.unwrap_or_default()
 }
