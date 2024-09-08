@@ -39,7 +39,7 @@ const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_off
 
 pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     objects: &EnumMap<震度, Vec<codes::Area>>,
-    offset: Vertex<GeoDegree>,
+    offset: Vertex<Screen>,
     aspect_ratio: f32,
     scale: f32,
     facade: &F,
