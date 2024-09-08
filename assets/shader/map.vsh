@@ -17,7 +17,7 @@ vec2 to_mercator(vec2 coord) {
 }
 
 void main() {
-    vec2 map_coordinate = (to_mercator(position) + to_mercator(offset)) * zoom;
+    vec2 map_coordinate = (to_mercator(position) + offset) * zoom;
     vec2 display_coordinate = vec2(map_coordinate.x, map_coordinate.y / aspect_ratio);
     gl_Position = vec4(display_coordinate, 0.0, 1.0);
 }
