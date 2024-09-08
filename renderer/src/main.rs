@@ -302,7 +302,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 pub fn calculate_bounding_box(areas: &[u32]) -> BoundingBox<GeoDegree> {
     areas
         .iter()
-        .map(|code| renderer_assets::QueryInterface::query_bounding_box_by_area(*code).unwrap())
+        .filter_map(|code| renderer_assets::QueryInterface::query_bounding_box_by_area(*code))
         .fold(
             BoundingBox {
                 min: Vertex {
