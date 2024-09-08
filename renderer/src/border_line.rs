@@ -1,5 +1,5 @@
 use glium::{DrawParameters, Surface, uniform};
-use renderer_types::GeoDegree;
+use renderer_types::*;
 
 const PREFECTURAL_BORDER_WIDTH: f32 = 5.0;
 const AREA_BORDER_WIDTH: f32 = 2.0;
@@ -8,7 +8,7 @@ const PREFECTURAL_BORDER_COLOR: [f32; 3] = [0.35, 0.25, 0.19];
 const AREA_BORDER_COLOR: [f32; 3] = [0.35, 0.25, 0.19];
 
 pub fn draw<S: ?Sized + Surface>(
-    offset: renderer_types::Vertex<GeoDegree>,
+    offset: Vertex<Screen>,
     aspect_ratio: f32,
     scale: f32,
     resources: &crate::resources::Resources,

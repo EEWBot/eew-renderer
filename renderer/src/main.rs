@@ -320,9 +320,9 @@ pub fn calculate_bounding_box(areas: &[u32]) -> BoundingBox<GeoDegree> {
         )
 }
 
-fn calculate_map_scale(bounding_box: BoundingBox<GeoDegree>, aspect_ratio: f32) -> f32 {
-    let x_scale = 360.0 / bounding_box.size().x;
-    let y_scale = 180.0 / bounding_box.size().y * aspect_ratio;
+fn calculate_map_scale(bounding_box: BoundingBox<Screen>, aspect_ratio: f32) -> f32 {
+    let x_scale = 1.0 / bounding_box.size().x;
+    let y_scale = 1.0 / bounding_box.size().y * aspect_ratio;
 
     // return 30.0;
 
