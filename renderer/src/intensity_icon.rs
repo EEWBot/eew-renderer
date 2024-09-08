@@ -52,13 +52,15 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
         .flat_map(|(震度, area_codes)| {
             let uv_offset = &震度_TO_UV_OFFSET[震度 as usize];
 
-            area_codes.iter().map(|code| {
-                let nearest_station_coord = renderer_assets::QueryInterface::query_rendering_center_by_area(*code).unwrap();
+            area_codes.iter().filter_map(|code| {
+                let nearest_station_coord = renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
-                PerInstanceData {
-                    position: nearest_station_coord.to_slice(),
-                    uv_offset: uv_offset.to_owned(),
-                }
+                Some(
+                    PerInstanceData {
+                        position: nearest_station_coord.to_slice(),
+                        uv_offset: uv_offset.to_owned(),
+                    }
+                )
             })
         })
         .collect();
