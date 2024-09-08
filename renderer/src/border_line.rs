@@ -21,7 +21,7 @@ pub fn draw<S: ?Sized + Surface>(
     surface.draw(
         &resources.buffer.vertex,
         &resources.buffer.area_line,
-        &resources.shader.map,
+        &resources.shader.border_line,
         &uniform! {
             aspect_ratio: aspect_ratio,
             offset: offset.to_slice(),
@@ -37,7 +37,7 @@ pub fn draw<S: ?Sized + Surface>(
     surface.draw(
         &resources.buffer.vertex,
         &resources.buffer.pref_line,
-        &resources.shader.map,
+        &resources.shader.border_line,
         &uniform! {
             aspect_ratio: aspect_ratio,
             offset: offset.to_slice(),
