@@ -24,6 +24,10 @@ use crate::model::*;
 
 use renderer_types::*;
 
+const DIMENSION: (u32, u32) = (1440, 1080);
+const MAXIMUM_SCALE: f32 = 100.0;
+const SCALE_FACTOR: f32 = 1.1;
+
 struct RGBAImageData {
     data: Vec<u8>,
     width: u32,
@@ -57,8 +61,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let proxy = event_loop.create_proxy();
 
     tokio::spawn(async move { crate::endpoint::run("0.0.0.0:3000", proxy).await });
-
-    const DIMENSION: (u32, u32) = (1920, 1080);
 
     let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
         .with_inner_size(DIMENSION.0, DIMENSION.1)
@@ -327,7 +329,5 @@ fn calculate_map_scale(bounding_box: BoundingBox<Screen>, aspect_ratio: f32) -> 
     let x_scale = 1.0 / bounding_box.size().x;
     let y_scale = 1.0 / bounding_box.size().y * aspect_ratio;
 
-    // return 30.0;
-
-    f32::min(f32::min(x_scale, y_scale) * 2.0, 100.0)
+    f32::min(f32::min(x_scale, y_scale) * 2.0, MAXIMUM_SCALE) / SCALE_FACTOR
 }
