@@ -220,9 +220,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &screenshot_frame_buffer,
                 &glium::BlitTarget {
                     left: 0,
-                    bottom: 1080,
-                    width: 1920,
-                    height: -1080,
+                    bottom: DIMENSION.1,
+                    width: DIMENSION.0 as i32,
+                    height: -(DIMENSION.1 as i32),
                 },
                 glium::uniforms::MagnifySamplerFilter::Nearest,
             );
