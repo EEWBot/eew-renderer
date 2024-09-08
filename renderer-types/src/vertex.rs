@@ -1,4 +1,6 @@
+use std::f32::consts::PI;
 use std::marker::PhantomData;
+use crate::{GeoDegree, Screen};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Vertex<Type> {
@@ -25,6 +27,17 @@ impl<Type> Vertex<Type> {
 
     pub fn to_slice(&self) -> [f32; 2] {
         [self.x, self.y]
+    }
+}
+
+impl Vertex<GeoDegree> {
+    pub fn to_screen(&self) -> Vertex<Screen> {
+        const E: f32 = 0.081819191042815791;
+        let radianized_x = self.x.to_radians();
+        let radianized_y = self.y.to_radians();
+        let x = radianized_x / PI;
+        let y = (radianized_y.sin().atanh() - E * (E * radianized_y.sin()).atanh()) / PI;
+        Vertex::new(x, y)
     }
 }
 
