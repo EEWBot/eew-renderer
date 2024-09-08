@@ -86,6 +86,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     _ => vec![]
     // };
 
+    for code in earthquake_data.values().flatten() {
+        match renderer_assets::QueryInterface::query_bounding_box_by_area(*code) {
+            None => println!("{code} is requested but †Unknown code†"),
+            Some(_bbox) => {},
+        }
+    }
+
     let params = glium::DrawParameters {
         multisampling: false,
         blend: glium::draw_parameters::Blend {
