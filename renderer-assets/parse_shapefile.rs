@@ -96,7 +96,7 @@ Please follow:
     let dbf_reader = shapefile::dbase::Reader::new(dbf_file).unwrap();
     let mut reader = shapefile::reader::Reader::new(shape_reader, dbf_reader);
 
-    let mut code_to_center = HashMap::new();
+    let mut code_to_center: HashMap<codes::Area, BoundingBox<GeoDegree>> = HashMap::new();
     let mut vertex_buffer = VertexBuffer::new();
     let mut indices = Vec::<u32>::new();
 
@@ -175,6 +175,11 @@ Please follow:
 
         if area_code != codes::UNNUMBERED_AREA {
             let bounding_box: BoundingBox<GeoDegree> = (*polygon.bbox()).into();
+            let bounding_box = match code_to_center.get(&area_code) {
+                Some(current) => current.extends_with(&bounding_box),
+                None => bounding_box,
+            };
+
             code_to_center.insert(area_code, bounding_box);
         }
     }
