@@ -139,8 +139,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .copied()
                     .collect::<Vec<_>>(),
             );
-            let offset = -bounding_box.center();
-            let scale = calculate_map_scale(bounding_box, aspect_ratio);
+            let rendering_bbox = BoundingBox::from_vertices(
+                &bounding_box.gl_vertices().iter().map(|v| v.to_screen()).collect::<Vec<_>>()
+            );
+            let offset = -rendering_bbox.center();
+            let scale = calculate_map_scale(rendering_bbox, aspect_ratio);
 
             render_frame_buffer
                 .draw(
