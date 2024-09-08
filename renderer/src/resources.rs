@@ -51,10 +51,10 @@ impl Buffer {
             IndexBuffer::new(facade, PrimitiveType::TrianglesList, geom.map_triangles).unwrap();
 
         let area_line =
-            IndexBuffer::new(facade, PrimitiveType::LinesList, geom.area_lines).unwrap();
+            IndexBuffer::new(facade, PrimitiveType::LineStrip, geom.area_lines).unwrap();
 
         let pref_line =
-            IndexBuffer::new(facade, PrimitiveType::LinesList, geom.pref_lines).unwrap();
+            IndexBuffer::new(facade, PrimitiveType::LineStrip, geom.pref_lines).unwrap();
 
         Buffer {
             vertex,
@@ -68,6 +68,7 @@ impl Buffer {
 #[derive(Debug)]
 pub struct Shader {
     pub map: Program,
+    pub border_line: Program,
     pub intensity_icon: Program,
     pub textured: Program,
 }
@@ -78,6 +79,14 @@ impl Shader {
             facade,
             include_str!("../../assets/shader/map.vsh"),
             include_str!("../../assets/shader/map.fsh"),
+            None,
+        )
+        .unwrap();
+
+        let border_line = glium::Program::from_source(
+            facade,
+            include_str!("../../assets/shader/border_line.vsh"),
+            include_str!("../../assets/shader/border_line.fsh"),
             None,
         )
         .unwrap();
@@ -100,6 +109,7 @@ impl Shader {
 
         Self {
             map,
+            border_line,
             intensity_icon,
             textured,
         }
