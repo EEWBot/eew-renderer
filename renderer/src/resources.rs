@@ -75,7 +75,7 @@ pub struct Shader {
 
 impl Shader {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let map = glium::Program::from_source(
+        let map = Program::from_source(
             facade,
             include_str!("../../assets/shader/map.vsh"),
             include_str!("../../assets/shader/map.fsh"),
@@ -83,7 +83,7 @@ impl Shader {
         )
         .unwrap();
 
-        let border_line = glium::Program::from_source(
+        let border_line = Program::from_source(
             facade,
             include_str!("../../assets/shader/border_line.vsh"),
             include_str!("../../assets/shader/border_line.fsh"),
@@ -91,7 +91,7 @@ impl Shader {
         )
         .unwrap();
 
-        let intensity_icon = glium::Program::from_source(
+        let intensity_icon = Program::from_source(
             facade,
             include_str!("../../assets/shader/intensity_icon.vsh"),
             include_str!("../../assets/shader/intensity_icon.fsh"),
@@ -99,7 +99,7 @@ impl Shader {
         )
         .unwrap();
 
-        let textured = glium::Program::from_source(
+        let textured = Program::from_source(
             facade,
             include_str!("../../assets/shader/textured.vsh"),
             include_str!("../../assets/shader/textured.fsh"),

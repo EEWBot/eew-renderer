@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let event_loop = winit::event_loop::EventLoopBuilder::<UserEvent>::with_user_event().build()?;
     let proxy = event_loop.create_proxy();
 
-    tokio::spawn(async move { crate::endpoint::run("0.0.0.0:3000", proxy).await });
+    tokio::spawn(async move { endpoint::run("0.0.0.0:3000", proxy).await });
 
     let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
         .with_inner_size(DIMENSION.0, DIMENSION.1)
@@ -80,11 +80,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         震度::震度2 => vec![771, 778],
         _ => vec![]
     };
-    // let earthquake_data = enum_map! {
-    //     震度::震度1 => vec![521],
-    //     震度::震度3 => vec![550],
-    //     _ => vec![]
-    // };
 
     for code in earthquake_data.values().flatten() {
         match renderer_assets::QueryInterface::query_bounding_box_by_area(*code) {
