@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 shapefile = { default-features = false, version = "0.6", optional = true }
+rangemap = "1.5.1"
+ordered-float = "4.2.2"
 
 [features]
 default = []
