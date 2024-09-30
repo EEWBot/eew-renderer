@@ -30,8 +30,8 @@ impl Resources {
 #[derive(Debug)]
 pub struct Buffer {
     pub vertex: VertexBuffer<MapVertex>,
-    pub area_line: IndexBuffer<u32>,
-    pub pref_line: IndexBuffer<u32>,
+    area_line: Vec<IndexBuffer<u32>>,
+    pref_line: Vec<IndexBuffer<u32>>,
     pub map: IndexBuffer<u32>,
 }
 
@@ -50,11 +50,17 @@ impl Buffer {
         let map =
             IndexBuffer::new(facade, PrimitiveType::TrianglesList, geom.map_triangles).unwrap();
 
-        let area_line =
-            IndexBuffer::new(facade, PrimitiveType::LineStrip, geom.area_lines).unwrap();
+        let area_line: Vec<_> = geom
+            .area_lines
+            .iter()
+            .map(|i| IndexBuffer::new(facade, PrimitiveType::LineStrip, *i).unwrap())
+            .collect();
 
-        let pref_line =
-            IndexBuffer::new(facade, PrimitiveType::LineStrip, geom.pref_lines).unwrap();
+        let pref_line = geom
+            .pref_lines
+            .iter()
+            .map(|i| IndexBuffer::new(facade, PrimitiveType::LineStrip, *i).unwrap())
+            .collect();
 
         Buffer {
             vertex,
@@ -62,6 +68,16 @@ impl Buffer {
             area_line,
             pref_line,
         }
+    }
+
+    pub fn get_area_line_by_scale(&self, scale: f32) -> Option<&IndexBuffer<u32>> {
+        let i = renderer_assets::QueryInterface::query_lod_level_by_scale(scale)?;
+        self.area_line.get(i)
+    }
+
+    pub fn get_pref_line_by_scale(&self, scale:f32) -> Option<&IndexBuffer<u32>> {
+        let i = renderer_assets::QueryInterface::query_lod_level_by_scale(scale)?;
+        self.pref_line.get(i)
     }
 }
 
