@@ -7,8 +7,8 @@ pub struct QueryInterface;
 pub struct Geometries {
     pub vertices: &'static [(f32, f32)],
     pub map_triangles: &'static [u32],
-    pub area_lines: &'static [u32],
-    pub pref_lines: &'static [u32],
+    pub area_lines: &'static [&'static [u32]],
+    pub pref_lines: &'static [&'static [u32]],
 }
 
 impl QueryInterface {
@@ -37,5 +37,11 @@ impl QueryInterface {
         intensity_station_code: codes::IntensityStation,
     ) -> Option<Vertex<GeoDegree>> {
         Some(INTENSITY_STATION_POSITIONS[*STATION_CODES.get(&intensity_station_code)?].into())
+    }
+
+    pub fn query_lod_level_by_scale(
+        scale: f32,
+    ) -> Option<usize> {
+        SCALE_LEVEL_MAP.iter().find_map(|(s, l)| if *s <= scale { Some(*l) } else { None })
     }
 }

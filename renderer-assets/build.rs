@@ -17,7 +17,7 @@ fn main() {
         area_code__pref_code,
     ) = station_codes_parser::read(&s);
 
-    let (code_to_physically_center, vertices, indices, area_lines, pref_lines) = parse_shapefile::read(
+    let (code_to_physically_center, vertices, indices, area_lines, pref_lines, scale_level_map) = parse_shapefile::read(
         &area_code__pref_code
     );
 
@@ -50,6 +50,7 @@ fn main() {
         const_declaration!(MAP_TRIANGLES = indices),
         const_declaration!(AREA_LINES = area_lines),
         const_declaration!(PREF_LINES = pref_lines),
+        const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
     ].join("\n");
 
     std::fs::write("src/data.rs", const_declarations).unwrap();

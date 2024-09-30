@@ -2,9 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::ops::Index;
 use std::path::Path;
+use geo::{coord, Coord, LineString, MultiLineString, Simplify};
 use itertools::Itertools;
 use shapefile::dbase::{FieldValue, Record};
 use shapefile::{Shape, ShapeReader};
+
 
 use renderer_types::*;
 
@@ -70,6 +72,12 @@ impl From<Vertex<GeoDegree>> for Point {
 impl Into<(Of32, Of32)> for Point {
     fn into(self) -> (Of32, Of32) {
         (self.longitude, self.latitude)
+    }
+}
+
+impl Into<Coord> for Point {
+    fn into(self) -> Coord {
+        coord! { x: self.longitude.0 as f64, y: self.latitude.0 as f64 }
     }
 }
 
@@ -383,6 +391,12 @@ impl <'a> From<&'a [Point]> for Line<'a> {
     }
 }
 
+impl Into<LineString> for &Line<'_> {
+    fn into(self) -> LineString {
+        LineString::new(self.vertices.iter().map(|v| (**v).into()).collect_vec())
+    }
+}
+
 impl PartialEq for Line<'_> {
     fn eq(&self, other: &Self) -> bool {
         let is_self_ordered = self.vertices.first().unwrap() < self.vertices.last().unwrap();
@@ -417,14 +431,17 @@ pub fn read(
     HashMap<codes::Area, BoundingBox<GeoDegree>>, // area_bounding_box
     Vec<(f32, f32)>, // vertex_buffer
     Vec<u32>, // map_indices
-    Vec<u32>, // area_lines
-    Vec<u32>, // pref_lines
+    Vec<Vec<u32>>, // area_lines
+    Vec<Vec<u32>>, // pref_lines
+    Vec<(f32, usize)> // scale_level_map
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp",
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.dbf"
     );
     let mut vertex_buffer = VertexBuffer::new();
+
+    // @Siro_256 にゃ～っ…！ (ΦωΦ）
 
     let area_bounding_box: HashMap<codes::Area, BoundingBox<GeoDegree>> = shapefile
         .entries
@@ -451,25 +468,43 @@ pub fn read(
     let area_lines = lines.iter().filter(|l| l.pref_reference_count(&references) == 1).collect_vec();
     let pref_lines = lines.iter().filter(|l| l.pref_reference_count(&references) >= 2).collect_vec();
 
-    let mut area_lines = area_lines
+    let lod_details = [
+        (100.0_f32.powf(1.00), 0.010),
+        (100.0_f32.powf(0.96), 0.014),
+        (100.0_f32.powf(0.92), 0.018),
+        (100.0_f32.powf(0.88), 0.022),
+        (100.0_f32.powf(0.84), 0.026),
+        (100.0_f32.powf(0.80), 0.030),
+        (100.0_f32.powf(0.76), 0.034),
+        (100.0_f32.powf(0.72), 0.038),
+        (100.0_f32.powf(0.68), 0.042),
+        (100.0_f32.powf(0.64), 0.046),
+        (100.0_f32.powf(0.60), 0.050),
+        (100.0_f32.powf(0.56), 0.054),
+        (100.0_f32.powf(0.52), 0.058),
+        (100.0_f32.powf(0.48), 0.062),
+        (100.0_f32.powf(0.44), 0.066),
+        (100.0_f32.powf(0.40), 0.070),
+        (100.0_f32.powf(0.36), 0.074),
+        (100.0_f32.powf(0.32), 0.078),
+        (100.0_f32.powf(0.28), 0.082),
+        (100.0_f32.powf(0.24), 0.086),
+        (100.0_f32.powf(0.20), 0.090),
+        (100.0_f32.powf(0.16), 0.094),
+        (100.0_f32.powf(0.12), 0.098),
+        (0.0, 0.12),
+    ];
+
+    let area_lines = gen_lod(&mut vertex_buffer, &lod_details, area_lines);
+    let pref_lines = gen_lod(&mut vertex_buffer, &lod_details, pref_lines);
+
+    let scale_level_map = lod_details
         .into_iter()
-        .flat_map(|l| {
-            let mut v = l.vertices.iter().map(|p| vertex_buffer.insert((**p).into()) as u32).collect_vec();
-            v.push(0);
-            v
-        })
-        .collect_vec();
-    let mut pref_lines = pref_lines
-        .into_iter()
-        .flat_map(|l| {
-            let mut v = l.vertices.iter().map(|p| vertex_buffer.insert((**p).into()) as u32).collect_vec();
-            v.push(0);
-            v
-        })
+        .enumerate()
+        .map(|(i, (s, _))| (s, i))
         .collect_vec();
 
-    area_lines.pop();
-    pref_lines.pop();
+    // ฅ•ω•ฅ Meow
 
     // (ΦωΦ) < Meow !
     {(
@@ -478,6 +513,7 @@ pub fn read(
         map_indices,
         area_lines,
         pref_lines,
+        scale_level_map,
     )}
 }
 
@@ -513,6 +549,32 @@ fn cut_rings<'a>(rings: &'a Vec<&Ring>, cut_points: &Vec<&'a Point>) -> Vec<Line
         });
 
     lines
+}
+
+fn gen_lod(
+    vertex_buffer: &mut VertexBuffer,
+    lod_details: &[(f32, f64)],
+    base_lines: Vec<&Line>
+) -> Vec<Vec<u32>> {
+    let geo_lines: Vec<LineString> = base_lines.into_iter().map_into().collect();
+    lod_details
+        .iter()
+        .map(|(_, e)| geo_lines.iter().map(|l| l.simplify(e)).collect_vec())
+        .map(|l| {
+            let mut v = Vec::new();
+            for l in l {
+                let l = l
+                    .0
+                    .iter()
+                    .map(|c| (Of32::from(c.x as f32), Of32::from(c.y as f32)))
+                    .map(|v| vertex_buffer.insert(v) as u32);
+                v.extend(l);
+                v.push(0);
+            }
+            v.pop();
+            v
+        })
+        .collect()
 }
 
 #[cfg(test)]
