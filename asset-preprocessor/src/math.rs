@@ -1,5 +1,5 @@
-use renderer_types::{GeoDegree, Vertex};
 use itertools::Itertools;
+use renderer_types::{GeoDegree, Vertex};
 use std::hash::{Hash, Hasher};
 
 pub(crate) type Of32 = ordered_float::OrderedFloat<f32>;
@@ -14,7 +14,7 @@ impl Point {
     pub(crate) fn new(latitude: Of32, longitude: Of32) -> Self {
         Self {
             latitude,
-            longitude
+            longitude,
         }
     }
 }
@@ -43,7 +43,6 @@ impl Into<geo::Coord> for Point {
     }
 }
 
-
 pub(crate) struct Ring {
     // TODO: fn new があるのに、pointsが公開されていて、変。
     pub(crate) points: Vec<Point>,
@@ -53,25 +52,27 @@ impl Ring {
     // TODO: 型変換の責任をnewが持ってはならない
     pub(crate) fn new(points: &[shapefile::Point]) -> Self {
         let points = points.iter().map(|p| (*p).into()).collect_vec();
-        Self {
-            points,
-        }
+        Self { points }
     }
 
     pub(crate) fn iter_adjacent_points(&self) -> AdjacentPointsIter {
         AdjacentPointsIter::new(&self.points)
     }
 
-    pub(crate) fn triangulate(&self) -> Vec<&Point> {
+    pub(crate) fn triangulate(&self) -> Vec<Point> {
         earcutr::earcut(
-            self.points.iter().flat_map(|p| vec![p.longitude.0, p.latitude.0]).collect_vec().as_slice(),
+            self.points
+                .iter()
+                .flat_map(|p| vec![p.longitude.0, p.latitude.0])
+                .collect_vec()
+                .as_slice(),
             &[],
             2,
         )
-            .unwrap()
-            .iter()
-            .map(|i| &self.points[*i])
-            .collect()
+        .unwrap()
+        .iter()
+        .map(|i| self.points[*i])
+        .collect()
     }
 }
 
@@ -80,12 +81,9 @@ pub(crate) struct AdjacentPointsIter<'a> {
     index: usize,
 }
 
-impl <'a> AdjacentPointsIter<'a> {
+impl<'a> AdjacentPointsIter<'a> {
     fn new(points: &'a Vec<Point>) -> Self {
-        Self {
-            points,
-            index: 0,
-        }
+        Self { points, index: 0 }
     }
 }
 
@@ -143,18 +141,15 @@ impl<'a> AdjacentPointsIterItem<'a> {
     }
 }
 
-
 #[derive(Debug)]
-pub(crate) struct Line<'a> {
-    // TODO: newがあるのに直接参照していて変。
-    pub(crate) vertices: Vec<&'a Point>,
+pub(crate) struct Line {
+    pub(crate) vertices: Vec<Point>,
 }
 
-impl<'a> Line<'a> {
-    // TODO: Vecをnewが食うな。 (総じて、実はnewを取っ払うべき説)
-    pub(crate) fn new(vertices: Vec<&'a Point>) -> Self {
+impl Line {
+    pub(crate) fn new(points: &[Point]) -> Self {
         Self {
-            vertices,
+            vertices: points.to_owned(),
         }
     }
 
@@ -167,33 +162,34 @@ impl<'a> Line<'a> {
     }
 
     // TODO: 逆向きの依存
-    pub(crate) fn pref_reference_count(&self, references: &crate::parse_shapefile::PointReferences) -> usize {
+    pub(crate) fn pref_reference_count(
+        &self,
+        references: &crate::parse_shapefile::PointReferences,
+    ) -> usize {
         let first = self.vertices.first().unwrap();
         let last = self.vertices.last().unwrap();
 
         let first = references.map.get(first).unwrap();
         let last = references.map.get(last).unwrap();
 
-        first.pref_references().intersection(&last.pref_references()).count()
+        first
+            .pref_references()
+            .intersection(&last.pref_references())
+            .count()
     }
 }
 
-impl <'a> From<&'a [Point]> for Line<'a> {
-    fn from(value: &'a [Point]) -> Self {
-        Self::new(value.iter().collect())
-    }
-}
-
-impl Into<geo::LineString> for &Line<'_> {
+impl Into<geo::LineString> for &Line {
     fn into(self) -> geo::LineString {
-        geo::LineString::new(self.vertices.iter().map(|v| (**v).into()).collect_vec())
+        geo::LineString::new(self.vertices.iter().map(|v| (*v).into()).collect_vec())
     }
 }
 
-impl PartialEq for Line<'_> {
+impl PartialEq for Line {
     fn eq(&self, other: &Self) -> bool {
         let is_self_ordered = self.vertices.first().unwrap() < self.vertices.last().unwrap();
-        let is_other_hand_ordered = other.vertices.first().unwrap() < other.vertices.last().unwrap();
+        let is_other_hand_ordered =
+            other.vertices.first().unwrap() < other.vertices.last().unwrap();
 
         if is_self_ordered == is_other_hand_ordered {
             itertools::equal(&self.vertices, &other.vertices)
@@ -203,9 +199,9 @@ impl PartialEq for Line<'_> {
     }
 }
 
-impl Eq for Line<'_> {}
+impl Eq for Line {}
 
-impl Hash for Line<'_> {
+impl Hash for Line {
     fn hash<H: Hasher>(&self, state: &mut H) {
         let first = self.vertices.first().unwrap();
         let last = self.vertices.last().unwrap();
@@ -215,5 +211,41 @@ impl Hash for Line<'_> {
         } else {
             self.vertices.iter().rev().for_each(|v| v.hash(state));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::math::*;
+
+    #[test]
+    fn line_equal_to_self() {
+        let line = Line::new(&[
+            Point::new(Of32::from(0.0), Of32::from(0.0)),
+            Point::new(Of32::from(1.0), Of32::from(1.0)),
+            Point::new(Of32::from(2.0), Of32::from(2.0)),
+            Point::new(Of32::from(3.0), Of32::from(3.0)),
+        ]);
+
+        assert_eq!(line, line);
+    }
+
+    #[test]
+    fn line_equal_to_reversed() {
+        let line1 = Line::new(&[
+            Point::new(Of32::from(0.0), Of32::from(0.0)),
+            Point::new(Of32::from(1.0), Of32::from(1.0)),
+            Point::new(Of32::from(2.0), Of32::from(2.0)),
+            Point::new(Of32::from(3.0), Of32::from(3.0)),
+        ]);
+
+        let line2 = Line::new(&[
+            Point::new(Of32::from(3.0), Of32::from(3.0)),
+            Point::new(Of32::from(2.0), Of32::from(2.0)),
+            Point::new(Of32::from(1.0), Of32::from(1.0)),
+            Point::new(Of32::from(0.0), Of32::from(0.0)),
+        ]);
+
+        assert_eq!(line1, line2);
     }
 }
