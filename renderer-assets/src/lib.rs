@@ -46,7 +46,7 @@ impl QueryInterface {
     }
 
     pub fn query_lod_level_count() -> usize {
-        AREA_LINES.iter().count()
+        AREA_LINES.len()
     }
 
 }

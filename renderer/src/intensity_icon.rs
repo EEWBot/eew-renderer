@@ -91,7 +91,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
 
     let epicenter_data = VertexBuffer::dynamic(
         facade,
-        &vec![EpicenterDrawInformation { position: earthquake_information.epicenter.to_slice() }],
+        &[EpicenterDrawInformation { position: earthquake_information.epicenter.to_slice() }],
     )
         .unwrap();
 

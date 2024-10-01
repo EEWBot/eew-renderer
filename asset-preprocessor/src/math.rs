@@ -31,15 +31,15 @@ impl From<Vertex<GeoDegree>> for Point {
     }
 }
 
-impl Into<(Of32, Of32)> for Point {
-    fn into(self) -> (Of32, Of32) {
-        (self.longitude, self.latitude)
+impl From<Point> for (Of32, Of32) {
+    fn from(val: Point) -> Self {
+        (val.longitude, val.latitude)
     }
 }
 
-impl Into<geo::Coord> for Point {
-    fn into(self) -> geo::Coord {
-        geo::coord! { x: self.longitude.0 as f64, y: self.latitude.0 as f64 }
+impl From<Point> for geo::Coord {
+    fn from(val: Point) -> Self {
+        geo::coord! { x: val.longitude.0 as f64, y: val.latitude.0 as f64 }
     }
 }
 
@@ -179,9 +179,9 @@ impl Line {
     }
 }
 
-impl Into<geo::LineString> for &Line {
-    fn into(self) -> geo::LineString {
-        geo::LineString::new(self.vertices.iter().map(|v| (*v).into()).collect_vec())
+impl From<&Line> for geo::LineString {
+    fn from(val: &Line) -> Self {
+        geo::LineString::new(val.vertices.iter().map(|v| (*v).into()).collect())
     }
 }
 
