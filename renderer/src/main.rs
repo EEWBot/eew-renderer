@@ -28,6 +28,9 @@ const DIMENSION: (u32, u32) = (1440, 1080);
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.1;
 
+static CURRENT_LOD_SELECTION: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+static ZOOM: std::sync::Mutex<f32> = std::sync::Mutex::new(0.0f32);
+
 struct RGBAImageData {
     data: Vec<u8>,
     width: u32,
@@ -133,6 +136,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                     KeyboardInput { event: ke, .. } if !ke.repeat && ke.state.is_pressed() => {
                         match ke.physical_key {
+                        PhysicalKey::Code(KeyCode::KeyK) => {
+                            let mut z = *ZOOM.lock().unwrap();
+                            z += 0.05;
+                            z = z.min(2.0);
+                            println!("ZOOM: {} ({z})", 10.0_f32.powf(z));
+                            *ZOOM.lock().unwrap() = z;
+
+                            RedrawReason::Other
+                        },
+                        PhysicalKey::Code(KeyCode::KeyJ) => {
+                            let mut z = *ZOOM.lock().unwrap();
+                            z -= 0.05;
+                            z = z.max(0.0);
+                            println!("ZOOM: {} ({z})", 10.0_f32.powf(z));
+                            *ZOOM.lock().unwrap() = z;
+                            RedrawReason::Other
+                        },
+                        PhysicalKey::Code(KeyCode::KeyP) => {
+                                CURRENT_LOD_SELECTION.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                                let mut x = CURRENT_LOD_SELECTION.fetch_sub(0, std::sync::atomic::Ordering::Relaxed);
+
+                                if x < 0 {
+                                   CURRENT_LOD_SELECTION.store(0, std::sync::atomic::Ordering::Relaxed);
+                                   x = 0;
+                                }
+
+                                println!("LOD: {}", x);
+
+                                RedrawReason::Other
+                            },
+                            PhysicalKey::Code(KeyCode::KeyN) => {
+                                CURRENT_LOD_SELECTION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                let mut x = CURRENT_LOD_SELECTION.fetch_add(0, std::sync::atomic::Ordering::Relaxed);
+
+                                let c = renderer_assets::QueryInterface::query_lod_level_count();
+                                println!("Debugging! OwO {c}");
+                                if x >= (c as i32) {
+                                    CURRENT_LOD_SELECTION.store((c as i32) - 1, std::sync::atomic::Ordering::Relaxed);
+                                    x = 0;
+                                }
+
+                                println!("LOD: {}", x);
+
+                                RedrawReason::Other
+                            },
                             PhysicalKey::Code(KeyCode::KeyQ) => {
                                 window_target.exit();
                                 return;
@@ -154,13 +202,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             render_frame_buffer.clear_color(0.5, 0.8, 1.0, 1.0);
 
-            let bounding_box = calculate_bounding_box(
-                &earthquake_data
-                    .values()
-                    .flatten()
-                    .copied()
-                    .collect::<Vec<_>>(),
-            );
+            // let bounding_box = calculate_bounding_box(
+            //     &earthquake_data
+            //         .values()
+            //         .flatten()
+            //         .copied()
+            //         .collect::<Vec<_>>(),
+            // );
+            let bounding_box = BoundingBox::from_tuple::<GeoDegree>((139.74135747, 35.65809922, 139.74135747, 35.65809922));
             let rendering_bbox = BoundingBox::from_vertices(
                 &bounding_box.gl_vertices().iter().map(|v| v.to_screen()).collect::<Vec<_>>()
             );
@@ -191,16 +240,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &params,
             );
 
-            intensity_icon::draw_all(
-                &earthquake_data,
-                offset,
-                aspect_ratio,
-                scale,
-                &display,
-                &mut render_frame_buffer,
-                &resources,
-                &params,
-            );
+            // intensity_icon::draw_all(
+            //     &earthquake_data,
+            //     offset,
+            //     aspect_ratio,
+            //     scale,
+            //     &display,
+            //     &mut render_frame_buffer,
+            //     &resources,
+            //     &params,
+            // );
 
             overlay::draw(
                 &DIMENSION,
@@ -349,5 +398,9 @@ fn calculate_map_scale(bounding_box: BoundingBox<Screen>, aspect_ratio: f32) -> 
     let x_scale = 1.0 / bounding_box.size().x;
     let y_scale = 1.0 / bounding_box.size().y * aspect_ratio;
 
-    f32::min(f32::min(x_scale, y_scale) * 2.0, MAXIMUM_SCALE) / SCALE_FACTOR
+    // f32::min(f32::min(x_scale, y_scale) * 2.0, MAXIMUM_SCALE) / SCALE_FACTOR
+
+    // (100.0_f32.powf(0.52))
+
+    10.0_f32.powf(*ZOOM.lock().unwrap())
 }
