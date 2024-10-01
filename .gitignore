@@ -9,6 +9,5 @@
 *.shp
 *.shx
 screenshot*.png
-data.rs
 log.txt
 *.log
