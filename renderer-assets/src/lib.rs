@@ -1,4 +1,4 @@
-include!("data.rs");
+include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 use renderer_types::*;
 
