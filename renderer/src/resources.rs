@@ -72,11 +72,13 @@ impl Buffer {
 
     pub fn get_area_line_by_scale(&self, scale: f32) -> Option<&IndexBuffer<u32>> {
         let i = renderer_assets::QueryInterface::query_lod_level_by_scale(scale)?;
+        let i = crate::CURRENT_LOD_SELECTION.fetch_add(0, std::sync::atomic::Ordering::Relaxed) as usize;
         self.area_line.get(i)
     }
 
     pub fn get_pref_line_by_scale(&self, scale:f32) -> Option<&IndexBuffer<u32>> {
         let i = renderer_assets::QueryInterface::query_lod_level_by_scale(scale)?;
+        let i = crate::CURRENT_LOD_SELECTION.fetch_add(0, std::sync::atomic::Ordering::Relaxed) as usize;
         self.pref_line.get(i)
     }
 }

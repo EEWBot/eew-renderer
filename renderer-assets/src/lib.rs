@@ -44,4 +44,9 @@ impl QueryInterface {
     ) -> Option<usize> {
         SCALE_LEVEL_MAP.iter().find_map(|(s, l)| if *s <= scale { Some(*l) } else { None })
     }
+
+    pub fn query_lod_level_count() -> usize {
+        AREA_LINES.iter().count()
+    }
+
 }
