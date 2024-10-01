@@ -11,12 +11,34 @@ use renderer_types::*;
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
 #[derive(Copy, Clone)]
-struct PerInstanceData {
+struct IntensityDrawInformation {
     position: [f32; 2],
     uv_offset: [f32; 2],
 }
+implement_vertex!(IntensityDrawInformation, position, uv_offset);
 
-implement_vertex!(PerInstanceData, position, uv_offset);
+#[derive(Copy, Clone)]
+struct EpicenterDrawInformation {
+    position: [f32; 2],
+}
+implement_vertex!(EpicenterDrawInformation, position);
+
+pub struct EarthquakeInformation<'a> {
+    epicenter: &'a Vertex<GeoDegree>,
+    intensity: &'a EnumMap<震度, Vec<codes::Area>>,
+}
+
+impl <'a> EarthquakeInformation<'a> {
+    pub fn new(
+        epicenter: &'a Vertex<GeoDegree>,
+        intensity: &'a EnumMap<震度, Vec<codes::Area>>
+    ) -> Self {
+        Self {
+            epicenter,
+            intensity
+        }
+    }
+}
 
 const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
     use const_soft_float::soft_f32::SoftF32;
@@ -38,7 +60,7 @@ const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
 const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_offset_fn; 9];
 
 pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
-    objects: &EnumMap<震度, Vec<codes::Area>>,
+    earthquake_information: &EarthquakeInformation,
     offset: Vertex<Screen>,
     aspect_ratio: f32,
     scale: f32,
@@ -47,7 +69,8 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     resources: &crate::resources::Resources,
     params: &DrawParameters,
 ) {
-    let per_icon_data: Vec<_> = objects
+    let per_icon_data: Vec<_> = earthquake_information
+        .intensity
         .iter()
         .flat_map(|(震度, area_codes)| {
             let uv_offset = &震度_TO_UV_OFFSET[震度 as usize];
@@ -56,7 +79,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
                 let nearest_station_coord = renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
                 Some(
-                    PerInstanceData {
+                    IntensityDrawInformation {
                         position: nearest_station_coord.to_slice(),
                         uv_offset: uv_offset.to_owned(),
                     }
@@ -64,8 +87,13 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
             })
         })
         .collect();
-
     let per_icon_data = VertexBuffer::dynamic(facade, &per_icon_data).unwrap();
+
+    let epicenter_data = VertexBuffer::dynamic(
+        facade,
+        &vec![EpicenterDrawInformation { position: earthquake_information.epicenter.to_slice() }],
+    )
+        .unwrap();
 
     surface
         .draw(
@@ -78,6 +106,22 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
                 zoom: scale,
                 icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
                 texture_sampler: &resources.texture.intensity,
+            },
+            params,
+        )
+        .unwrap();
+
+    surface
+        .draw(
+            &epicenter_data,
+            NoIndices(PrimitiveType::Points),
+            &resources.shader.epicenter,
+            &uniform! {
+                aspect_ratio: aspect_ratio,
+                offset: offset.to_slice(),
+                zoom: scale,
+                icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
+                texture_sampler: &resources.texture.epicenter,
             },
             params,
         )
