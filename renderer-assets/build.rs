@@ -53,5 +53,6 @@ fn main() {
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
     ].join("\n");
 
-    std::fs::write("src/data.rs", const_declarations).unwrap();
+
+    std::fs::write(format!("{}/data.rs", std::env::var("OUT_DIR").unwrap()), const_declarations).unwrap();
 }
