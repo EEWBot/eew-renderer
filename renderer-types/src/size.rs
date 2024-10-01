@@ -43,13 +43,13 @@ impl Size {
 
     #[must_use]
     pub fn fit(&self, other: &Self) -> Self {
-        let scale = self.fit_scale(&other);
+        let scale = self.fit_scale(other);
         self.scale(scale)
     }
 
     #[must_use]
     pub fn capped_fit(&self, other: &Self) -> Self {
-        let scale = f32::min(self.fit_scale(&other), 1.0);
+        let scale = f32::min(self.fit_scale(other), 1.0);
         self.scale(scale)
     }
 }

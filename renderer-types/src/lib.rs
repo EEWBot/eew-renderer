@@ -1,3 +1,5 @@
+#![allow(clippy::excessive_precision)]
+
 mod size;
 pub use size::*;
 

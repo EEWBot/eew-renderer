@@ -68,12 +68,9 @@ Please follow:
 
         let entries = reader
             .iter_shapes_and_records()
-            .filter(|shape_record| shape_record.is_ok())
-            .map(|shape_record| shape_record.unwrap())
-            .map(|shape_record| AreaRings::try_new(shape_record.0, shape_record.1))
-            .filter(|area_rings| area_rings.is_some())
-            .map(|area_rings| area_rings.unwrap())
-            .collect_vec();
+            .flatten()
+            .flat_map(|shape_record| AreaRings::try_new(shape_record.0, shape_record.1))
+            .collect();
 
         Self { entries }
     }
@@ -103,7 +100,7 @@ impl AreaRings {
             .rings()
             .iter()
             .map(|ring| Ring::new(ring.points()))
-            .collect_vec();
+            .collect();
 
         Some(Self {
             area_code,
@@ -224,7 +221,7 @@ pub fn read(
         .flat_map(|area_rings| &area_rings.rings)
         .flat_map(|r| r.triangulate())
         .map(|p| vertex_buffer.insert(p.into()) as u32)
-        .collect_vec();
+        .collect();
 
     let references = PointReferences::tally_of(&shapefile, area_code__pref_code);
 
@@ -233,23 +230,26 @@ pub fn read(
         .iter()
         .flat_map(|area_rings| &area_rings.rings)
         .collect_vec();
+
     let cut_points = references.cut_points();
     let lines = cut_rings(&rings, &cut_points);
-    let lines = lines
+
+    let lines: Vec<_> = lines
         .into_iter()
         .counts()
         .into_iter()
         .filter_map(|(l, c)| if c > 1 { Some(l) } else { None })
-        .collect_vec();
+        .collect();
 
     let area_lines = lines
         .iter()
         .filter(|l| l.pref_reference_count(&references) == 1)
-        .collect_vec();
+        .collect();
+
     let pref_lines = lines
         .iter()
         .filter(|l| l.pref_reference_count(&references) >= 2)
-        .collect_vec();
+        .collect();
 
     // let lod_details = [
     //     (100.0_f32.powf(1.00), 0.010),
@@ -328,7 +328,7 @@ pub fn read(
         .into_iter()
         .enumerate()
         .map(|(i, (s, _))| (s, i))
-        .collect_vec();
+        .collect();
 
     // ฅ•ω•ฅ Meow
 
@@ -345,7 +345,7 @@ pub fn read(
     }
 }
 
-fn cut_rings<'a>(rings: &'a Vec<&Ring>, cut_points: &Vec<&'a Point>) -> Vec<Line> {
+fn cut_rings(rings: &[&Ring], cut_points: &[&Point]) -> Vec<Line> {
     let mut lines: Vec<Line> = Vec::new();
 
     rings.iter().for_each(|ring| {
