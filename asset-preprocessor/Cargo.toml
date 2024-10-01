@@ -1,0 +1,12 @@
+[package]
+name = "asset-preprocessor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+earcutr = "0.4.3"
+geo = "0.28"
+itertools = "0.12"
+ordered-float = "4.2"
+renderer-types = { path = "../renderer-types/", features = ["shapefile"] }
+shapefile = "0.6"

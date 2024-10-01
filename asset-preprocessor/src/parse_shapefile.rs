@@ -1,12 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use std::ops::Index;
 use std::path::Path;
-use geo::{coord, Coord, LineString, MultiLineString, Simplify};
+use geo::{coord, Coord, LineString, Simplify};
 use itertools::Itertools;
 use shapefile::dbase::{FieldValue, Record};
 use shapefile::{Shape, ShapeReader};
-
 
 use renderer_types::*;
 
@@ -93,7 +91,7 @@ impl Shapefile {
         let shp_file = std::fs::File::open(shp_file);
         let dbf_file = std::fs::File::open(dbf_file);
 
-        let ((Ok(shp_file), Ok(dbf_file))) = (shp_file, dbf_file) else {
+        let (Ok(shp_file), Ok(dbf_file)) = (shp_file, dbf_file) else {
             panic!(r#"EEWBot Renderer requirements is not satisfied.
 
 Simplified shape files are not found.
@@ -255,7 +253,6 @@ impl<'a> AdjacentPointsIterItem<'a> {
 }
 
 struct PointReferences<'a> {
-    shapefile: &'a Shapefile,
     map: HashMap<&'a Point, PointReference<'a>>,
 }
 
@@ -287,10 +284,7 @@ impl <'a> PointReferences<'a> {
                     });
             });
 
-        Self {
-            shapefile,
-            map,
-        }
+        Self { map }
     }
 
     fn cut_points(&self) -> Vec<&'a Point> {
@@ -364,16 +358,6 @@ impl <'a> Line<'a> {
         self.vertices = other.vertices;
     }
 
-    fn area_reference_count(&self, references: &PointReferences) -> usize {
-        let first = self.vertices.first().unwrap();
-        let last = self.vertices.last().unwrap();
-
-        let first = references.map.get(first).unwrap();
-        let last = references.map.get(last).unwrap();
-
-        first.area_references().intersection(last.area_references()).count()
-    }
-
     fn pref_reference_count(&self, references: &PointReferences) -> usize {
         let first = self.vertices.first().unwrap();
         let last = self.vertices.last().unwrap();
@@ -426,7 +410,8 @@ impl Hash for Line<'_> {
 }
 
 pub fn read(
-    #[allow(non_snake_case)] area_code__pref_code: &HashMap<codes::Area, codes::Pref>,
+    #[allow(non_snake_case)]
+    area_code__pref_code: &HashMap<codes::Area, codes::Pref>,
 ) -> (
     HashMap<codes::Area, BoundingBox<GeoDegree>>, // area_bounding_box
     Vec<(f32, f32)>, // vertex_buffer

@@ -128,6 +128,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "175571dd1d178ced59193a6fc02dde1b972eb0bc56c892cde9beeceac5bf0f6b"
 
 [[package]]
+name = "asset-preprocessor"
+version = "0.1.0"
+dependencies = [
+ "earcutr",
+ "geo",
+ "itertools 0.12.1",
+ "ordered-float",
+ "renderer-types",
+ "shapefile",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.80"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1609,16 +1621,14 @@ dependencies = [
 name = "renderer-assets"
 version = "0.1.0"
 dependencies = [
+ "asset-preprocessor",
  "const-gen",
- "earcutr",
- "geo",
  "itertools 0.12.1",
  "ordered-float",
  "phf",
  "renderer-types",
  "serde",
  "serde_json",
- "shapefile",
 ]
 
 [[package]]
