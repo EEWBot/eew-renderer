@@ -4,7 +4,7 @@ use const_gen::*;
 use ordered_float::NotNan;
 
 mod station_codes_parser;
-mod parse_shapefile;
+use asset_preprocessor::parse_shapefile;
 
 fn main() {
     let s = std::fs::read_to_string("../assets/intensity_stations.json").unwrap();
