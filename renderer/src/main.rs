@@ -28,6 +28,9 @@ const DIMENSION: (u32, u32) = (1440, 1080);
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.1;
 
+// const CURRENT_LOD_SELECTION: std::sync::Mutex<i32> = std::sync::Mutex::new(0);
+const CURRENT_LOD_SELECTION: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
 struct RGBAImageData {
     data: Vec<u8>,
     width: u32,
@@ -133,6 +136,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                     KeyboardInput { event: ke, .. } if !ke.repeat && ke.state.is_pressed() => {
                         match ke.physical_key {
+                            PhysicalKey::Code(KeyCode::KeyP) => {
+                                CURRENT_LOD_SELECTION.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+                                let mut x = CURRENT_LOD_SELECTION.fetch_sub(0, std::sync::atomic::Ordering::Relaxed);
+
+                                if x < 0 {
+                                   CURRENT_LOD_SELECTION.store(0, std::sync::atomic::Ordering::Relaxed);
+                                   x = 0;
+                                }
+
+                                println!("LOD: {}", x);
+
+                                RedrawReason::Other
+                            },
+                            PhysicalKey::Code(KeyCode::KeyN) => {
+                                CURRENT_LOD_SELECTION.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                let mut x = CURRENT_LOD_SELECTION.fetch_add(0, std::sync::atomic::Ordering::Relaxed);
+
+                                let c = renderer_assets::QueryInterface::query_lod_level_count();
+                                println!("Debugging! OwO {c}");
+                                if x >= (c as i32) {
+                                    CURRENT_LOD_SELECTION.store((c as i32) - 1, std::sync::atomic::Ordering::Relaxed);
+                                    x = 0;
+                                }
+
+                                println!("LOD: {}", x);
+
+                                RedrawReason::Other
+                            },
                             PhysicalKey::Code(KeyCode::KeyQ) => {
                                 window_target.exit();
                                 return;
