@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use geo::{LineString, Simplify};
+use geo::Simplify;
 use itertools::Itertools;
 use shapefile::dbase::{FieldValue, Record};
 use shapefile::{Shape, ShapeReader};
@@ -244,12 +244,12 @@ pub fn read(
     let area_lines = lines
         .iter()
         .filter(|l| l.pref_reference_count(&references) == 1)
-        .collect();
+        .collect_vec();
 
     let pref_lines = lines
         .iter()
         .filter(|l| l.pref_reference_count(&references) >= 2)
-        .collect();
+        .collect_vec();
 
     // let lod_details = [
     //     (100.0_f32.powf(1.00), 0.010),
@@ -321,8 +321,8 @@ pub fn read(
         (100.0_f32.powf(0.24), 0.039),
     ];
 
-    let area_lines = gen_lod(&mut vertex_buffer, &lod_details, area_lines);
-    let pref_lines = gen_lod(&mut vertex_buffer, &lod_details, pref_lines);
+    let area_lines = gen_lod(&mut vertex_buffer, &lod_details, &area_lines);
+    let pref_lines = gen_lod(&mut vertex_buffer, &lod_details, &pref_lines);
 
     let scale_level_map = lod_details
         .into_iter()
@@ -386,9 +386,13 @@ fn cut_rings(rings: &[&Ring], cut_points: &[&Point]) -> Vec<Line> {
 fn gen_lod(
     vertex_buffer: &mut VertexBuffer,
     lod_details: &[(f32, f64)],
-    base_lines: Vec<&Line>,
+    base_lines: &[&Line],
 ) -> Vec<Vec<u32>> {
-    let geo_lines: Vec<LineString> = base_lines.into_iter().map_into().collect();
+    let geo_lines: Vec<geo::LineString> = base_lines
+        .iter()
+        .map(|l| geo::LineString::from(*l))
+        .collect();
+
     lod_details
         .iter()
         .map(|(_, e)| geo_lines.iter().map(|l| l.simplify(e)).collect_vec())
