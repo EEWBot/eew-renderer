@@ -88,6 +88,7 @@ pub struct Shader {
     pub map: Program,
     pub border_line: Program,
     pub intensity_icon: Program,
+    pub epicenter: Program,
     pub textured: Program,
 }
 
@@ -117,6 +118,14 @@ impl Shader {
         )
         .unwrap();
 
+        let epicenter = Program::from_source(
+            facade,
+            include_str!("../../assets/shader/epicenter.vsh"),
+            include_str!("../../assets/shader/epicenter.fsh"),
+            Some(include_str!("../../assets/shader/epicenter.gsh"),)
+        )
+        .unwrap();
+
         let textured = Program::from_source(
             facade,
             include_str!("../../assets/shader/textured.vsh"),
@@ -129,6 +138,7 @@ impl Shader {
             map,
             border_line,
             intensity_icon,
+            epicenter,
             textured,
         }
     }
@@ -137,6 +147,7 @@ impl Shader {
 #[derive(Debug)]
 pub struct Texture {
     pub intensity: Texture2d,
+    pub epicenter: Texture2d,
     pub overlay: Texture2d,
 }
 
@@ -160,8 +171,9 @@ impl Texture {
         };
 
         let intensity = load_png(include_bytes!("../../assets/image/intensity.png"));
+        let epicenter = load_png(include_bytes!("../../assets/image/epicenter.png"));
         let overlay = load_png(include_bytes!("../../assets/image/overlay.png"));
 
-        Self { intensity, overlay }
+        Self { intensity, epicenter, overlay }
     }
 }

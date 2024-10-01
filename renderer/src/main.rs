@@ -23,6 +23,7 @@ use crate::intensity::震度;
 use crate::model::*;
 
 use renderer_types::*;
+use crate::intensity_icon::EarthquakeInformation;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const MAXIMUM_SCALE: f32 = 100.0;
@@ -79,7 +80,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
     // 2024-04-17 23:14 豊後水道
-    // let earthquake_data = enum_map! {
+    // let earthquake_information = enum_map! {
     //     震度::震度1 => vec![720, 736, 431, 460, 551, 354, 400, 401, 354, 400, 401, 421, 422, 500, 501],
     //     震度::震度2 => vec![775, 531, 532, 535, 562, 575, 601, 710, 712, 730, 432, 451, 461, 462, 510, 511, 520, 521, 540, 550],
     //     震度::震度3 => vec![630, 631, 590, 591, 700, 702, 741, 743, 762, 771, 530, 560, 563, 570, 571, 580, 581, 600, 610, 611, 711, 713, 721, 731, 732],
@@ -88,21 +89,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //     震度::震度6弱 => vec![622, 632],
     //     _ => vec![]
     // };
+    // let epicenter = Vertex::new(132.4, 33.2);
 
     // 2024-01-01 16:10 石川県能登地方
-    let earthquake_data = enum_map!{
-	震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
-	震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
-	震度::震度3 => vec![241, 251, 301, 311, 321, 331, 441, 442, 450, 461, 462, 510, 521, 531, 535, 562, 563, 212, 220, 221, 222, 230, 231, 232, 233, 340, 341, 342, 350, 360, 361, 411, 412, 550, 570, 575, 580, 581, 600, 610],
-	震度::震度4 => vec![401, 421, 422, 431, 432, 240, 242, 243, 250, 252, 300, 310, 320, 330, 443, 451, 460, 500, 501, 511, 520, 530, 540, 560],
-	震度::震度5弱 => vec![420, 430],
-	震度::震度5強 => vec![391, 370, 372, 375, 380, 381, 400],
-	震度::震度6弱 => vec![371],
-	震度::震度7 => vec![390],
-	_ => vec![]
-};
+    let earthquake_information = enum_map!{
+        震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
+        震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
+        震度::震度3 => vec![241, 251, 301, 311, 321, 331, 441, 442, 450, 461, 462, 510, 521, 531, 535, 562, 563, 212, 220, 221, 222, 230, 231, 232, 233, 340, 341, 342, 350, 360, 361, 411, 412, 550, 570, 575, 580, 581, 600, 610],
+        震度::震度4 => vec![401, 421, 422, 431, 432, 240, 242, 243, 250, 252, 300, 310, 320, 330, 443, 451, 460, 500, 501, 511, 520, 530, 540, 560],
+        震度::震度5弱 => vec![420, 430],
+        震度::震度5強 => vec![391, 370, 372, 375, 380, 381, 400],
+        震度::震度6弱 => vec![371],
+        震度::震度7 => vec![390],
+        _ => vec![]
+    };
+    let epicenter = Vertex::<GeoDegree>::new(137.2, 37.5);
 
-    for code in earthquake_data.values().flatten() {
+    for code in earthquake_information.values().flatten() {
         match renderer_assets::QueryInterface::query_bounding_box_by_area(*code) {
             None => println!("{code} is requested but †Unknown code†"),
             Some(_bbox) => {},
@@ -186,7 +189,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             render_frame_buffer.clear_color(0.5, 0.8, 1.0, 1.0);
 
             let bounding_box = calculate_bounding_box(
-                &earthquake_data
+                &earthquake_information
                     .values()
                     .flatten()
                     .copied()
@@ -223,7 +226,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             );
 
             intensity_icon::draw_all(
-                &earthquake_data,
+                &EarthquakeInformation::new(&epicenter, &earthquake_information),
                 offset,
                 aspect_ratio,
                 scale,
