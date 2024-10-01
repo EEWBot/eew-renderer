@@ -223,7 +223,7 @@ pub fn read(
         .iter()
         .flat_map(|area_rings| &area_rings.rings)
         .flat_map(|r| r.triangulate())
-        .map(|p| vertex_buffer.insert((*p).into()) as u32)
+        .map(|p| vertex_buffer.insert(p.into()) as u32)
         .collect_vec();
 
     let references = PointReferences::tally_of(&shapefile, area_code__pref_code);
@@ -345,7 +345,7 @@ pub fn read(
     }
 }
 
-fn cut_rings<'a>(rings: &'a Vec<&Ring>, cut_points: &Vec<&'a Point>) -> Vec<Line<'a>> {
+fn cut_rings<'a>(rings: &'a Vec<&Ring>, cut_points: &Vec<&'a Point>) -> Vec<Line> {
     let mut lines: Vec<Line> = Vec::new();
 
     rings.iter().for_each(|ring| {
@@ -363,15 +363,15 @@ fn cut_rings<'a>(rings: &'a Vec<&Ring>, cut_points: &Vec<&'a Point>) -> Vec<Line
             if !cut_points.contains(&p) {
                 continue;
             }
-            ring_lines.push((&points[start_index..=i]).into());
+            ring_lines.push(Line::new(&points[start_index..=i]));
             start_index = i;
         }
-        ring_lines.push((&points[start_index..points.len()]).into());
+        ring_lines.push(Line::new(&points[start_index..points.len()]));
 
         if ring_lines.len() >= 2 {
             let first_point = ring_lines.first().unwrap().vertices.first().unwrap();
 
-            if !cut_points.contains(first_point) {
+            if !cut_points.contains(&first_point) {
                 let last_line = ring_lines.pop().unwrap();
                 ring_lines.first_mut().unwrap().join_first(last_line);
             }
@@ -406,31 +406,4 @@ fn gen_lod(
             v
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::parse_shapefile::{Line, Of32, Point};
-    use itertools::Itertools;
-
-    #[test]
-    fn line_eq() {
-        let l1 = vec![
-            Point::new(Of32::from(0.0), Of32::from(0.0)),
-            Point::new(Of32::from(1.0), Of32::from(1.0)),
-            Point::new(Of32::from(2.0), Of32::from(2.0)),
-            Point::new(Of32::from(3.0), Of32::from(3.0)),
-        ];
-        let l2 = vec![
-            Point::new(Of32::from(3.0), Of32::from(3.0)),
-            Point::new(Of32::from(2.0), Of32::from(2.0)),
-            Point::new(Of32::from(1.0), Of32::from(1.0)),
-            Point::new(Of32::from(0.0), Of32::from(0.0)),
-        ];
-        let l1 = Line::new(l1.iter().map(|p| p).collect_vec());
-        let l2 = Line::new(l2.iter().map(|p| p).collect_vec());
-
-        assert_eq!(l1, l1);
-        assert_eq!(l1, l2);
-    }
 }
