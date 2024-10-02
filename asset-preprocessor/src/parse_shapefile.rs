@@ -148,6 +148,13 @@ impl<'a> PointReferences<'a> {
             .map(|(p, _)| *p)
             .collect()
     }
+    
+    fn pref_reference_count(&self, line: &Line) -> usize {
+        let first = self.map.get(line.vertices.first().unwrap()).unwrap();
+        let last = self.map.get(line.vertices.last().unwrap()).unwrap();
+        
+        first.pref_references().intersection(&last.pref_references()).count()
+    }
 }
 
 pub(crate) struct PointReference<'a> {
@@ -243,12 +250,12 @@ pub fn read(
 
     let area_lines = lines
         .iter()
-        .filter(|l| l.pref_reference_count(&references) == 1)
+        .filter(|l| references.pref_reference_count(l) == 1)
         .collect_vec();
 
     let pref_lines = lines
         .iter()
-        .filter(|l| l.pref_reference_count(&references) >= 2)
+        .filter(|l| references.pref_reference_count(l) >= 2)
         .collect_vec();
 
     // let lod_details = [
