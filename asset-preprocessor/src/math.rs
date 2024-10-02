@@ -88,7 +88,7 @@ impl<'a> AdjacentPointsIter<'a> {
 }
 
 impl<'a> Iterator for AdjacentPointsIter<'a> {
-    type Item = AdjacentPointsIterItem<'a>;
+    type Item = AdjacentPointsIterItem;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index == self.points.len() {
@@ -110,9 +110,9 @@ impl<'a> Iterator for AdjacentPointsIter<'a> {
             self.index += 1;
 
             Some(Self::Item::new(
-                self.points.get(previous_index).unwrap(),
-                self.points.get(current_index).unwrap(),
-                self.points.get(next_index).unwrap(),
+                self.points[previous_index],
+                self.points[current_index],
+                self.points[next_index],
             ))
         }
     }
@@ -125,14 +125,14 @@ impl<'a> Iterator for AdjacentPointsIter<'a> {
 
 impl ExactSizeIterator for AdjacentPointsIter<'_> {}
 
-pub(crate) struct AdjacentPointsIterItem<'a> {
-    pub(crate) previous: &'a Point,
-    pub(crate) current: &'a Point,
-    pub(crate) next: &'a Point,
+pub(crate) struct AdjacentPointsIterItem {
+    pub(crate) previous: Point,
+    pub(crate) current: Point,
+    pub(crate) next: Point,
 }
 
-impl<'a> AdjacentPointsIterItem<'a> {
-    fn new(previous: &'a Point, current: &'a Point, next: &'a Point) -> Self {
+impl<'a> AdjacentPointsIterItem {
+    fn new(previous: Point, current: Point, next: Point) -> Self {
         Self {
             previous,
             current,
