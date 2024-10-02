@@ -77,12 +77,12 @@ impl Ring {
 }
 
 pub(crate) struct AdjacentPointsIter<'a> {
-    points: &'a Vec<Point>,
+    points: &'a [Point],
     index: usize,
 }
 
 impl<'a> AdjacentPointsIter<'a> {
-    fn new(points: &'a Vec<Point>) -> Self {
+    fn new(points: &'a [Point]) -> Self {
         Self { points, index: 0 }
     }
 }
@@ -131,7 +131,7 @@ pub(crate) struct AdjacentPointsIterItem {
     pub(crate) next: Point,
 }
 
-impl<'a> AdjacentPointsIterItem {
+impl AdjacentPointsIterItem {
     fn new(previous: Point, current: Point, next: Point) -> Self {
         Self {
             previous,

@@ -360,7 +360,7 @@ fn cut_rings(rings: &[&Ring], cut_points: &[Point]) -> Vec<Line> {
             if i == points.len() - 1 {
                 continue;
             }
-            if !cut_points.contains(&p) {
+            if !cut_points.contains(p) {
                 continue;
             }
             ring_lines.push(Line::new(&points[start_index..=i]));
@@ -371,7 +371,7 @@ fn cut_rings(rings: &[&Ring], cut_points: &[Point]) -> Vec<Line> {
         if ring_lines.len() >= 2 {
             let first_point = ring_lines.first().unwrap().vertices.first().unwrap();
 
-            if !cut_points.contains(&first_point) {
+            if !cut_points.contains(first_point) {
                 let last_line = ring_lines.pop().unwrap();
                 ring_lines.first_mut().unwrap().join_first(last_line);
             }
