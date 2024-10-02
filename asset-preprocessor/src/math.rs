@@ -160,23 +160,6 @@ impl Line {
         other.vertices.append(&mut self.vertices);
         self.vertices = other.vertices;
     }
-
-    // TODO: 逆向きの依存
-    pub(crate) fn pref_reference_count(
-        &self,
-        references: &crate::parse_shapefile::PointReferences,
-    ) -> usize {
-        let first = self.vertices.first().unwrap();
-        let last = self.vertices.last().unwrap();
-
-        let first = references.map.get(first).unwrap();
-        let last = references.map.get(last).unwrap();
-
-        first
-            .pref_references()
-            .intersection(&last.pref_references())
-            .count()
-    }
 }
 
 impl From<&Line> for geo::LineString {
