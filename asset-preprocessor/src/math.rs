@@ -61,11 +61,11 @@ impl Ring {
 
     pub(crate) fn triangulate(&self) -> Vec<Point> {
         earcutr::earcut(
-            self.points
+            &self
+                .points
                 .iter()
-                .flat_map(|p| vec![p.longitude.0, p.latitude.0])
-                .collect_vec()
-                .as_slice(),
+                .flat_map(|p| [p.longitude.0, p.latitude.0])
+                .collect_vec(),
             &[],
             2,
         )
@@ -187,9 +187,10 @@ impl From<&Line> for geo::LineString {
 
 impl PartialEq for Line {
     fn eq(&self, other: &Self) -> bool {
-        let is_self_ordered = self.vertices.first().unwrap() < self.vertices.last().unwrap();
-        let is_other_hand_ordered =
-            other.vertices.first().unwrap() < other.vertices.last().unwrap();
+        let (is_self_ordered, is_other_hand_ordered) = (
+            self.vertices.first().unwrap() < self.vertices.last().unwrap(),
+            other.vertices.first().unwrap() < other.vertices.last().unwrap(),
+        );
 
         if is_self_ordered == is_other_hand_ordered {
             itertools::equal(&self.vertices, &other.vertices)
