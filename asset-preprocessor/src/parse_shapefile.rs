@@ -112,7 +112,7 @@ impl AreaRings {
 
 pub(crate) struct PointReferences<'a> {
     // なんでこれ公開しないと行けないんだっけ
-    pub(crate) map: HashMap<&'a Point, PointReference<'a>>,
+    pub(crate) map: HashMap<Point, PointReference<'a>>,
 }
 
 impl<'a> PointReferences<'a> {
@@ -120,7 +120,7 @@ impl<'a> PointReferences<'a> {
         shapefile: &'a Shapefile,
         area_to_pref: &'a HashMap<codes::Area, codes::Pref>,
     ) -> Self {
-        let mut map: HashMap<&Point, PointReference> = HashMap::new();
+        let mut map: HashMap<Point, PointReference> = HashMap::new();
 
         shapefile.entries.iter().for_each(|area_rings| {
             let area_code = area_rings.area_code;
@@ -141,7 +141,7 @@ impl<'a> PointReferences<'a> {
         Self { map }
     }
 
-    fn cut_points(&self) -> Vec<&'a Point> {
+    fn cut_points(&self) -> Vec<Point> {
         self.map
             .iter()
             .filter(|(_, r)| r.adjacent_points_count() >= 3)
@@ -153,7 +153,7 @@ impl<'a> PointReferences<'a> {
 pub(crate) struct PointReference<'a> {
     area_to_pref: &'a HashMap<codes::Area, codes::Pref>,
     areas: HashSet<codes::Area>,
-    adjacent_points: HashSet<&'a Point>,
+    adjacent_points: HashSet<Point>,
 }
 
 impl<'a> PointReference<'a> {
@@ -169,7 +169,7 @@ impl<'a> PointReference<'a> {
         self.areas.insert(area);
     }
 
-    fn mark_point(&mut self, point: &'a Point) {
+    fn mark_point(&mut self, point: Point) {
         self.adjacent_points.insert(point);
     }
 
@@ -345,7 +345,7 @@ pub fn read(
     }
 }
 
-fn cut_rings(rings: &[&Ring], cut_points: &[&Point]) -> Vec<Line> {
+fn cut_rings(rings: &[&Ring], cut_points: &[Point]) -> Vec<Line> {
     let mut lines: Vec<Line> = Vec::new();
 
     rings.iter().for_each(|ring| {
