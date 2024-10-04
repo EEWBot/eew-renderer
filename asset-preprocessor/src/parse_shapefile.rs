@@ -99,7 +99,7 @@ impl AreaRings {
         let rings = polygon
             .rings()
             .iter()
-            .map(|ring| Ring::new(ring.points()))
+            .map(|ring| Ring::from(ring.points().to_vec()))
             .collect();
 
         Some(Self {
