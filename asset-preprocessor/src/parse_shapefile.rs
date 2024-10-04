@@ -148,11 +148,11 @@ impl<'a> PointReferences<'a> {
             .map(|(p, _)| *p)
             .collect()
     }
-    
+
     fn pref_reference_count(&self, line: &Line) -> usize {
         let first = self.map.get(line.vertices.first().unwrap()).unwrap();
         let last = self.map.get(line.vertices.last().unwrap()).unwrap();
-        
+
         first.pref_references().intersection(&last.pref_references()).count()
     }
 }
@@ -356,7 +356,7 @@ fn cut_rings(rings: &[&Ring], cut_points: &[Point]) -> Vec<Line> {
     let mut lines: Vec<Line> = Vec::new();
 
     rings.iter().for_each(|ring| {
-        let points = &ring.points;
+        let points = ring.points();
         let mut ring_lines: Vec<Line> = Vec::new();
         let mut start_index: usize = 0;
 

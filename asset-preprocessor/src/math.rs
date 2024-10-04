@@ -44,8 +44,7 @@ impl From<Point> for geo::Coord {
 }
 
 pub(crate) struct Ring {
-    // TODO: fn new があるのに、pointsが公開されていて、変。
-    pub(crate) points: Vec<Point>,
+    points: Vec<Point>,
 }
 
 impl Ring {
@@ -53,6 +52,10 @@ impl Ring {
     pub(crate) fn new(points: &[shapefile::Point]) -> Self {
         let points = points.iter().map(|p| (*p).into()).collect_vec();
         Self { points }
+    }
+    
+    pub(crate) fn points(&self) -> &[Point] {
+        &self.points
     }
 
     pub(crate) fn iter_adjacent_points(&self) -> AdjacentPointsIter {
