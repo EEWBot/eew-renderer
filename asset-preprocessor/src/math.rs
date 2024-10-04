@@ -48,9 +48,7 @@ pub(crate) struct Ring {
 }
 
 impl Ring {
-    // TODO: 型変換の責任をnewが持ってはならない
-    pub(crate) fn new(points: &[shapefile::Point]) -> Self {
-        let points = points.iter().map(|p| (*p).into()).collect_vec();
+    pub(crate) fn new(points: Vec<Point>) -> Self {
         Self { points }
     }
     
@@ -76,6 +74,13 @@ impl Ring {
         .iter()
         .map(|i| self.points[*i])
         .collect()
+    }
+}
+
+impl From<Vec<shapefile::Point>> for Ring {
+    fn from(value: Vec<shapefile::Point>) -> Self {
+        let points = value.into_iter().map(|p| p.into()).collect();
+        Self::new(points)
     }
 }
 
