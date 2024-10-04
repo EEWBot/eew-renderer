@@ -51,7 +51,7 @@ impl Ring {
     pub(crate) fn new(points: Vec<Point>) -> Self {
         Self { points }
     }
-    
+
     pub(crate) fn points(&self) -> &[Point] {
         &self.points
     }
@@ -102,18 +102,9 @@ impl<'a> Iterator for AdjacentPointsIter<'a> {
         if self.index == self.points.len() {
             None
         } else {
-            // TODO: もう少しどうにかならんか…？
-            let previous_index = if self.index == 0 {
-                self.points.len() - 1
-            } else {
-                self.index - 1
-            };
+            let previous_index = (self.points.len() - 1 + self.index) % self.points.len();
             let current_index = self.index;
-            let next_index = if self.index == self.points.len() - 1 {
-                0
-            } else {
-                self.index + 1
-            };
+            let next_index = (self.index + 1) % self.points.len();
 
             self.index += 1;
 
