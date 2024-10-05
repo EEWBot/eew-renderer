@@ -111,8 +111,7 @@ impl AreaRings {
 }
 
 pub(crate) struct PointReferences<'a> {
-    // なんでこれ公開しないと行けないんだっけ
-    pub(crate) map: HashMap<Point, PointReference<'a>>,
+    map: HashMap<Point, PointReference<'a>>,
 }
 
 impl<'a> PointReferences<'a> {
