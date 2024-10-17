@@ -1,4 +1,4 @@
-#version 430
+#version 410
 
 uniform float aspect_ratio;
 uniform vec2 offset;
@@ -7,7 +7,7 @@ uniform float zoom;
 in vec2 position;
 in vec2 uv_offset;
 
-layout (location = 0) out vec2 uv_offset_out;
+layout (location = 0) out vec2 uv_offset_vsh_out;
 
 const float EPSION = 1.19209290e-07;
 const float PI = 3.14159265358979323846264338327950288;
@@ -25,5 +25,5 @@ void main() {
     vec2 display_coordinate = vec2(map_coordinate.x, map_coordinate.y / aspect_ratio);
 
     gl_Position = vec4(display_coordinate, EPSION * gl_VertexID, 1.0);
-    uv_offset_out = uv_offset;
+    uv_offset_vsh_out = uv_offset;
 }
