@@ -59,9 +59,20 @@ impl Texture2dDataSink<(u8, u8, u8, u8)> for RGBAImageData {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let event_loop = winit::event_loop::EventLoopBuilder::<UserEvent>::with_user_event().build()?;
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<UserEvent>(16);
+
+
     let proxy = event_loop.create_proxy();
 
-    tokio::spawn(async move { endpoint::run("0.0.0.0:3000", proxy).await });
+    tokio::spawn(async move {
+        loop {
+            let message = rx.recv().await.unwrap();
+            proxy.send_event(message).unwrap();
+        }
+    });
+
+    tokio::spawn(async move { endpoint::run("0.0.0.0:3000", tx).await });
 
     let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
         .with_inner_size(DIMENSION.0, DIMENSION.1)
