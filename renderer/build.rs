@@ -1,19 +1,13 @@
-use std::path::PathBuf;
+use std::io::Result;
 
-const PROTO_OUTPUT_DIRECTORY: &str = "src/protos/";
 
-fn main() {
-    let generate_to = PathBuf::from(PROTO_OUTPUT_DIRECTORY);
-    if !generate_to.exists() {
-        std::fs::create_dir_all(generate_to).expect("Failed to create target directory");
-    }
+fn main() -> Result<()> {
+    std::fs::copy(
+        "../assets/eew-renderer-proto/quake_prefecture_v0.proto",
+        "src/quake_prefecture_v0.proto"
+    )?;
 
-    protobuf_codegen::Codegen::new()
-        .pure()
-        .customize(protobuf_codegen::Customize::default().gen_mod_rs(true))
-        .out_dir(PROTO_OUTPUT_DIRECTORY)
-        .include("../assets/eew-renderer-proto/")
-        .input("../assets/eew-renderer-proto/quake_prefecture.proto")
-        .run()
-        .expect("Failed to generate code from proto file");
+    prost_build::compile_protos(&["src/quake_prefecture_v0.proto"], &["src"])?;
+
+    Ok(())
 }
