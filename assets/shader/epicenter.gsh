@@ -1,4 +1,4 @@
-#version 430
+#version 410
 
 uniform float aspect_ratio;
 uniform float icon_ratio_in_y_axis;
@@ -6,7 +6,7 @@ uniform float icon_ratio_in_y_axis;
 layout(points) in;
 
 layout(triangle_strip, max_vertices = 4) out;
-layout (location = 0) out vec2 uv_out;
+layout (location = 0) out vec2 uv_gsh_out;
 
 void main() {
     vec4 position = gl_in[0].gl_Position.xyzw;
@@ -17,7 +17,7 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(0.0f, 0.0f);
+    uv_gsh_out = vec2(0.0f, 0.0f);
     EmitVertex();
 
     gl_Position = vec4(
@@ -26,7 +26,7 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(1.0f, 0.0f);
+    uv_gsh_out = vec2(1.0f, 0.0f);
     EmitVertex();
 
     gl_Position = vec4(
@@ -35,7 +35,7 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(0.0f, 1.0f);
+    uv_gsh_out = vec2(0.0f, 1.0f);
     EmitVertex();
 
     gl_Position = vec4(
@@ -44,7 +44,7 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(1.0f, 1.0f);
+    uv_gsh_out = vec2(1.0f, 1.0f);
     EmitVertex();
 
     EndPrimitive();
