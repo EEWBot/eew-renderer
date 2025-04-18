@@ -1,3 +1,7 @@
+pub mod quake_prefecture {
+    include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
+}
+
 mod api_scheme;
 mod border_line;
 mod endpoint;
@@ -9,23 +13,25 @@ mod resources;
 mod temporary_data;
 mod vertex;
 
-use crate::intensity::震度;
-use crate::model::*;
+use std::borrow::Cow;
+use std::error::Error;
+use std::io::Write;
+use std::marker::PhantomData;
+use std::num::NonZeroU32;
+
+use clap::Parser;
 use enum_map::enum_map;
 use glium::framebuffer::SimpleFrameBuffer;
 use glium::glutin::context::NotCurrentGlContext;
 use glium::glutin::display::{GetGlDisplay, GlDisplay};
 use glium::texture::Texture2dDataSink;
 use glium::{glutin, uniform, Display, Surface, Texture2d};
-use std::borrow::Cow;
-use std::error::Error;
-use std::io::Write;
-use std::marker::PhantomData;
-use std::num::NonZeroU32;
 use winit::raw_window_handle::HasWindowHandle;
 
-use crate::intensity_icon::EarthquakeInformation;
+use crate::intensity::震度;
+use crate::model::*;
 use renderer_types::*;
+use crate::intensity_icon::EarthquakeInformation;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const MAXIMUM_SCALE: f32 = 100.0;
@@ -35,6 +41,12 @@ struct RGBAImageData {
     data: Vec<u8>,
     width: u32,
     height: u32,
+}
+
+#[derive(Parser)]
+struct Cli {
+    #[clap(env, long, default_value = "")]
+    hmac_key: String,
 }
 
 impl Texture2dDataSink<(u8, u8, u8, u8)> for RGBAImageData {
@@ -66,6 +78,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let proxy = event_loop.create_proxy();
 
+    let cli = Cli::parse();
+
     tokio::spawn(async move {
         loop {
             let message = rx.recv().await.unwrap();
@@ -73,7 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    tokio::spawn(async move { endpoint::run("0.0.0.0:3000", tx).await });
+    tokio::spawn(async move { endpoint::run("0.0.0.0:3000", tx, &cli.hmac_key).await });
 
     // let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
     //     .with_inner_size(DIMENSION.0, DIMENSION.1)

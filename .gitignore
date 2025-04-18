@@ -2,6 +2,7 @@
 !/.idea/dictionaries/
 /.idea/dictionaries/*
 !/.idea/dictionaries/*.xml
+/renderer/**/*.proto
 
 /target/
 
