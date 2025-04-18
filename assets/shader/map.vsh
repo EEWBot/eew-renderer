@@ -1,4 +1,4 @@
-#version 430
+#version 410
 
 uniform float aspect_ratio;
 uniform vec2 offset;
