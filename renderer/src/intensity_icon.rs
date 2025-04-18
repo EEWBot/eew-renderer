@@ -24,13 +24,13 @@ struct EpicenterDrawInformation {
 implement_vertex!(EpicenterDrawInformation, position);
 
 pub struct EarthquakeInformation<'a> {
-    epicenter: &'a Vertex<GeoDegree>,
+    epicenter: Option<&'a Vertex<GeoDegree>>,
     intensity: &'a EnumMap<震度, Vec<codes::Area>>,
 }
 
 impl <'a> EarthquakeInformation<'a> {
     pub fn new(
-        epicenter: &'a Vertex<GeoDegree>,
+        epicenter: Option<&'a Vertex<GeoDegree>>,
         intensity: &'a EnumMap<震度, Vec<codes::Area>>
     ) -> Self {
         Self {
@@ -89,12 +89,6 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
         .collect();
     let per_icon_data = VertexBuffer::dynamic(facade, &per_icon_data).unwrap();
 
-    let epicenter_data = VertexBuffer::dynamic(
-        facade,
-        &[EpicenterDrawInformation { position: earthquake_information.epicenter.to_slice() }],
-    )
-        .unwrap();
-
     surface
         .draw(
             &per_icon_data,
@@ -111,19 +105,28 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-    surface
-        .draw(
-            &epicenter_data,
-            NoIndices(PrimitiveType::Points),
-            &resources.shader.epicenter,
-            &uniform! {
-                aspect_ratio: aspect_ratio,
-                offset: offset.to_slice(),
-                zoom: scale,
-                icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
-                texture_sampler: &resources.texture.epicenter,
-            },
-            params,
+
+    if let Some(epicenter) = earthquake_information.epicenter {
+        let epicenter_data = VertexBuffer::dynamic(
+            facade,
+            &[EpicenterDrawInformation { position: epicenter.to_slice() }],
         )
-        .unwrap();
+            .unwrap();
+
+        surface
+            .draw(
+                &epicenter_data,
+                NoIndices(PrimitiveType::Points),
+                &resources.shader.epicenter,
+                &uniform! {
+                    aspect_ratio: aspect_ratio,
+                    offset: offset.to_slice(),
+                    zoom: scale,
+                    icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
+                    texture_sampler: &resources.texture.epicenter,
+                },
+                params,
+            )
+            .unwrap();
+    }
 }
