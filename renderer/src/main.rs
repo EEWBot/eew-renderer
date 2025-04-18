@@ -22,7 +22,7 @@ use std::error::Error;
 use std::io::Write;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use winit::raw_window_handle::HasRawWindowHandle;
+use winit::raw_window_handle::HasWindowHandle;
 
 use crate::intensity_icon::EarthquakeInformation;
 use renderer_types::*;
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let attributes =
         glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new().build(
-            window.raw_window_handle().unwrap(),
+            window.window_handle().unwrap().as_raw(),
             NonZeroU32::new(1).unwrap(),
             NonZeroU32::new(1).unwrap(),
         );
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .create_window_surface(&gl_config, &attributes)?
     };
     let attributes = glutin::context::ContextAttributesBuilder::new()
-        .build(Some(window.raw_window_handle().unwrap()));
+        .build(Some(window.window_handle().unwrap().as_raw()));
     let current_context = unsafe {
         gl_config
             .display()
