@@ -1,13 +1,13 @@
-#version 430
+#version 410
 
 uniform float aspect_ratio;
 uniform float icon_ratio_in_y_axis;
 
 layout(points) in;
-layout (location = 0) in vec2 uv_offset[];
+layout (location = 0) in vec2 uv_offset_vsh_out[];
 
 layout(triangle_strip, max_vertices = 4) out;
-layout (location = 0) out vec2 uv_out;
+layout (location = 0) out vec2 uv_gsh_out;
 
 void main() {
     vec4 position = gl_in[0].gl_Position.xyzw;
@@ -18,9 +18,9 @@ void main() {
             position.z,
             position[3]
     );
-    uv_out = vec2(
-            1.0f / 64.0f * 1.0 + uv_offset[0].x,
-            1.0f / 64.0f * 43.0f + uv_offset[0].y
+    uv_gsh_out = vec2(
+            1.0f / 64.0f * 1.0 + uv_offset_vsh_out[0].x,
+            1.0f / 64.0f * 43.0f + uv_offset_vsh_out[0].y
     );
     EmitVertex();
 
@@ -30,9 +30,9 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(
-        1.0f / 64.0f * 21.0 + uv_offset[0].x,
-        1.0f / 64.0f * 43.0f + uv_offset[0].y
+    uv_gsh_out = vec2(
+        1.0f / 64.0f * 21.0 + uv_offset_vsh_out[0].x,
+        1.0f / 64.0f * 43.0f + uv_offset_vsh_out[0].y
     );
     EmitVertex();
 
@@ -42,9 +42,9 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(
-        1.0f / 64.0f * 1.0 + uv_offset[0].x,
-        1.0f / 64.0f * 63.0f + uv_offset[0].y
+    uv_gsh_out = vec2(
+        1.0f / 64.0f * 1.0 + uv_offset_vsh_out[0].x,
+        1.0f / 64.0f * 63.0f + uv_offset_vsh_out[0].y
     );
     EmitVertex();
 
@@ -54,9 +54,9 @@ void main() {
         position.z,
         position[3]
     );
-    uv_out = vec2(
-        1.0f / 64.0f * 21.0 + uv_offset[0].x,
-        1.0f / 64.0f * 63.0f + uv_offset[0].y
+    uv_gsh_out = vec2(
+        1.0f / 64.0f * 21.0 + uv_offset_vsh_out[0].x,
+        1.0f / 64.0f * 63.0f + uv_offset_vsh_out[0].y
     );
     EmitVertex();
 
