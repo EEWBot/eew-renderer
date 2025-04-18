@@ -113,10 +113,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let resources = resources::Resources::load(&display);
     let mut context: RenderingContext = Default::default();
 
-    let render_texture = Texture2d::empty(&display, DIMENSION.0, DIMENSION.1).unwrap();
-    let mut render_frame_buffer = SimpleFrameBuffer::new(&display, &render_texture).unwrap();
-    let screenshot_texture = &Texture2d::empty(&display, DIMENSION.0, DIMENSION.1).unwrap();
-    let screenshot_frame_buffer = SimpleFrameBuffer::new(&display, screenshot_texture).unwrap();
+    let texture = &Texture2d::empty(&display, DIMENSION.0, DIMENSION.1).unwrap();
+    let mut frame_buffer = SimpleFrameBuffer::new(&display, texture).unwrap();
     let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
     // 2024-04-17 23:14 豊後水道
@@ -213,7 +211,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 _ => return,
             };
 
-            render_frame_buffer.clear_color(0.5, 0.8, 1.0, 1.0);
+            frame_buffer.clear_color(0.5, 0.8, 1.0, 1.0);
 
             let bounding_box = calculate_bounding_box(
                 &earthquake_information
@@ -234,7 +232,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let offset = -rendering_bbox.center();
             let scale = calculate_map_scale(rendering_bbox, aspect_ratio);
 
-            render_frame_buffer
+            frame_buffer
                 .draw(
                     &resources.buffer.vertex,
                     &resources.buffer.map,
@@ -254,7 +252,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 aspect_ratio,
                 scale,
                 &resources,
-                &mut render_frame_buffer,
+                &mut frame_buffer,
                 &params,
             );
 
@@ -264,7 +262,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 aspect_ratio,
                 scale,
                 &display,
-                &mut render_frame_buffer,
+                &mut frame_buffer,
                 &resources,
                 &params,
             );
@@ -273,50 +271,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &DIMENSION,
                 &aspect_ratio,
                 &display,
-                &mut render_frame_buffer,
+                &mut frame_buffer,
                 &resources,
                 &params,
-            );
-
-            let frame = display.draw();
-
-            let size = SizeU::from_tuple(DIMENSION).to_f();
-            let target = SizeU::from_tuple(frame.get_dimensions()).to_f();
-            let size = size.capped_fit(&target);
-            let offset = (target - size).scale(0.5).to_i();
-            let size = size.to_i();
-
-            let source = glium::Rect {
-                left: 0,
-                bottom: 0,
-                width: DIMENSION.0,
-                height: DIMENSION.1,
-            };
-
-            render_frame_buffer.blit_color(
-                &source,
-                &frame,
-                &glium::BlitTarget {
-                    left: offset.x,
-                    bottom: offset.y,
-                    width: size.x as i32,
-                    height: size.y as i32,
-                },
-                glium::uniforms::MagnifySamplerFilter::Linear,
-            );
-
-            frame.finish().unwrap();
-
-            render_frame_buffer.blit_color(
-                &source,
-                &screenshot_frame_buffer,
-                &glium::BlitTarget {
-                    left: 0,
-                    bottom: DIMENSION.1,
-                    width: DIMENSION.0 as i32,
-                    height: -(DIMENSION.1 as i32),
-                },
-                glium::uniforms::MagnifySamplerFilter::Nearest,
             );
 
             println!("Rendered!");
@@ -325,7 +282,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 return;
             }
 
-            let pixel_buffer = screenshot_texture.read_to_pixel_buffer();
+            let pixel_buffer = texture.read_to_pixel_buffer();
             let pixels: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
 
             let enc_context = match reason {
@@ -356,11 +313,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     FilterType::Adaptive,
                 );
 
+                let image =
+                    image::RgbaImage::from_raw(pixels.width, pixels.height, pixels.data).unwrap();
+                let image = image::DynamicImage::ImageRgba8(image).flipv();
+
                 encoder
                     .write_image(
-                        &pixels.data,
-                        pixels.width,
-                        pixels.height,
+                        image.as_bytes(),
+                        image.width(),
+                        image.height(),
                         image::ExtendedColorType::Rgba8,
                     )
                     .unwrap();
