@@ -11,7 +11,7 @@ use crate::model::*;
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    pub producer: winit::event_loop::EventLoopProxy<UserEvent>,
+    pub producer: tokio::sync::mpsc::Sender<UserEvent>,
 }
 
 async fn handler(State(state): State<AppState>) -> Response {
@@ -19,7 +19,7 @@ async fn handler(State(state): State<AppState>) -> Response {
 
     state
         .producer
-        .send_event(UserEvent::RenderingRequest(tx))
+        .send(UserEvent::RenderingRequest(tx)).await
         .unwrap();
 
     (
@@ -29,7 +29,7 @@ async fn handler(State(state): State<AppState>) -> Response {
         .into_response()
 }
 
-pub async fn run(listen: &str, proxy: winit::event_loop::EventLoopProxy<UserEvent>) {
+pub async fn run(listen: &str, proxy: tokio::sync::mpsc::Sender<UserEvent>) {
     let shutdowner = model::Shutdowner::new(proxy.clone());
     let app = Router::new()
         .route("/", get(handler))
