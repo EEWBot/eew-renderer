@@ -1,3 +1,3 @@
 // @generated
 
-pub mod vector_tile;
+pub mod quake_prefecture;
