@@ -12,8 +12,8 @@ fn main() {
         .pure()
         .customize(protobuf_codegen::Customize::default().gen_mod_rs(true))
         .out_dir(PROTO_OUTPUT_DIRECTORY)
-        .include("../assets/vector-tile-proto/")
-        .input("../assets/vector-tile-proto/vector_tile.proto")
+        .include("../assets/eew-renderer-proto/")
+        .input("../assets/eew-renderer-proto/quake_prefecture.proto")
         .run()
         .expect("Failed to generate code from proto file");
 }
