@@ -9,18 +9,20 @@ mod resources;
 mod temporary_data;
 mod vertex;
 
+use crate::intensity::震度;
+use crate::model::*;
+use enum_map::enum_map;
+use glium::framebuffer::SimpleFrameBuffer;
+use glium::glutin::context::NotCurrentGlContext;
+use glium::glutin::display::{GetGlDisplay, GlDisplay};
+use glium::texture::Texture2dDataSink;
+use glium::{glutin, uniform, Display, Surface, Texture2d};
 use std::borrow::Cow;
 use std::error::Error;
 use std::io::Write;
 use std::marker::PhantomData;
-
-use enum_map::enum_map;
-use glium::framebuffer::SimpleFrameBuffer;
-use glium::texture::Texture2dDataSink;
-use glium::{uniform, Surface, Texture2d};
-
-use crate::intensity::震度;
-use crate::model::*;
+use std::num::NonZeroU32;
+use winit::raw_window_handle::HasRawWindowHandle;
 
 use crate::intensity_icon::EarthquakeInformation;
 use renderer_types::*;
@@ -58,10 +60,9 @@ impl Texture2dDataSink<(u8, u8, u8, u8)> for RGBAImageData {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let event_loop = winit::event_loop::EventLoopBuilder::<UserEvent>::with_user_event().build()?;
+    let event_loop = winit::event_loop::EventLoop::<UserEvent>::with_user_event().build()?;
 
     let (tx, mut rx) = tokio::sync::mpsc::channel::<UserEvent>(16);
-
 
     let proxy = event_loop.create_proxy();
 
@@ -74,9 +75,40 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tokio::spawn(async move { endpoint::run("0.0.0.0:3000", tx).await });
 
-    let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-        .with_inner_size(DIMENSION.0, DIMENSION.1)
-        .build(&event_loop);
+    // let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+    //     .with_inner_size(DIMENSION.0, DIMENSION.1)
+    //     .build(&event_loop);
+    let attributes = winit::window::WindowAttributes::default().with_visible(false);
+    let display_builder =
+        glutin_winit::DisplayBuilder::new().with_window_attributes(Some(attributes));
+    let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+    let (window, gl_config) =
+        display_builder.build(&event_loop, config_template_builder, |mut configs| {
+            configs.next().unwrap()
+        })?;
+    let window = window.unwrap();
+
+    let attributes =
+        glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new().build(
+            window.raw_window_handle().unwrap(),
+            NonZeroU32::new(1).unwrap(),
+            NonZeroU32::new(1).unwrap(),
+        );
+
+    let surface = unsafe {
+        gl_config
+            .display()
+            .create_window_surface(&gl_config, &attributes)?
+    };
+    let attributes = glutin::context::ContextAttributesBuilder::new()
+        .build(Some(window.raw_window_handle().unwrap()));
+    let current_context = unsafe {
+        gl_config
+            .display()
+            .create_context(&gl_config, &attributes)?
+    }
+    .make_current(&surface)?;
+    let display = Display::from_context_surface(current_context, surface)?;
 
     let resources = resources::Resources::load(&display);
     let mut context: RenderingContext = Default::default();
@@ -165,7 +197,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                 window_target.exit();
                                 return;
                             }
-             
+
                             PhysicalKey::Code(KeyCode::Space) => RedrawReason::ScreenShot,
                             _ => return,
                         }
