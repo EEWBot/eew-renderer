@@ -4,8 +4,8 @@ use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::{implement_vertex, uniform, DrawParameters, Surface, VertexBuffer};
 
-use crate::intensity::震度;
-
+use super::resources::Resources;
+use crate::model::震度;
 use renderer_types::*;
 
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
@@ -22,23 +22,6 @@ struct EpicenterDrawInformation {
     position: [f32; 2],
 }
 implement_vertex!(EpicenterDrawInformation, position);
-
-pub struct EarthquakeInformation<'a> {
-    epicenter: Option<&'a Vertex<GeoDegree>>,
-    intensity: &'a EnumMap<震度, Vec<codes::Area>>,
-}
-
-impl <'a> EarthquakeInformation<'a> {
-    pub fn new(
-        epicenter: Option<&'a Vertex<GeoDegree>>,
-        intensity: &'a EnumMap<震度, Vec<codes::Area>>
-    ) -> Self {
-        Self {
-            epicenter,
-            intensity
-        }
-    }
-}
 
 const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
     use const_soft_float::soft_f32::SoftF32;
@@ -60,33 +43,33 @@ const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
 const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_offset_fn; 9];
 
 pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
-    earthquake_information: &EarthquakeInformation,
+    epicenter: Option<&Vertex<GeoDegree>>,
+    intensity: &EnumMap<震度, Vec<codes::Area>>,
     offset: Vertex<Screen>,
     aspect_ratio: f32,
     scale: f32,
     facade: &F,
     surface: &mut S,
-    resources: &crate::resources::Resources,
+    resources: &Resources,
     params: &DrawParameters,
 ) {
-    let per_icon_data: Vec<_> = earthquake_information
-        .intensity
+    let per_icon_data: Vec<_> = intensity
         .iter()
         .flat_map(|(震度, area_codes)| {
             let uv_offset = &震度_TO_UV_OFFSET[震度 as usize];
 
             area_codes.iter().filter_map(|code| {
-                let nearest_station_coord = renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
+                let nearest_station_coord =
+                    renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
-                Some(
-                    IntensityDrawInformation {
-                        position: nearest_station_coord.to_slice(),
-                        uv_offset: uv_offset.to_owned(),
-                    }
-                )
+                Some(IntensityDrawInformation {
+                    position: nearest_station_coord.to_slice(),
+                    uv_offset: uv_offset.to_owned(),
+                })
             })
         })
         .collect();
+
     let per_icon_data = VertexBuffer::dynamic(facade, &per_icon_data).unwrap();
 
     surface
@@ -105,13 +88,14 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-
-    if let Some(epicenter) = earthquake_information.epicenter {
+    if let Some(epicenter) = epicenter {
         let epicenter_data = VertexBuffer::dynamic(
             facade,
-            &[EpicenterDrawInformation { position: epicenter.to_slice() }],
+            &[EpicenterDrawInformation {
+                position: epicenter.to_slice(),
+            }],
         )
-            .unwrap();
+        .unwrap();
 
         surface
             .draw(
