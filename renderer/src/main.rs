@@ -89,40 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tokio::spawn(async move { endpoint::run("0.0.0.0:3000", tx, &cli.hmac_key).await });
 
-    // let (_window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
-    //     .with_inner_size(DIMENSION.0, DIMENSION.1)
-    //     .build(&event_loop);
-    let attributes = winit::window::WindowAttributes::default().with_visible(false);
-    let display_builder =
-        glutin_winit::DisplayBuilder::new().with_window_attributes(Some(attributes));
-    let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
-    let (window, gl_config) =
-        display_builder.build(&event_loop, config_template_builder, |mut configs| {
-            configs.next().unwrap()
-        })?;
-    let window = window.unwrap();
-
-    let attributes =
-        glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new().build(
-            window.window_handle().unwrap().as_raw(),
-            NonZeroU32::new(1).unwrap(),
-            NonZeroU32::new(1).unwrap(),
-        );
-
-    let surface = unsafe {
-        gl_config
-            .display()
-            .create_window_surface(&gl_config, &attributes)?
-    };
-    let attributes = glutin::context::ContextAttributesBuilder::new()
-        .build(Some(window.window_handle().unwrap().as_raw()));
-    let current_context = unsafe {
-        gl_config
-            .display()
-            .create_context(&gl_config, &attributes)?
-    }
-    .make_current(&surface)?;
-    let display = Display::from_context_surface(current_context, surface)?;
+    let display = create_gl_context(&event_loop);
 
     let resources = resources::Resources::load(&display);
     let mut context: RenderingContext = Default::default();
@@ -194,29 +161,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     event_loop
         .run(move |event, window_target| {
             use winit::event::Event::*;
-            use winit::event::WindowEvent::*;
-            use winit::keyboard::*;
 
             let reason: RedrawReason = match event {
-                WindowEvent { event: we, .. } => match we {
-                    CloseRequested => {
-                        window_target.exit();
-                        return;
-                    }
-                    KeyboardInput { event: ke, .. } if !ke.repeat && ke.state.is_pressed() => {
-                        match ke.physical_key {
-                            PhysicalKey::Code(KeyCode::KeyQ) => {
-                                window_target.exit();
-                                return;
-                            }
-
-                            PhysicalKey::Code(KeyCode::Space) => RedrawReason::ScreenShot,
-                            _ => return,
-                        }
-                    }
-                    RedrawRequested => RedrawReason::Other,
-                    _ => return,
-                },
                 UserEvent(model::UserEvent::Shutdown) => {
                     window_target.exit();
                     return;
@@ -364,6 +310,48 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap();
 
     Ok(())
+}
+
+fn create_gl_context<T>(
+    event_loop: &winit::event_loop::EventLoop<T>,
+) -> Display<glutin::surface::WindowSurface> {
+    let attributes = winit::window::WindowAttributes::default().with_visible(false);
+    let display_builder =
+        glutin_winit::DisplayBuilder::new().with_window_attributes(Some(attributes));
+    let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+
+    let (window, gl_config) = display_builder
+        .build(event_loop, config_template_builder, |mut configs| {
+            configs.next().unwrap()
+        })
+        .unwrap();
+    let window = window.unwrap();
+
+    let attributes =
+        glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new().build(
+            window.window_handle().unwrap().as_raw(),
+            NonZeroU32::new(1).unwrap(),
+            NonZeroU32::new(1).unwrap(),
+        );
+    let surface = unsafe {
+        gl_config
+            .display()
+            .create_window_surface(&gl_config, &attributes)
+            .unwrap()
+    };
+
+    let attributes = glutin::context::ContextAttributesBuilder::new()
+        .build(Some(window.window_handle().unwrap().as_raw()));
+    let current_context = unsafe {
+        gl_config
+            .display()
+            .create_context(&gl_config, &attributes)
+            .unwrap()
+    }
+    .make_current(&surface)
+    .unwrap();
+
+    Display::from_context_surface(current_context, surface).unwrap()
 }
 
 pub fn calculate_bounding_box(
