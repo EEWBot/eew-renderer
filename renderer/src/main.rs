@@ -49,6 +49,9 @@ struct RGBAImageData {
 struct Cli {
     #[clap(env, long, default_value = "")]
     hmac_key: String,
+
+    #[clap(env, long, default_value = "[not specified]")]
+    instance_name: String,
 }
 
 impl Texture2dDataSink<(u8, u8, u8, u8)> for RGBAImageData {
@@ -89,12 +92,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    tokio::spawn(async move { endpoint::run("0.0.0.0:3000", tx, &cli.hmac_key).await });
+    tokio::spawn(async move {
+        endpoint::run("0.0.0.0:3000", tx, &cli.hmac_key, &cli.instance_name).await
+    });
 
     let display = create_gl_context(&event_loop);
 
     let resources = resources::Resources::load(&display);
-    let mut context: RenderingContext = Default::default();
+    // let mut context: RenderingContext = Default::default();
 
     let texture = &Texture2d::empty(&display, DIMENSION.0, DIMENSION.1).unwrap();
     let mut frame_buffer = SimpleFrameBuffer::new(&display, texture).unwrap();
@@ -113,22 +118,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // let epicenter = Vertex::new(132.4, 33.2);
 
     // 2024-01-01 16:10 石川県能登地方
-    let earthquake_information = enum_map! {
-        震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
-        震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
-        震度::震度3 => vec![241, 251, 301, 311, 321, 331, 441, 442, 450, 461, 462, 510, 521, 531, 535, 562, 563, 212, 220, 221, 222, 230, 231, 232, 233, 340, 341, 342, 350, 360, 361, 411, 412, 550, 570, 575, 580, 581, 600, 610],
-        震度::震度4 => vec![401, 421, 422, 431, 432, 240, 242, 243, 250, 252, 300, 310, 320, 330, 443, 451, 460, 500, 501, 511, 520, 530, 540, 560],
-        震度::震度5弱 => vec![420, 430],
-        震度::震度5強 => vec![391, 370, 372, 375, 380, 381, 400],
-        震度::震度6弱 => vec![371],
-        震度::震度7 => vec![390],
-        _ => vec![]
-    };
-    let epicenter = Some(Vertex::<GeoDegree>::new(137.2, 37.5));
-    let rendering_context = RenderingContextV0 {
-        epicenter,
-        area_intensities: earthquake_information,
-    };
+    // let earthquake_information = enum_map! {
+    //     震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
+    //     震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
+    //     震度::震度3 => vec![241, 251, 301, 311, 321, 331, 441, 442, 450, 461, 462, 510, 521, 531, 535, 562, 563, 212, 220, 221, 222, 230, 231, 232, 233, 340, 341, 342, 350, 360, 361, 411, 412, 550, 570, 575, 580, 581, 600, 610],
+    //     震度::震度4 => vec![401, 421, 422, 431, 432, 240, 242, 243, 250, 252, 300, 310, 320, 330, 443, 451, 460, 500, 501, 511, 520, 530, 540, 560],
+    //     震度::震度5弱 => vec![420, 430],
+    //     震度::震度5強 => vec![391, 370, 372, 375, 380, 381, 400],
+    //     震度::震度6弱 => vec![371],
+    //     震度::震度7 => vec![390],
+    //     _ => vec![]
+    // };
+    // let epicenter = Some(Vertex::<GeoDegree>::new(137.2, 37.5));
+    // let rendering_context = RenderingContextV0 {
+    //     epicenter,
+    //     area_intensities: earthquake_information,
+    // };
 
     // let earthquake_information = enum_map! {
     //     震度::震度1 => vec![211],
@@ -167,16 +172,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .run(move |event, window_target| {
             use winit::event::Event::*;
 
-            let reason: RedrawReason = match event {
-                UserEvent(model::UserEvent::Shutdown) => {
-                    window_target.exit();
-                    return;
-                }
-                UserEvent(model::UserEvent::RenderingRequest(sender)) => RedrawReason::Web(sender),
-                _ => return,
-            };
+            if matches!(event, UserEvent(model::UserEvent::Shutdown)) {
+                window_target.exit();
+                return;
+            }
 
-            let rendering_context = &rendering_context;
+            let UserEvent(model::UserEvent::RenderingRequest((rendering_context, response_socket))) = event
+            else {
+                return;
+            };
 
             frame_buffer.clear_color(0.5, 0.8, 1.0, 1.0);
 
@@ -249,31 +253,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             println!("Rendered!");
 
-            if !reason.is_buffer_needed() {
-                return;
-            }
 
             let pixel_buffer = texture.read_to_pixel_buffer();
             let pixels: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
-
-            let enc_context = match reason {
-                RedrawReason::ScreenShot => {
-                    context.screenshot_count += 1;
-                    EncodeContext::ScreenShot(context.screenshot_count)
-                }
-                RedrawReason::Web(sender) => EncodeContext::Web(sender),
-                RedrawReason::Other => unreachable!(),
-            };
 
             tokio::spawn(async move {
                 use image::codecs::png::*;
                 use image::ImageEncoder;
 
-                if let EncodeContext::Web(socket) = &enc_context {
-                    if socket.is_closed() {
-                        println!("もういらないっていわれちゃった……");
-                        return;
-                    }
+                if response_socket.is_closed() {
+                    println!("もういらないっていわれちゃった……");
+                    return;
                 }
 
                 let mut target = std::io::Cursor::new(Vec::new());
@@ -301,20 +291,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 println!("Encoded");
 
-                match enc_context {
-                    EncodeContext::ScreenShot(n) => {
-                        let _ = std::fs::File::create(format!("screenshot-{n}.png"))
-                            .unwrap()
-                            .write(&target)
-                            .unwrap();
-                    }
-                    EncodeContext::Web(socket) => {
-                        let 相手はもういらないかもしれない = socket.send(target);
+                let 相手はもういらないかもしれない = response_socket.send(target);
 
-                        if 相手はもういらないかもしれない.is_err() {
-                            println!("えんこーどまでしたのにー…むきーっ！");
-                        }
-                    }
+                if 相手はもういらないかもしれない.is_err() {
+                    println!("えんこーどまでしたのにー…むきーっ！");
                 }
             });
         })

@@ -1,6 +1,6 @@
 use enum_map::Enum;
 
-#[derive(Enum, Clone, Copy)]
+#[derive(Enum, Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum 震度 {
     震度1,
