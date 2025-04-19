@@ -35,9 +35,6 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box
         }
     });
 
-
-    let event_loop = winit::event_loop::EventLoop::<Message>::with_user_event().build()?;
-
     let display = create_gl_context(&event_loop);
 
     let resources = resources::Resources::load(&display);
@@ -60,14 +57,10 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box
     };
 
     event_loop
-        .run(move |event, window_target| {
+        .run(move |event, _window_target| {
             use winit::event::Event::*;
 
             let (rendering_context, response_socket) = match event {
-                UserEvent(Message::Shutdown) => {
-                    window_target.exit();
-                    return;
-                }
                 UserEvent(Message::RenderingRequest(v)) => v,
                 _ => return,
             };
