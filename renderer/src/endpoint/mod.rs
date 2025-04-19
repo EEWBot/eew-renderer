@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::net::SocketAddr;
 
 use axum::{
     extract::{Request, State},
@@ -157,7 +158,7 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
 }
 
 pub async fn run(
-    listen: &str,
+    listen: SocketAddr,
     request_channel: tokio::sync::mpsc::Sender<UserEvent>,
     hmac_key: &str,
     instance_name: &str,

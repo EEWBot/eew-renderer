@@ -15,6 +15,7 @@ mod vertex;
 use std::borrow::Cow;
 use std::error::Error;
 use std::marker::PhantomData;
+use std::net::SocketAddr;
 use std::num::NonZeroU32;
 
 use clap::Parser;
@@ -47,6 +48,10 @@ struct Cli {
 
     #[clap(env, long, default_value = "[not specified]")]
     instance_name: String,
+
+    #[clap(long, env)]
+    #[clap(default_value = "0.0.0.0:3000")]
+    listen: SocketAddr,
 
     #[clap(env, long, default_value_t = false)]
     allow_demo: bool,
@@ -92,7 +97,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tokio::spawn(async move {
         endpoint::run(
-            "0.0.0.0:3000",
+            cli.listen,
             tx,
             &cli.hmac_key,
             &cli.instance_name,
