@@ -48,7 +48,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     let body = &bin[21..];
 
     if version != 0 {
-        return (StatusCode::BAD_REQUEST, "Unknown protocol v{version}").into_response();
+        return (StatusCode::BAD_REQUEST, format!("Unknown protocol v{version}")).into_response();
     }
 
     let calculated_sha1 = {
