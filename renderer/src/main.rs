@@ -147,29 +147,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     event_loop
         .run(move |event, window_target| {
             use winit::event::Event::*;
-            use winit::event::WindowEvent::*;
-            use winit::keyboard::*;
 
             let reason: RedrawReason = match event {
-                WindowEvent { event: we, .. } => match we {
-                    CloseRequested => {
-                        window_target.exit();
-                        return;
-                    }
-                    KeyboardInput { event: ke, .. } if !ke.repeat && ke.state.is_pressed() => {
-                        match ke.physical_key {
-                            PhysicalKey::Code(KeyCode::KeyQ) => {
-                                window_target.exit();
-                                return;
-                            }
-
-                            PhysicalKey::Code(KeyCode::Space) => RedrawReason::ScreenShot,
-                            _ => return,
-                        }
-                    }
-                    RedrawRequested => RedrawReason::Other,
-                    _ => return,
-                },
                 UserEvent(model::UserEvent::Shutdown) => {
                     window_target.exit();
                     return;
