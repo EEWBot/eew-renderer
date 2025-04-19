@@ -2,7 +2,6 @@ pub mod quake_prefecture {
     include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
 }
 
-mod api_scheme;
 mod border_line;
 mod endpoint;
 mod intensity;
@@ -11,7 +10,6 @@ mod model;
 mod overlay;
 mod rendering_context_v0;
 mod resources;
-mod temporary_data;
 mod vertex;
 
 use std::borrow::Cow;
@@ -99,7 +97,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let display = create_gl_context(&event_loop);
 
     let resources = resources::Resources::load(&display);
-    // let mut context: RenderingContext = Default::default();
 
     let texture = &Texture2d::empty(&display, DIMENSION.0, DIMENSION.1).unwrap();
     let mut frame_buffer = SimpleFrameBuffer::new(&display, texture).unwrap();
