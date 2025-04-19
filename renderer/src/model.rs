@@ -2,7 +2,6 @@ use enum_map::Enum;
 
 #[derive(Debug)]
 pub enum Message {
-    Shutdown,
     RenderingRequest((crate::RenderingContextV0, tokio::sync::oneshot::Sender<Vec<u8>>)),
 }
 

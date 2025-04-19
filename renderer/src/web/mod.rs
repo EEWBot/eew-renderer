@@ -12,7 +12,6 @@ use enum_map::enum_map;
 use hmac::{Hmac, Mac};
 use prost::Message;
 
-mod model;
 use crate::model::*;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
@@ -163,8 +162,6 @@ pub async fn run(
     instance_name: &str,
     allow_demo: bool,
 ) {
-    let shutdowner = model::Shutdowner::new(request_channel.clone());
-
     let hmac_key = Arc::new(hmac_key.to_string());
     let instance_name = Arc::new(instance_name.to_string());
 
@@ -180,7 +177,6 @@ pub async fn run(
         });
 
     let listener = tokio::net::TcpListener::bind(listen).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
 
-    std::mem::drop(shutdowner);
+    axum::serve(listener, app).await.expect("Failed to serve");
 }
