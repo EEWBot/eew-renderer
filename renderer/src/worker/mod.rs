@@ -12,10 +12,10 @@ use crate::model::Message;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
 
-mod border_line;
+mod drawer_border_line;
+mod drawer_intensity_icon;
+mod drawer_overlay;
 mod image_buffer;
-mod intensity_icon;
-mod overlay;
 mod resources;
 mod vertex;
 
@@ -109,7 +109,7 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box
                 )
                 .unwrap();
 
-            border_line::draw(
+            drawer_border_line::draw(
                 offset,
                 aspect_ratio,
                 scale,
@@ -118,7 +118,7 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box
                 &params,
             );
 
-            intensity_icon::draw_all(
+            drawer_intensity_icon::draw_all(
                 rendering_context.epicenter.as_ref(),
                 &rendering_context.area_intensities,
                 offset,
@@ -130,7 +130,7 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box
                 &params,
             );
 
-            overlay::draw(
+            drawer_overlay::draw(
                 &DIMENSION,
                 &aspect_ratio,
                 &display,
