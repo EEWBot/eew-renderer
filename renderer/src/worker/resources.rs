@@ -1,4 +1,4 @@
-use crate::vertex::MapVertex;
+use super::vertex::MapVertex;
 use renderer_types::Vertex;
 
 use glium::backend::Facade;
@@ -94,40 +94,40 @@ impl Shader {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
         let map = Program::from_source(
             facade,
-            include_str!("../../assets/shader/map.vsh"),
-            include_str!("../../assets/shader/map.fsh"),
+            include_str!("../../../assets/shader/map.vsh"),
+            include_str!("../../../assets/shader/map.fsh"),
             None,
         )
         .unwrap();
 
         let border_line = Program::from_source(
             facade,
-            include_str!("../../assets/shader/border_line.vsh"),
-            include_str!("../../assets/shader/border_line.fsh"),
+            include_str!("../../../assets/shader/border_line.vsh"),
+            include_str!("../../../assets/shader/border_line.fsh"),
             None,
         )
         .unwrap();
 
         let intensity_icon = Program::from_source(
             facade,
-            include_str!("../../assets/shader/intensity_icon.vsh"),
-            include_str!("../../assets/shader/intensity_icon.fsh"),
-            Some(include_str!("../../assets/shader/intensity_icon.gsh")),
+            include_str!("../../../assets/shader/intensity_icon.vsh"),
+            include_str!("../../../assets/shader/intensity_icon.fsh"),
+            Some(include_str!("../../../assets/shader/intensity_icon.gsh")),
         )
         .unwrap();
 
         let epicenter = Program::from_source(
             facade,
-            include_str!("../../assets/shader/epicenter.vsh"),
-            include_str!("../../assets/shader/epicenter.fsh"),
-            Some(include_str!("../../assets/shader/epicenter.gsh"),)
+            include_str!("../../../assets/shader/epicenter.vsh"),
+            include_str!("../../../assets/shader/epicenter.fsh"),
+            Some(include_str!("../../../assets/shader/epicenter.gsh"),)
         )
         .unwrap();
 
         let textured = Program::from_source(
             facade,
-            include_str!("../../assets/shader/textured.vsh"),
-            include_str!("../../assets/shader/textured.fsh"),
+            include_str!("../../../assets/shader/textured.vsh"),
+            include_str!("../../../assets/shader/textured.fsh"),
             None,
         )
         .unwrap();
@@ -168,9 +168,9 @@ impl Texture {
             .unwrap()
         };
 
-        let intensity = load_png(include_bytes!("../../assets/image/intensity.png"));
-        let epicenter = load_png(include_bytes!("../../assets/image/epicenter.png"));
-        let overlay = load_png(include_bytes!("../../assets/image/overlay.png"));
+        let intensity = load_png(include_bytes!("../../../assets/image/intensity.png"));
+        let epicenter = load_png(include_bytes!("../../../assets/image/epicenter.png"));
+        let overlay = load_png(include_bytes!("../../../assets/image/overlay.png"));
 
         Self { intensity, epicenter, overlay }
     }

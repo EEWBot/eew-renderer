@@ -1,7 +1,9 @@
 use glium::backend::Facade;
 use glium::{DrawParameters, IndexBuffer, Surface, uniform, VertexBuffer};
 use glium::index::PrimitiveType;
-use crate::vertex::え;
+
+use super::resources::Resources;
+use super::vertex::え;
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
@@ -12,7 +14,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     aspect: &f32,
     facade: &F,
     surface: &mut S,
-    resources: &crate::resources::Resources,
+    resources: &Resources,
     params: &DrawParameters,
 ) {
     let rights_position = calculate_rights_notation_position(dimension, aspect);

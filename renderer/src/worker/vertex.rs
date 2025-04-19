@@ -1,7 +1,6 @@
 use glium::implement_vertex;
 use renderer_types::*;
 
-
 #[derive(Copy, Clone, Debug)]
 pub struct MapVertex {
     position: [f32; 2],

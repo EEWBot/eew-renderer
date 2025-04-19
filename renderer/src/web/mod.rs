@@ -12,15 +12,13 @@ use enum_map::enum_map;
 use hmac::{Hmac, Mac};
 use prost::Message;
 
-mod model;
-use crate::intensity::震度;
 use crate::model::*;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    request_channel: tokio::sync::mpsc::Sender<UserEvent>,
+    request_channel: tokio::sync::mpsc::Sender<crate::model::Message>,
     hmac_key: Arc<String>,
     instance_name: Arc<String>,
     allow_demo: bool,
@@ -87,7 +85,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
-        .send(UserEvent::RenderingRequest((rendering_context, tx)))
+        .send(crate::Message::RenderingRequest((rendering_context, tx)))
         .await
         .unwrap();
 
@@ -140,7 +138,7 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
-        .send(UserEvent::RenderingRequest((rendering_context, tx)))
+        .send(crate::Message::RenderingRequest((rendering_context, tx)))
         .await
         .unwrap();
 
@@ -159,13 +157,11 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
 
 pub async fn run(
     listen: SocketAddr,
-    request_channel: tokio::sync::mpsc::Sender<UserEvent>,
+    request_channel: tokio::sync::mpsc::Sender<crate::Message>,
     hmac_key: &str,
     instance_name: &str,
     allow_demo: bool,
 ) {
-    let shutdowner = model::Shutdowner::new(request_channel.clone());
-
     let hmac_key = Arc::new(hmac_key.to_string());
     let instance_name = Arc::new(instance_name.to_string());
 
@@ -181,7 +177,6 @@ pub async fn run(
         });
 
     let listener = tokio::net::TcpListener::bind(listen).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
 
-    std::mem::drop(shutdowner);
+    axum::serve(listener, app).await.expect("Failed to serve");
 }
