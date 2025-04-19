@@ -19,9 +19,10 @@ type HmacSha1 = Hmac<sha1::Sha1>;
 
 #[derive(Clone, Debug)]
 pub struct AppState {
-    pub request_channel: tokio::sync::mpsc::Sender<UserEvent>,
-    pub hmac_key: Arc<String>,
-    pub instance_name: Arc<String>,
+    request_channel: tokio::sync::mpsc::Sender<UserEvent>,
+    hmac_key: Arc<String>,
+    instance_name: Arc<String>,
+    allow_demo: bool,
 }
 
 async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
@@ -113,11 +114,54 @@ async fn root_handler(State(app): State<AppState>) -> Response {
         .into_response()
 }
 
+async fn demo_handler(State(app): State<AppState>) -> Response {
+    use renderer_types::*;
+
+    if !app.allow_demo {
+        return (StatusCode::UNAUTHORIZED, "Demo endpoint is not allowed").into_response();
+    }
+
+    let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
+        epicenter: Some(Vertex::<GeoDegree>::new(137.2, 37.5)),
+        area_intensities: enum_map! {
+            震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
+            震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
+            震度::震度3 => vec![241, 251, 301, 311, 321, 331, 441, 442, 450, 461, 462, 510, 521, 531, 535, 562, 563, 212, 220, 221, 222, 230, 231, 232, 233, 340, 341, 342, 350, 360, 361, 411, 412, 550, 570, 575, 580, 581, 600, 610],
+            震度::震度4 => vec![401, 421, 422, 431, 432, 240, 242, 243, 250, 252, 300, 310, 320, 330, 443, 451, 460, 500, 501, 511, 520, 530, 540, 560],
+            震度::震度5弱 => vec![420, 430],
+            震度::震度5強 => vec![391, 370, 372, 375, 380, 381, 400],
+            震度::震度6弱 => vec![371],
+            震度::震度6強 => vec![],
+            震度::震度7 => vec![390],
+        },
+    };
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    app.request_channel
+        .send(UserEvent::RenderingRequest((rendering_context, tx)))
+        .await
+        .unwrap();
+
+    (
+        [
+            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (
+                HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
+                HeaderValue::from_str(&app.instance_name).unwrap(),
+            ),
+        ],
+        rx.await.unwrap(),
+    )
+        .into_response()
+}
+
 pub async fn run(
     listen: &str,
     request_channel: tokio::sync::mpsc::Sender<UserEvent>,
     hmac_key: &str,
     instance_name: &str,
+    allow_demo: bool,
 ) {
     let shutdowner = model::Shutdowner::new(request_channel.clone());
 
@@ -126,11 +170,13 @@ pub async fn run(
 
     let app = Router::new()
         .route("/", get(root_handler))
+        .route("/demo", get(demo_handler))
         .fallback(get(render_handler))
         .with_state(AppState {
             request_channel,
             hmac_key,
             instance_name,
+            allow_demo,
         });
 
     let listener = tokio::net::TcpListener::bind(listen).await.unwrap();
