@@ -3,11 +3,10 @@ name: Review
 on:
   pull_request:
     paths:
-      - 'src/**'
+      - '*/src/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/review.yml'
-
 
 env:
   CARGO_INCREMENTAL: 0
@@ -19,9 +18,11 @@ jobs:
         include:
           - ghimage: ubuntu-24.04
             dockerarch: linux/amd64
+            mcarch: amd64
 
           - ghimage: ubuntu-24.04-arm
             dockerarch: linux/arm64
+            mcarch: arm64
 
     permissions:
       packages: write
@@ -33,6 +34,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.2.2
+        with:
+          submodules: true
+
+      - run: |
+          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
+          sudo chmod +x /bin/mc
+          mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
+          pushd assets/shapefile/earthquake_detailed
+          mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
+          unzip -o ./earthquake_detailed.zip
+          popd
+          sudo apt-get install -y protobuf-compiler
 
       - name: Get Rust toolchain
         id: toolchain
@@ -49,7 +62,7 @@ jobs:
         uses: Swatinem/rust-cache@v2.7.8
 
       - name: clippy check
-        uses: sksat/action-clippy@v1.1.1
+        uses: yanorei32/action-clippy@50412b135153ebee7d4b8a5b868c4defdc663683
         with:
           reporter: github-pr-review
 
