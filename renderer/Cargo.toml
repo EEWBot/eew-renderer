@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 array-const-fn-init = "0.1.1"
-axum = "0.7.5"
+axum = "0.8.0"
 base65536 = "1.0.1"
 bytes = "1.10.1"
 clap = { version = "4.5.36", features = ["derive", "env"] }
