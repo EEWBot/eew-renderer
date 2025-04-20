@@ -119,7 +119,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/EEWBot/eew-renderer:${{ steps.tagname.outputs.version }}
+            ghcr.io/eewbot/eew-renderer:${{ steps.tagname.outputs.version }}
 
       - name: Build and Push
         uses: docker/build-push-action@v6.15.0
@@ -131,4 +131,4 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/EEWBot/eew-renderer:${{ steps.tagname.outputs.version }}
+            ghcr.io/eewbot/eew-renderer:${{ steps.tagname.outputs.version }}
