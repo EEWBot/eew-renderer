@@ -1,2 +1,3 @@
-気象庁から[地震情報／細分区域](https://www.data.jma.go.jp/developer/gis.html)をダウンロードし、
-zip内のファイルを名前を`earthquake_detailed.$EXTENSION`に置換して配置する。
+https://github.com/EEWBot/eew-renderer/wiki に従い、以下のファイルを作成する
+ - `assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp`
+ - `assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.dbf`
