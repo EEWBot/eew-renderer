@@ -88,6 +88,7 @@ pub struct Shader {
     pub intensity_icon: Program,
     pub epicenter: Program,
     pub textured: Program,
+    pub text: Program,
 }
 
 impl Shader {
@@ -131,6 +132,14 @@ impl Shader {
             None,
         )
         .unwrap();
+        
+        let text = Program::from_source(
+            facade,
+            include_str!("../../../assets/shader/text.vsh"),
+            include_str!("../../../assets/shader/text.fsh"),
+            None,
+        )
+        .unwrap();
 
         Self {
             map,
@@ -138,6 +147,7 @@ impl Shader {
             intensity_icon,
             epicenter,
             textured,
+            text,
         }
     }
 }

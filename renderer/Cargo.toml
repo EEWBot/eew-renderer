@@ -29,6 +29,8 @@ urlencoding = "2.1.3"
 winit = "0.30.9"
 chrono = "0.4.40"
 chrono-tz = "0.10.3"
+rusttype = { version = "0.9.3", features = ["gpu_cache"] }
+strum = { version = "0.27.1", features = ["derive"] }
 
 [build-dependencies]
 prost-build = "0.13.0"

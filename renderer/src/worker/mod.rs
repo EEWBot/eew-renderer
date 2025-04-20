@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-
+use chrono_tz::Japan;
 use crate::model::Message;
 use glium::{
     draw_parameters::{Blend, LinearBlendingFactor},
@@ -15,6 +15,7 @@ use glium::{
     uniform, BlendingFunction, Display, DrawParameters, Surface, Texture2d,
 };
 use glutin_winit::DisplayBuilder;
+use rusttype::Scale;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
 use tokio::sync::{mpsc, oneshot};
@@ -23,6 +24,7 @@ use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
+use crate::worker::fonts::{Font, FontManager, Offset, Origin};
 
 mod drawer_border_line;
 mod drawer_intensity_icon;
@@ -30,6 +32,7 @@ mod drawer_overlay;
 mod image_buffer;
 mod resources;
 mod vertex;
+mod fonts;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const BACKGROUND_COLOR: (f32, f32, f32, f32) = (0.5, 0.8, 1.0, 1.0);
@@ -55,12 +58,13 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
 }
 
 #[derive(Default)]
-struct App {
+struct App<'a> {
     display: Option<Display<WindowSurface>>,
     resources: Option<resources::Resources>,
+    font_manager: Option<FontManager<'a>>,
 }
 
-impl ApplicationHandler<Message> for App {
+impl ApplicationHandler<Message> for App<'_> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if cause != StartCause::Init {
             return;
@@ -68,9 +72,11 @@ impl ApplicationHandler<Message> for App {
 
         let display = create_gl_context(event_loop);
         let resources = resources::Resources::load(&display);
+        let font_manager = FontManager::new(&display);
 
         self.display = Some(display);
         self.resources = Some(resources);
+        self.font_manager = Some(font_manager)
     }
 
     fn resumed(&mut self, _: &ActiveEventLoop) {}
@@ -82,6 +88,7 @@ impl ApplicationHandler<Message> for App {
 
         let display = self.display.as_ref().unwrap();
         let resources = self.resources.as_ref().unwrap();
+        let font_manager = self.font_manager.as_mut().unwrap();
 
         let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
@@ -172,6 +179,13 @@ impl ApplicationHandler<Message> for App {
             resources,
             &draw_params,
         );
+        
+        let time_text = rendering_context.time.with_timezone(&Japan).format("%Y年%m月%d日 %H時%M分頃発生").to_string();
+        let font = Font::BizUDPGothicBold;
+        let color = [0.0f32, 0.0, 0.0, 0.63];
+        let scale = Scale::uniform(30.0);
+        let offset = Offset::new(Origin::RightDown, Origin::RightDown, -30, -30);
+        font_manager.draw_text(&time_text, font, color, scale, offset, (DIMENSION.0, DIMENSION.1), resources, display, &mut frame_buffer, &draw_params);
 
         println!("Rendered!");
 

@@ -30,3 +30,20 @@ impl え {
 }
 
 implement_vertex!(え, position, uv);
+
+#[derive(Copy, Clone, Debug)]
+pub struct TextVertex {
+    position: [f32; 2],
+    uv: [f32; 2],
+}
+
+impl TextVertex {
+    pub fn new(position: (f32, f32), uv: (f32, f32)) -> Self {
+        Self {
+            position: [position.0, position.1],
+            uv: [uv.0, uv.1],
+        }
+    }
+}
+
+implement_vertex!(TextVertex, position, uv);
