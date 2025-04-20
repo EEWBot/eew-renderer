@@ -18,7 +18,7 @@ glutin-winit = "0.5.0"
 hmac = "0.12.1"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 indexmap = "2.1.0"
-prost = "0.12.6"
+prost = "0.13.0"
 renderer-assets = { path = "../renderer-assets/" }
 renderer-types = { path = "../renderer-types/" }
 rustc-hash = "1.1.0"
@@ -30,7 +30,7 @@ urlencoding = "2.1.3"
 winit = "0.30.9"
 
 [build-dependencies]
-prost-build = "0.12.6"
+prost-build = "0.13.0"
 
 [profile.release]
 opt-level = 3
