@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - '*/src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/ci.yml'
+  push:
+    branches:
+      - 'master'
+    tags:
+      - v*
+
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_CACHE_VERSION: v1
+
+jobs:
+  rust:
+    strategy:
+      matrix:
+        include:
+          - ghimage: ubuntu-24.04
+            dockerarch: linux/amd64
+
+          - ghimage: ubuntu-24.04-arm
+            dockerarch: linux/arm64
+
+    permissions:
+      packages: write
+      checks: write
+      contents: read
+      deployments: write
+
+    runs-on: ${{ matrix.ghimage }}
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Get Rust toolchain
+        id: toolchain
+        run: |
+          awk -F'[ ="]+' '$1 == "channel" { print "toolchain=" $2 }' rust-toolchain >> "$GITHUB_OUTPUT"
+
+      - name: install clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.toolchain.outputs.toolchain }}
+          components: clippy
+
+      - name: cache dependencies
+        uses: Swatinem/rust-cache@v2.7.8
+        with:
+          prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
+
+      - name: clippy check
+        uses: sksat/action-clippy@v1.1.1
+        with:
+          reporter: github-check
+
+      - name: unit test
+        run: |
+          cargo test --no-run --locked
+          cargo test
+
+      - name: release build
+        run: cargo build --release
+
+  docker:
+    strategy:
+      matrix:
+        include:
+          - ghimage: ubuntu-24.04
+            dockerarch: linux/amd64
+
+          - ghimage: ubuntu-24.04-arm
+            dockerarch: linux/arm64
+
+    permissions:
+      packages: write
+      checks: write
+      contents: read
+      deployments: write
+
+    runs-on: ${{ matrix.ghimage }}
+
+    steps:
+      - uses: docker/setup-buildx-action@v3.10.0
+
+      - uses: docker/login-action@v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tagname
+        id: tagname
+        run: |
+          VERSION="$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')"
+          # 2193: ${{ github.ref }} will replaced by GitHub Actions
+          # shellcheck disable=SC2193
+          [[ "${{ github.ref }}" == refs/tags/* ]] && VERSION="${VERSION/v/}"
+          [[ "$VERSION" == "master" ]] && VERSION=latest
+          # shellcheck disable=SC2193
+          [[ "${{ github.ref }}" == refs/pull/* ]] && VERSION=dontpush
+          echo "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6.15.0
+        if: "! startsWith(github.ref, 'refs/pull/')"
+        with:
+          context: .
+          platforms: ${{ matrix.dockerimage }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/EEWBot/eew-renderer:${{ steps.tagname.outputs.version }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6.15.0
+        if: "startsWith(github.ref, 'refs/pull/')"
+        with:
+          context: .
+          platforms: ${{ matrix.dockerimage }}
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/EEWBot/eew-renderer:${{ steps.tagname.outputs.version }}
