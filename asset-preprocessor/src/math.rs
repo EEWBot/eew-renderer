@@ -95,7 +95,7 @@ impl<'a> AdjacentPointsIter<'a> {
     }
 }
 
-impl<'a> Iterator for AdjacentPointsIter<'a> {
+impl Iterator for AdjacentPointsIter<'_> {
     type Item = AdjacentPointsIterItem;
 
     fn next(&mut self) -> Option<Self::Item> {
