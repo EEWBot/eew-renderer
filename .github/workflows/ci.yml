@@ -57,7 +57,7 @@ jobs:
           prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
 
       - name: clippy check
-        uses: yanorei32/action-clippy
+        uses: yanorei32/action-clippy@50412b135153ebee7d4b8a5b868c4defdc663683
         with:
           reporter: github-check
 
