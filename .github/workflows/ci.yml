@@ -43,6 +43,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.2.2
+        with:
+          submodules: true
 
       - run: |
           sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
@@ -106,6 +108,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.2.2
+        with:
+          submodules: true
 
       - run: |
           sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
