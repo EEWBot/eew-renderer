@@ -27,6 +27,8 @@ sha1 = "0.10.6"
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros", "net"] }
 urlencoding = "2.1.3"
 winit = "0.30.9"
+chrono = "0.4.40"
+chrono-tz = "0.10.3"
 
 [build-dependencies]
 prost-build = "0.13.0"
