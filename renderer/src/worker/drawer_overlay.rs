@@ -10,8 +10,8 @@ const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
 const WATERMARK_RATIO_IN_Y_AXIS: f32 = 0.12;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
-    dimension: &(u32, u32),
-    aspect: &f32,
+    dimension: (u32, u32),
+    aspect: f32,
     facade: &F,
     surface: &mut S,
     resources: &Resources,
@@ -19,7 +19,6 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
 ) {
     let rights_position = calculate_rights_notation_position(dimension, aspect);
     let watermark_position = calculate_watermark_position(dimension, aspect);
-
 
     let vertices = [
         え::new(rights_position[0], (0.0, 0.5)),
@@ -48,7 +47,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     .unwrap();
 }
 
-fn calculate_rights_notation_position(dimension: &(u32, u32), aspect: &f32) -> [(f32, f32); 4] {
+fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [(f32, f32); 4] {
     let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
@@ -59,7 +58,7 @@ fn calculate_rights_notation_position(dimension: &(u32, u32), aspect: &f32) -> [
     ]
 }
 
-fn calculate_watermark_position(dimension: &(u32, u32), aspect: &f32) -> [(f32, f32); 4] {
+fn calculate_watermark_position(dimension: (u32, u32), aspect: f32) -> [(f32, f32); 4] {
     let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
