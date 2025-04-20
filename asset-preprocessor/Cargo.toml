@@ -5,8 +5,8 @@ edition = "2021"
 
 [dependencies]
 earcutr = "0.4.3"
-geo = "0.28"
+geo = "0.30"
 itertools = "0.12"
-ordered-float = "4.2"
+ordered-float = "5.0"
 renderer-types = { path = "../renderer-types/", features = ["shapefile"] }
-shapefile = "0.6"
+shapefile = "0.7"

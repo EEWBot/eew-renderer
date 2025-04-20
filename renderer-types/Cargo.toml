@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-shapefile = { default-features = false, version = "0.6", optional = true }
+shapefile = { default-features = false, version = "0.7", optional = true }
 rangemap = "1.5.1"
-ordered-float = "4.2.2"
+ordered-float = "5.0.0"
 
 [features]
 default = []
