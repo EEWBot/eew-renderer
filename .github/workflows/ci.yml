@@ -54,7 +54,7 @@ jobs:
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
           unzip -o ./earthquake_detailed.zip
           popd
-          sudo apt-get update && sudo apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler
 
       - name: Get Rust toolchain
         id: toolchain
@@ -120,7 +120,7 @@ jobs:
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
           unzip -o ./earthquake_detailed.zip
           popd
-          sudo apt-get update && sudo apt-get install -y protobuf-compiler
+          sudo apt-get install -y protobuf-compiler
 
       - uses: docker/setup-buildx-action@v3.10.0
 
