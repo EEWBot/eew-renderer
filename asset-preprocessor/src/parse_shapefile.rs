@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 

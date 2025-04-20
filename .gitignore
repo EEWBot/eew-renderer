@@ -9,6 +9,7 @@
 *.dbf
 *.shp
 *.shx
+*.qmd
 screenshot*.png
 log.txt
 *.log

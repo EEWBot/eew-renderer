@@ -5,6 +5,7 @@ pub enum Message {
     RenderingRequest((crate::RenderingContextV0, tokio::sync::oneshot::Sender<Vec<u8>>)),
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Enum, Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum 震度 {

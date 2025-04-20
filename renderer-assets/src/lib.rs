@@ -1,3 +1,6 @@
+#![allow(clippy::redundant_static_lifetimes)]
+#![allow(clippy::type_complexity)]
+
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 use renderer_types::*;
