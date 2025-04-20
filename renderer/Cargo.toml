@@ -21,7 +21,7 @@ indexmap = "2.1.0"
 prost = "0.12.6"
 renderer-assets = { path = "../renderer-assets/" }
 renderer-types = { path = "../renderer-types/" }
-rustc-hash = "1.1.0"
+rustc-hash = "2.0.0"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 sha1 = "0.10.6"
