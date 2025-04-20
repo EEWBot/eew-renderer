@@ -6,6 +6,7 @@ use glium::framebuffer::SimpleFrameBuffer;
 use glium::glutin::context::NotCurrentGlContext;
 use glium::glutin::display::{GetGlDisplay, GlDisplay};
 use glium::{glutin, uniform, Display, Surface, Texture2d};
+use tokio::sync::{mpsc, oneshot};
 use winit::raw_window_handle::HasWindowHandle;
 
 use crate::model::Message;
@@ -23,7 +24,7 @@ const DIMENSION: (u32, u32) = (1440, 1080);
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.1;
 
-pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
+pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
     let event_loop = winit::event_loop::EventLoop::<Message>::with_user_event().build()?;
 
     let proxy = event_loop.create_proxy();
@@ -135,52 +136,52 @@ pub async fn run(mut rx: tokio::sync::mpsc::Receiver<Message>) -> Result<(), Box
             println!("Rendered!");
 
             let pixel_buffer = texture.read_to_pixel_buffer();
-            let pixels: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
+            let image: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
 
-            tokio::spawn(async move {
-                use image::codecs::png::*;
-                use image::ImageEncoder;
-
-                if response_socket.is_closed() {
-                    println!("もういらないっていわれちゃった……");
-                    return;
-                }
-
-                let mut target = std::io::Cursor::new(Vec::new());
-
-                let encoder = PngEncoder::new_with_quality(
-                    &mut target,
-                    CompressionType::Fast,
-                    FilterType::Adaptive,
-                );
-
-                let image =
-                    image::RgbaImage::from_raw(pixels.width, pixels.height, pixels.data).unwrap();
-                let image = image::DynamicImage::ImageRgba8(image).flipv();
-
-                encoder
-                    .write_image(
-                        image.as_bytes(),
-                        image.width(),
-                        image.height(),
-                        image::ExtendedColorType::Rgba8,
-                    )
-                    .unwrap();
-
-                let target: Vec<u8> = target.into_inner();
-
-                println!("Encoded");
-
-                let 相手はもういらないかもしれない = response_socket.send(target);
-
-                if 相手はもういらないかもしれない.is_err() {
-                    println!("えんこーどまでしたのにー…むきーっ！");
-                }
-            });
+            tokio::spawn(async move { image_writeback(response_socket, image).await });
         })
         .unwrap();
 
     Ok(())
+}
+
+async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAImageData) {
+    use std::io::Cursor;
+
+    use image::codecs::png::*;
+    use image::{DynamicImage, ImageEncoder, RgbaImage};
+
+    if response_socket.is_closed() {
+        println!("もういらないっていわれちゃった……");
+        return;
+    }
+
+    let mut target = Cursor::new(Vec::new());
+
+    let encoder =
+        PngEncoder::new_with_quality(&mut target, CompressionType::Fast, FilterType::Adaptive);
+
+    let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
+    let image = DynamicImage::ImageRgba8(image).flipv();
+
+    encoder
+        .write_image(
+            image.as_bytes(),
+            image.width(),
+            image.height(),
+            image::ExtendedColorType::Rgba8,
+        )
+        .unwrap();
+
+    let target: Vec<u8> = target.into_inner();
+
+    println!("Encoded");
+
+    let 相手はもういらないかもしれない = response_socket.send(target);
+
+    if 相手はもういらないかもしれない.is_err() {
+        println!("えんこーどまでしたのにー…むきーっ！");
+    }
 }
 
 fn create_gl_context<T>(
