@@ -20,7 +20,9 @@ env:
 
 jobs:
   rust:
+    continue-on-error: false
     strategy:
+      fail-fast: false
       matrix:
         include:
           - ghimage: ubuntu-24.04
@@ -70,7 +72,9 @@ jobs:
         run: cargo build --release
 
   docker:
+    continue-on-error: false
     strategy:
+      fail-fast: false
       matrix:
         include:
           - ghimage: ubuntu-24.04
