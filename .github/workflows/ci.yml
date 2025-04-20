@@ -45,8 +45,8 @@ jobs:
       - uses: actions/checkout@v4.2.2
 
       - run: |
-          curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
-          chmod +x /bin/mc
+          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
+          sudo chmod +x /bin/mc
           mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
@@ -108,8 +108,8 @@ jobs:
       - uses: actions/checkout@v4.2.2
 
       - run: |
-          curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
-          chmod +x /bin/mc
+          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
+          sudo chmod +x /bin/mc
           mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
