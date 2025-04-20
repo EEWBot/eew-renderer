@@ -1,4 +1,4 @@
-use crate::intensity::震度;
+use crate::model::震度;
 use enum_map::EnumMap;
 use renderer_types::codes::Area;
 use renderer_types::{GeoDegree, Vertex};
