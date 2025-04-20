@@ -16,4 +16,4 @@ renderer-types = { path = "../renderer-types/", features = ["shapefile"] }
 asset-preprocessor  = { path = "../asset-preprocessor/" }
 const-gen = "1.6"
 itertools = "0.12"
-ordered-float = "4.2"
+ordered-float = "5.0"
