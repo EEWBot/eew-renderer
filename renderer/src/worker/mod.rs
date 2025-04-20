@@ -2,12 +2,22 @@ use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 
-use glium::framebuffer::SimpleFrameBuffer;
-use glium::glutin::context::NotCurrentGlContext;
-use glium::glutin::display::{GetGlDisplay, GlDisplay};
-use glium::{glutin, uniform, Display, Surface, Texture2d};
+use glium::{
+    draw_parameters::{Blend, LinearBlendingFactor},
+    framebuffer::SimpleFrameBuffer,
+    glutin::{
+        config::ConfigTemplateBuilder,
+        context::{ContextAttributesBuilder, NotCurrentGlContext},
+        display::{GetGlDisplay, GlDisplay},
+        surface::{SurfaceAttributesBuilder, WindowSurface},
+    },
+    uniform, BlendingFunction, Display, Surface, Texture2d,
+};
+use glutin_winit::DisplayBuilder;
 use tokio::sync::{mpsc, oneshot};
-use winit::raw_window_handle::HasWindowHandle;
+use winit::{
+    event::Event::UserEvent, raw_window_handle::HasWindowHandle, window::WindowAttributes,
+};
 
 use crate::model::Message;
 use image_buffer::RGBAImageData;
@@ -46,12 +56,12 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
 
     let params = glium::DrawParameters {
         multisampling: false,
-        blend: glium::draw_parameters::Blend {
-            color: glium::BlendingFunction::Addition {
-                source: glium::draw_parameters::LinearBlendingFactor::SourceAlpha,
-                destination: glium::draw_parameters::LinearBlendingFactor::OneMinusSourceAlpha,
+        blend: Blend {
+            color: BlendingFunction::Addition {
+                source: LinearBlendingFactor::SourceAlpha,
+                destination: LinearBlendingFactor::OneMinusSourceAlpha,
             },
-            alpha: glium::BlendingFunction::Max,
+            alpha: BlendingFunction::Max,
             constant_value: (0.0, 0.0, 0.0, 0.0),
         },
         ..Default::default()
@@ -59,8 +69,6 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
 
     event_loop
         .run(move |event, _window_target| {
-            use winit::event::Event::*;
-
             let (rendering_context, response_socket) = match event {
                 UserEvent(Message::RenderingRequest(v)) => v,
                 _ => return,
@@ -184,27 +192,24 @@ async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAI
     }
 }
 
-fn create_gl_context<T>(
-    event_loop: &winit::event_loop::EventLoop<T>,
-) -> Display<glutin::surface::WindowSurface> {
-    let attributes = winit::window::WindowAttributes::default().with_visible(false);
-    let display_builder =
-        glutin_winit::DisplayBuilder::new().with_window_attributes(Some(attributes));
-    let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+fn create_gl_context<T>(event_loop: &winit::event_loop::EventLoop<T>) -> Display<WindowSurface> {
+    let display_builder = DisplayBuilder::new()
+        .with_window_attributes(Some(WindowAttributes::default().with_visible(false)));
 
     let (window, gl_config) = display_builder
-        .build(event_loop, config_template_builder, |mut configs| {
+        .build(event_loop, ConfigTemplateBuilder::new(), |mut configs| {
             configs.next().unwrap()
         })
         .unwrap();
+
     let window = window.unwrap();
 
-    let attributes =
-        glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new().build(
-            window.window_handle().unwrap().as_raw(),
-            NonZeroU32::new(1).unwrap(),
-            NonZeroU32::new(1).unwrap(),
-        );
+    let attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+        window.window_handle().unwrap().as_raw(),
+        NonZeroU32::new(1).unwrap(),
+        NonZeroU32::new(1).unwrap(),
+    );
+
     let surface = unsafe {
         gl_config
             .display()
@@ -212,8 +217,9 @@ fn create_gl_context<T>(
             .unwrap()
     };
 
-    let attributes = glutin::context::ContextAttributesBuilder::new()
-        .build(Some(window.window_handle().unwrap().as_raw()));
+    let attributes =
+        ContextAttributesBuilder::new().build(Some(window.window_handle().unwrap().as_raw()));
+
     let current_context = unsafe {
         gl_config
             .display()
