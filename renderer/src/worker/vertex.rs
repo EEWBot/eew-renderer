@@ -10,7 +10,9 @@ implement_vertex!(MapVertex, position);
 
 impl MapVertex {
     pub fn new(position: Vertex<GeoDegree>) -> Self {
-        Self { position: position.to_slice() }
+        Self {
+            position: position.to_slice(),
+        }
     }
 }
 

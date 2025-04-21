@@ -75,7 +75,7 @@ impl Buffer {
         self.area_line.get(i)
     }
 
-    pub fn get_pref_line_by_scale(&self, scale:f32) -> Option<&IndexBuffer<u32>> {
+    pub fn get_pref_line_by_scale(&self, scale: f32) -> Option<&IndexBuffer<u32>> {
         let i = renderer_assets::QueryInterface::query_lod_level_by_scale(scale)?;
         self.pref_line.get(i)
     }
@@ -121,7 +121,7 @@ impl Shader {
             facade,
             include_str!("../../../assets/shader/epicenter.vsh"),
             include_str!("../../../assets/shader/epicenter.fsh"),
-            Some(include_str!("../../../assets/shader/epicenter.gsh"),)
+            Some(include_str!("../../../assets/shader/epicenter.gsh")),
         )
         .unwrap();
 
@@ -132,7 +132,7 @@ impl Shader {
             None,
         )
         .unwrap();
-        
+
         let text = Program::from_source(
             facade,
             include_str!("../../../assets/shader/text.vsh"),
@@ -182,6 +182,10 @@ impl Texture {
         let epicenter = load_png(include_bytes!("../../../assets/image/epicenter.png"));
         let overlay = load_png(include_bytes!("../../../assets/image/overlay.png"));
 
-        Self { intensity, epicenter, overlay }
+        Self {
+            intensity,
+            epicenter,
+            overlay,
+        }
     }
 }

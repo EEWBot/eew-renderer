@@ -1,6 +1,6 @@
 use glium::backend::Facade;
-use glium::{DrawParameters, IndexBuffer, Surface, uniform, VertexBuffer};
 use glium::index::PrimitiveType;
+use glium::{uniform, DrawParameters, IndexBuffer, Surface, VertexBuffer};
 
 use super::resources::Resources;
 use super::vertex::え;
@@ -33,18 +33,20 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let indices = [0_u32, 1, 2, 3, 3, 4, 4, 5, 6, 7];
 
     let vertex_buffer = VertexBuffer::dynamic(facade, &vertices).unwrap();
-    let index_buffer = IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
+    let index_buffer =
+        IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
 
-    surface.draw(
-        &vertex_buffer,
-        &index_buffer,
-        &resources.shader.textured,
-        &uniform! {
-            texture_sampler: &resources.texture.overlay,
-        },
-        params
-    )
-    .unwrap();
+    surface
+        .draw(
+            &vertex_buffer,
+            &index_buffer,
+            &resources.shader.textured,
+            &uniform! {
+                texture_sampler: &resources.texture.overlay,
+            },
+            params,
+        )
+        .unwrap();
 }
 
 fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [(f32, f32); 4] {
@@ -52,9 +54,18 @@ fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [(f
     let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
         (-1.0 + x_offset, -1.0 + y_offset),
-        (-1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0, -1.0 + y_offset),
-        (-1.0 + x_offset, -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset),
-        (-1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0, -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset),
+        (
+            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            -1.0 + y_offset,
+        ),
+        (
+            -1.0 + x_offset,
+            -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
+        ),
+        (
+            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
+        ),
     ]
 }
 
@@ -62,9 +73,18 @@ fn calculate_watermark_position(dimension: (u32, u32), aspect: f32) -> [(f32, f3
     let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
-        (1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0, 1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset),
-        (1.0 - x_offset, 1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset),
-        (1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0, 1.0 - y_offset),
+        (
+            1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset,
+        ),
+        (
+            1.0 - x_offset,
+            1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset,
+        ),
+        (
+            1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            1.0 - y_offset,
+        ),
         (1.0 - x_offset, 1.0 - y_offset),
     ]
 }

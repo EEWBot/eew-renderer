@@ -1,4 +1,4 @@
-use glium::{DrawParameters, Surface, uniform};
+use glium::{uniform, DrawParameters, Surface};
 use renderer_types::*;
 
 use super::resources::Resources;
@@ -20,32 +20,36 @@ pub fn draw<S: ?Sized + Surface>(
     let mut params = params.clone();
     params.line_width = Some(AREA_BORDER_WIDTH);
 
-    surface.draw(
-        &resources.buffer.vertex,
-        resources.buffer.get_area_line_by_scale(scale).unwrap(),
-        &resources.shader.border_line,
-        &uniform! {
-            aspect_ratio: aspect_ratio,
-            offset: offset.to_slice(),
-            zoom: scale,
-            color: AREA_BORDER_COLOR,
-        },
-        &params,
-    ).unwrap();
+    surface
+        .draw(
+            &resources.buffer.vertex,
+            resources.buffer.get_area_line_by_scale(scale).unwrap(),
+            &resources.shader.border_line,
+            &uniform! {
+                aspect_ratio: aspect_ratio,
+                offset: offset.to_slice(),
+                zoom: scale,
+                color: AREA_BORDER_COLOR,
+            },
+            &params,
+        )
+        .unwrap();
 
     let mut params = params.clone();
     params.line_width = Some(PREFECTURAL_BORDER_WIDTH);
 
-    surface.draw(
-        &resources.buffer.vertex,
-        resources.buffer.get_pref_line_by_scale(scale).unwrap(),
-        &resources.shader.border_line,
-        &uniform! {
-            aspect_ratio: aspect_ratio,
-            offset: offset.to_slice(),
-            zoom: scale,
-            color: PREFECTURAL_BORDER_COLOR,
-        },
-        &params,
-    ).unwrap();
+    surface
+        .draw(
+            &resources.buffer.vertex,
+            resources.buffer.get_pref_line_by_scale(scale).unwrap(),
+            &resources.shader.border_line,
+            &uniform! {
+                aspect_ratio: aspect_ratio,
+                offset: offset.to_slice(),
+                zoom: scale,
+                color: PREFECTURAL_BORDER_COLOR,
+            },
+            &params,
+        )
+        .unwrap();
 }

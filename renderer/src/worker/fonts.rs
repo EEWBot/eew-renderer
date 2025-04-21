@@ -1,21 +1,21 @@
-use std::borrow::Cow;
-use std::cmp::{max, min};
+use crate::worker::resources::Resources;
+use crate::worker::vertex::TextVertex;
 use glium::backend::Facade;
-use glium::{implement_vertex, uniform, DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
 use glium::index::PrimitiveType;
 use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::uniforms::MagnifySamplerFilter;
-use rusttype::{point, Point, Scale};
+use glium::{uniform, DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
 use rusttype::gpu_cache::{Cache, CacheBuilder};
+use rusttype::{point, Point, Scale};
+use std::borrow::Cow;
+use std::cmp::{max, min};
 use strum::{EnumIter, IntoEnumIterator};
-use crate::worker::resources::Resources;
-use crate::worker::vertex::TextVertex;
 
 const FONT_CACHE_SIZE: u32 = 512;
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Font {
-    BizUDPGothicBold
+    BizUDPGothicBold,
 }
 
 trait FontInfo {
@@ -31,7 +31,9 @@ impl FontInfo for Font {
 
     fn font_binary(&self) -> &'static [u8] {
         match self {
-            Font::BizUDPGothicBold => include_bytes!("../../../assets/font/biz-udpgothic/BIZUDPGothic-Bold.ttf"),
+            Font::BizUDPGothicBold => {
+                include_bytes!("../../../assets/font/biz-udpgothic/BIZUDPGothic-Bold.ttf")
+            }
         }
     }
 }
@@ -44,7 +46,9 @@ pub struct FontManager<'a> {
 
 impl FontManager<'_> {
     pub fn new<F: ?Sized + Facade>(facade: &F) -> Self {
-        let fonts: Vec<_> = Font::iter().map(|f| rusttype::Font::try_from_bytes(f.font_binary()).unwrap()).collect();
+        let fonts: Vec<_> = Font::iter()
+            .map(|f| rusttype::Font::try_from_bytes(f.font_binary()).unwrap())
+            .collect();
         let font_cache = CacheBuilder::default()
             .dimensions(FONT_CACHE_SIZE, FONT_CACHE_SIZE)
             .multithread(true)
@@ -61,28 +65,40 @@ impl FontManager<'_> {
             UncompressedFloatFormat::U8,
             MipmapsOption::NoMipmap,
         )
-            .unwrap();
-        
+        .unwrap();
+
         Self {
             fonts,
             font_cache,
-            font_cache_texture
+            font_cache_texture,
         }
     }
-    
-    pub fn draw_text<F: ?Sized + Facade, S: ?Sized + Surface>(&mut self, text: &str, font: Font, color: [f32; 4], scale: Scale, offset: Offset, image_dimension: (u32, u32), resources: &Resources, facade: &F, surface: &mut S, draw_params: &DrawParameters) {
+
+    pub fn draw_text<F: ?Sized + Facade, S: ?Sized + Surface>(
+        &mut self,
+        text: &str,
+        font: Font,
+        color: [f32; 4],
+        scale: Scale,
+        offset: Offset,
+        image_dimension: (u32, u32),
+        resources: &Resources,
+        facade: &F,
+        surface: &mut S,
+        draw_params: &DrawParameters,
+    ) {
         let font_id = font.font_id();
         let font = &self.fonts[font_id];
-        
+
         let glyph_offset = point(0.0, font.v_metrics(scale).ascent);
         let glyphs: Vec<_> = font.layout(text, scale, glyph_offset).collect();
-        
+
         let (text_width, text_height) = {
             let mut min_x = i32::MAX;
             let mut max_x = i32::MIN;
             let mut min_y = i32::MAX;
             let mut max_y = i32::MIN;
-            
+
             glyphs
                 .iter()
                 .filter_map(|glyph| glyph.pixel_bounding_box())
@@ -95,10 +111,14 @@ impl FontManager<'_> {
 
             ((max_x - min_x) as u32, (max_y - min_y) as u32)
         };
-        
-        let glyph_offset = offset.glyph_offset(image_dimension, (text_width, text_height), font.v_metrics(scale).ascent);
+
+        let glyph_offset = offset.glyph_offset(
+            image_dimension,
+            (text_width, text_height),
+            font.v_metrics(scale).ascent,
+        );
         let glyphs: Vec<_> = font.layout(text, scale, glyph_offset).collect();
-        
+
         for glyph in &glyphs {
             self.font_cache.queue_glyph(font_id, glyph.clone())
         }
@@ -120,7 +140,7 @@ impl FontManager<'_> {
                 );
             })
             .unwrap();
-        
+
         let glyph_rects: Vec<_> = glyphs
             .iter()
             .filter_map(|glyph| self.font_cache.rect_for(font_id, glyph).ok().flatten())
@@ -136,7 +156,7 @@ impl FontManager<'_> {
                     screen_rect.max.x as f32 / image_dimension.0 as f32 * 2.0 - 1.0,
                     screen_rect.max.y as f32 / image_dimension.1 as f32 * -2.0 + 1.0,
                 );
-                
+
                 vec![
                     TextVertex::new((min.0, min.1), (uv_rect.min.x, uv_rect.min.y)),
                     TextVertex::new((max.0, min.1), (uv_rect.max.x, uv_rect.min.y)),
@@ -156,14 +176,15 @@ impl FontManager<'_> {
             })
             .flatten()
             .collect();
-        
+
         let vertex_buffer = VertexBuffer::dynamic(facade, &vertices).unwrap();
-        let index_buffer = IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
+        let index_buffer =
+            IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
         let uniforms = uniform! {
             font_texture: self.font_cache_texture.sampled().magnify_filter(MagnifySamplerFilter::Nearest),
             color: color,
         };
-        
+
         surface
             .draw(
                 &vertex_buffer,
@@ -202,11 +223,16 @@ impl Offset {
             y,
         }
     }
-    
-    fn glyph_offset(&self, image_dimension: (u32, u32), text_size: (u32, u32), ascent: f32) -> Point<f32> {
+
+    fn glyph_offset(
+        &self,
+        image_dimension: (u32, u32),
+        text_size: (u32, u32),
+        ascent: f32,
+    ) -> Point<f32> {
         let x = self.x as f32;
         let y = self.y as f32;
-        
+
         let image_dimension = (image_dimension.0 as f32, image_dimension.1 as f32);
         let offset = match self.image_origin {
             Origin::LeftUp => (x, y),
@@ -215,7 +241,7 @@ impl Offset {
             Origin::RightDown => (x + image_dimension.0, y + image_dimension.1),
             Origin::Center => (x + image_dimension.0 / 2.0, y + image_dimension.1 / 2.0),
         };
-        
+
         let text_size = (text_size.0 as f32, text_size.1 as f32);
         let offset = match self.text_origin {
             Origin::LeftUp => (offset.0, offset.1),
@@ -224,31 +250,46 @@ impl Offset {
             Origin::RightDown => (offset.0 - text_size.0, offset.1 - text_size.1),
             Origin::Center => (offset.0 - text_size.0 / 2.0, offset.1 - text_size.1 / 2.0),
         };
-        
+
         point(offset.0, offset.1 + ascent)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use rusttype::point;
     use crate::worker::fonts::{Offset, Origin};
+    use rusttype::point;
 
     #[test]
     fn test_offset() {
         let offset = Offset::new(Origin::LeftUp, Origin::LeftUp, 0, 0);
-        assert_eq!(offset.glyph_offset((100, 100), (10, 10), 0.0), point(0.0, 0.0));
-        
+        assert_eq!(
+            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            point(0.0, 0.0)
+        );
+
         let offset = Offset::new(Origin::RightUp, Origin::RightUp, 0, 0);
-        assert_eq!(offset.glyph_offset((100, 100), (10, 10), 0.0), point(90.0, 0.0));
-        
+        assert_eq!(
+            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            point(90.0, 0.0)
+        );
+
         let offset = Offset::new(Origin::LeftDown, Origin::LeftDown, 0, 0);
-        assert_eq!(offset.glyph_offset((100, 100), (10, 10), 0.0), point(0.0, 90.0));
-        
+        assert_eq!(
+            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            point(0.0, 90.0)
+        );
+
         let offset = Offset::new(Origin::RightDown, Origin::RightDown, 0, 0);
-        assert_eq!(offset.glyph_offset((100, 100), (10, 10), 0.0), point(90.0, 90.0));
-        
+        assert_eq!(
+            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            point(90.0, 90.0)
+        );
+
         let offset = Offset::new(Origin::Center, Origin::Center, 0, 0);
-        assert_eq!(offset.glyph_offset((100, 100), (10, 10), 0.0), point(45.0, 45.0));
+        assert_eq!(
+            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            point(45.0, 45.0)
+        );
     }
 }

@@ -1,6 +1,6 @@
+use crate::{GeoDegree, Screen};
 use std::f32::consts::PI;
 use std::marker::PhantomData;
-use crate::{GeoDegree, Screen};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Vertex<Type> {
@@ -72,7 +72,7 @@ impl<Type> From<(f32, f32)> for Vertex<Type> {
     }
 }
 
-#[cfg(feature="shapefile")]
+#[cfg(feature = "shapefile")]
 impl From<shapefile::Point> for Vertex<crate::GeoDegree> {
     fn from(value: shapefile::Point) -> Self {
         Self {

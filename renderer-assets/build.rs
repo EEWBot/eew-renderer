@@ -19,19 +19,19 @@ fn main() {
         area_code__pref_code,
     ) = station_codes_parser::read(&s);
 
-    let (code_to_physically_center, vertices, indices, area_lines, pref_lines, scale_level_map) = parse_shapefile::read(
-        &area_code__pref_code
-    );
+    let (code_to_physically_center, vertices, indices, area_lines, pref_lines, scale_level_map) =
+        parse_shapefile::read(&area_code__pref_code);
 
-    let areas: HashMap<u32, (usize, (f32, f32, f32, f32))>
-        = code_to_physically_center.iter().map(|(code, bbox)| {
-        let area = area_code__intensity_station_range
-            .get(code)
-            .expect("地図上にあるareaだがintensity_stations.json上に無い");
+    let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = code_to_physically_center
+        .iter()
+        .map(|(code, bbox)| {
+            let area = area_code__intensity_station_range
+                .get(code)
+                .expect("地図上にあるareaだがintensity_stations.json上に無い");
 
-        let stations = &intensity_station_minimized[area.start_i..area.start_i + area.n];
+            let stations = &intensity_station_minimized[area.start_i..area.start_i + area.n];
 
-        let nearest_intensity_station_index = stations
+            let nearest_intensity_station_index = stations
                 .iter()
                 .enumerate()
                 .min_by_key(|(_i, &station)| {
@@ -41,8 +41,9 @@ fn main() {
                 .map(|(offset, _station)| area.start_i + offset)
                 .expect("エリア内に一つも観測点がない");
 
-        (*code, (nearest_intensity_station_index, bbox.to_tuple()))
-    }).collect();
+            (*code, (nearest_intensity_station_index, bbox.to_tuple()))
+        })
+        .collect();
 
     let const_declarations = [
         const_declaration!(INTENSITY_STATION_POSITIONS = intensity_station_minimized),
@@ -53,8 +54,12 @@ fn main() {
         const_declaration!(AREA_LINES = area_lines),
         const_declaration!(PREF_LINES = pref_lines),
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
-    ].join("\n");
+    ]
+    .join("\n");
 
-
-    std::fs::write(format!("{}/data.rs", std::env::var("OUT_DIR").unwrap()), const_declarations).unwrap();
+    std::fs::write(
+        format!("{}/data.rs", std::env::var("OUT_DIR").unwrap()),
+        const_declarations,
+    )
+    .unwrap();
 }

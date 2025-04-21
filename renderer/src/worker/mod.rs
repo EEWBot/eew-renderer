@@ -1,8 +1,6 @@
-use std::error::Error;
-use std::marker::PhantomData;
-use std::num::NonZeroU32;
-use chrono_tz::Japan;
 use crate::model::Message;
+use crate::worker::fonts::{Font, FontManager, Offset, Origin};
+use chrono_tz::Japan;
 use glium::{
     draw_parameters::{Blend, LinearBlendingFactor},
     framebuffer::SimpleFrameBuffer,
@@ -15,24 +13,26 @@ use glium::{
     uniform, BlendingFunction, Display, DrawParameters, Surface, Texture2d,
 };
 use glutin_winit::DisplayBuilder;
-use rusttype::Scale;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
+use rusttype::Scale;
+use std::error::Error;
+use std::marker::PhantomData;
+use std::num::NonZeroU32;
 use tokio::sync::{mpsc, oneshot};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
-use crate::worker::fonts::{Font, FontManager, Offset, Origin};
 
 mod drawer_border_line;
 mod drawer_intensity_icon;
 mod drawer_overlay;
+mod fonts;
 mod image_buffer;
 mod resources;
 mod vertex;
-mod fonts;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const BACKGROUND_COLOR: (f32, f32, f32, f32) = (0.5, 0.8, 1.0, 1.0);
@@ -179,13 +179,28 @@ impl ApplicationHandler<Message> for App<'_> {
             resources,
             &draw_params,
         );
-        
-        let time_text = rendering_context.time.with_timezone(&Japan).format("%Y年%m月%d日 %H時%M分頃発生").to_string();
+
+        let time_text = rendering_context
+            .time
+            .with_timezone(&Japan)
+            .format("%Y年%m月%d日 %H時%M分頃発生")
+            .to_string();
         let font = Font::BizUDPGothicBold;
         let color = [0.0f32, 0.0, 0.0, 0.63];
         let scale = Scale::uniform(30.0);
         let offset = Offset::new(Origin::RightDown, Origin::RightDown, -30, -30);
-        font_manager.draw_text(&time_text, font, color, scale, offset, (DIMENSION.0, DIMENSION.1), resources, display, &mut frame_buffer, &draw_params);
+        font_manager.draw_text(
+            &time_text,
+            font,
+            color,
+            scale,
+            offset,
+            DIMENSION,
+            resources,
+            display,
+            &mut frame_buffer,
+            &draw_params,
+        );
 
         println!("Rendered!");
 

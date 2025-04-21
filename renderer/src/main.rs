@@ -2,10 +2,10 @@ pub mod quake_prefecture {
     include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
 }
 
-mod web;
 mod model;
-mod worker;
 mod rendering_context_v0;
+mod web;
+mod worker;
 
 use std::error::Error;
 use std::net::SocketAddr;

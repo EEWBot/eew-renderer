@@ -93,12 +93,12 @@ impl<Type> BoundingBox<Type> {
             min: Vertex {
                 x: f32::min(self.min.x, vertex.x),
                 y: f32::min(self.min.y, vertex.y),
-                _type: PhantomData
+                _type: PhantomData,
             },
             max: Vertex {
                 x: f32::max(self.max.x, vertex.x),
                 y: f32::max(self.max.y, vertex.y),
-                _type: PhantomData
+                _type: PhantomData,
             },
         }
     }
@@ -140,12 +140,13 @@ impl<Type> BoundingBox<Type> {
     }
 
     pub fn from_vertices(vertices: &[Vertex<Type>]) -> BoundingBox<Type> {
-        vertices.iter().fold(BoundingBox {
-            min: Vertex::new(f32::MAX, f32::MAX),
-            max: Vertex::new(f32::MIN, f32::MIN),
-        }, |acc, vertex| {
-            acc.extends_by_vertex(vertex)
-        })
+        vertices.iter().fold(
+            BoundingBox {
+                min: Vertex::new(f32::MAX, f32::MAX),
+                max: Vertex::new(f32::MIN, f32::MIN),
+            },
+            |acc, vertex| acc.extends_by_vertex(vertex),
+        )
     }
 }
 

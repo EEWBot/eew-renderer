@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use crate::model::震度;
+use chrono::{DateTime, Utc};
 use enum_map::EnumMap;
 use renderer_types::codes::Area;
 use renderer_types::{GeoDegree, Vertex};
