@@ -1,20 +1,21 @@
 use glium::backend::Facade;
+use glium::index::IndicesSource;
 use glium::uniforms::Uniforms;
-use glium::{Program, Surface, Vertex};
+use glium::{DrawError, DrawParameters, Program, Surface, Vertex, VertexBuffer};
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
 
-pub struct ShaderProgram<T: Uniforms, U: ToUniform<T>, V: Vertex> {
+#[derive(Debug)]
+pub struct ShaderProgram<U: Uniforms, V: Vertex> {
     program: Program,
-    _uniforms: PhantomData<T>,
     _uniform_type: PhantomData<U>,
     _vertex_type: PhantomData<V>,
 }
-impl<T: Uniforms, U: ToUniform<T>, V: Vertex> ShaderProgram<T, U, V> {
+
+impl<U: Uniforms, V: Vertex> ShaderProgram<U, V> {
     pub fn from_program(program: Program) -> Result<Self, ShaderInstantiationError> {
         Ok(Self {
             program,
-            _uniforms: PhantomData,
             _uniform_type: PhantomData,
             _vertex_type: PhantomData,
         })
@@ -30,10 +31,23 @@ impl<T: Uniforms, U: ToUniform<T>, V: Vertex> ShaderProgram<T, U, V> {
             .map_err(|e| ShaderInstantiationError::ProgramCreation(e))?;
         Self::from_program(program)
     }
-}
 
-pub trait ToUniform<T: Uniforms> {
-    fn to_uniform(&self) -> &T;
+    pub fn draw<'a, S: ?Sized + Surface, I: Into<IndicesSource<'a>>>(
+        &self,
+        surface: &mut S,
+        vertex_buffer: &VertexBuffer<V>,
+        index_buffer: I,
+        uniform: &U,
+        draw_parameters: &DrawParameters,
+    ) -> Result<(), DrawError> {
+        surface.draw(
+            vertex_buffer,
+            index_buffer,
+            &self.program,
+            uniform,
+            draw_parameters,
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -52,42 +66,3 @@ impl Display for ShaderInstantiationError {
 }
 
 impl std::error::Error for ShaderInstantiationError {}
-
-pub mod draw {
-    use crate::worker::shader::{ShaderProgram, ToUniform};
-    use glium::framebuffer::SimpleFrameBuffer;
-    use glium::index::IndicesSource;
-    use glium::uniforms::Uniforms;
-    use glium::{DrawError, DrawParameters, Surface, Vertex, VertexBuffer};
-
-    pub trait ShaderProgramDraw {
-        fn draw<'a, T: Uniforms, U: ToUniform<T>, V: Vertex, I: Into<IndicesSource<'a>>>(
-            &mut self,
-            shader: &ShaderProgram<T, U, V>,
-            vertex: &VertexBuffer<V>,
-            index_buffer: I,
-            uniform: &U,
-            draw_parameters: &DrawParameters,
-        ) -> Result<(), DrawError>;
-    }
-
-    impl<'a> ShaderProgramDraw for SimpleFrameBuffer<'a> {
-        fn draw<'b, T: Uniforms, U: ToUniform<T>, V: Vertex, I: Into<IndicesSource<'b>>>(
-            &mut self,
-            shader: &ShaderProgram<T, U, V>,
-            vertex: &VertexBuffer<V>,
-            index_buffer: I,
-            uniform: &U,
-            draw_parameters: &DrawParameters,
-        ) -> Result<(), DrawError> {
-            Surface::draw(
-                self,
-                vertex,
-                index_buffer,
-                &shader.program,
-                uniform.to_uniform(),
-                draw_parameters,
-            )
-        }
-    }
-}
