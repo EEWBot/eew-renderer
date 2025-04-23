@@ -1,5 +1,5 @@
 use crate::worker::resources::Resources;
-use crate::worker::vertex::TextVertex;
+use crate::worker::vertex::{TextUniform, TextVertex};
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
@@ -192,17 +192,21 @@ impl FontManager<'_> {
         let vertex_buffer = VertexBuffer::dynamic(facade, &vertices).unwrap();
         let index_buffer =
             IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
-        let uniforms = uniform! {
-            font_texture: self.font_cache_texture.sampled().magnify_filter(MagnifySamplerFilter::Nearest),
-            color: color,
-        };
 
-        surface
+        resources
+            .shader
+            .text
             .draw(
+                surface,
                 &vertex_buffer,
                 &index_buffer,
-                &resources.shader.text,
-                &uniforms,
+                &TextUniform {
+                    font_texture: &self
+                        .font_cache_texture
+                        .sampled()
+                        .magnify_filter(MagnifySamplerFilter::Nearest),
+                    color: color,
+                },
                 draw_params,
             )
             .unwrap();

@@ -1,19 +1,20 @@
-use super::vertex::MapVertex;
+use super::vertex::{EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex};
 use renderer_types::{GeoDegree, Vertex};
 
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::{IndexBuffer, Program, Texture2d, VertexBuffer};
+use crate::worker::shader::ShaderProgram;
 
 #[derive(Debug)]
-pub struct Resources {
-    pub shader: Shader,
+pub struct Resources<'a> {
+    pub shader: Shader<'a>,
     pub buffer: Buffer,
     pub texture: Texture,
 }
 
-impl Resources {
+impl Resources<'_> {
     pub fn load<F: ?Sized + Facade>(facade: &F) -> Self {
         let shader = Shader::load(facade);
         let buffer = Buffer::load(facade);
@@ -84,18 +85,18 @@ impl Buffer {
 }
 
 #[derive(Debug)]
-pub struct Shader {
-    pub map: Program,
+pub struct Shader<'a> {
+    pub map: ShaderProgram<MapUniform, MapVertex>,
     pub border_line: Program,
-    pub intensity_icon: Program,
-    pub epicenter: Program,
-    pub textured: Program,
-    pub text: Program,
+    pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
+    pub epicenter: ShaderProgram<EpicenterUniform<'a>, EpicenterVertex>,
+    pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
+    pub text: ShaderProgram<TextUniform<'a>, TextVertex>,
 }
 
-impl Shader {
+impl Shader<'_> {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let map = Program::from_source(
+        let map = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/map.vsh"),
             include_str!("../../../assets/shader/map.fsh"),
@@ -111,7 +112,7 @@ impl Shader {
         )
         .unwrap();
 
-        let intensity_icon = Program::from_source(
+        let intensity_icon = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/intensity_icon.vsh"),
             include_str!("../../../assets/shader/intensity_icon.fsh"),
@@ -119,7 +120,7 @@ impl Shader {
         )
         .unwrap();
 
-        let epicenter = Program::from_source(
+        let epicenter = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/epicenter.vsh"),
             include_str!("../../../assets/shader/epicenter.fsh"),
@@ -127,7 +128,7 @@ impl Shader {
         )
         .unwrap();
 
-        let textured = Program::from_source(
+        let textured = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/textured.vsh"),
             include_str!("../../../assets/shader/textured.fsh"),
@@ -135,7 +136,7 @@ impl Shader {
         )
         .unwrap();
 
-        let text = Program::from_source(
+        let text = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/text.vsh"),
             include_str!("../../../assets/shader/text.fsh"),

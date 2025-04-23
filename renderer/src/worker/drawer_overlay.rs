@@ -3,7 +3,7 @@ use glium::index::PrimitiveType;
 use glium::{uniform, DrawParameters, IndexBuffer, Surface, VertexBuffer};
 
 use super::resources::Resources;
-use super::vertex::TexturedVertex;
+use super::vertex::{TexturedUniform, TexturedVertex};
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
@@ -60,12 +60,14 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let index_buffer =
         IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
 
-    surface
+    resources
+        .shader
+        .textured
         .draw(
+            surface,
             &vertex_buffer,
             &index_buffer,
-            &resources.shader.textured,
-            &uniform! {
+            &TexturedUniform {
                 texture_sampler: &resources.texture.overlay,
             },
             params,

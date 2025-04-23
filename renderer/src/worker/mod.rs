@@ -25,6 +25,7 @@ use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
+use crate::worker::vertex::MapUniform;
 
 mod drawer_border_line;
 mod drawer_intensity_icon;
@@ -61,7 +62,7 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
 #[derive(Default)]
 struct App<'a> {
     display: Option<Display<WindowSurface>>,
-    resources: Option<resources::Resources>,
+    resources: Option<resources::Resources<'a>>,
     font_manager: Option<FontManager<'a>>,
 }
 
@@ -136,16 +137,18 @@ impl ApplicationHandler<Message> for App<'_> {
             BACKGROUND_COLOR.3,
         );
 
-        frame_buffer
+        resources
+            .shader
+            .map
             .draw(
+                &mut frame_buffer,
                 &resources.buffer.vertex,
                 &resources.buffer.map,
-                &resources.shader.map,
-                &uniform! {
+                &MapUniform {
                     aspect_ratio: aspect_ratio,
-                    color: GROUND_COLOR,
                     offset: offset.to_slice(),
                     zoom: scale,
+                    color: GROUND_COLOR,
                 },
                 &draw_params,
             )

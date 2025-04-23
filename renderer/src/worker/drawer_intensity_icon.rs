@@ -2,12 +2,12 @@ use array_const_fn_init::array_const_fn_init;
 use enum_map::EnumMap;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::{uniform, DrawParameters, Surface, VertexBuffer};
+use glium::{DrawParameters, Surface, VertexBuffer};
 
 use super::resources::Resources;
 use crate::model::震度;
 use renderer_types::*;
-use crate::worker::vertex::{EpicenterVertex, IntensityIconVertex};
+use crate::worker::vertex::{EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex};
 
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
@@ -60,12 +60,14 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
 
     let per_icon_data = VertexBuffer::dynamic(facade, &per_icon_data).unwrap();
 
-    surface
+    resources
+        .shader
+        .intensity_icon
         .draw(
+            surface,
             &per_icon_data,
             NoIndices(PrimitiveType::Points),
-            &resources.shader.intensity_icon,
-            &uniform! {
+            &IntensityIconUniform {
                 aspect_ratio: aspect_ratio,
                 offset: offset.to_slice(),
                 zoom: scale,
@@ -85,12 +87,14 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-        surface
+        resources
+            .shader
+            .epicenter
             .draw(
+                surface,
                 &epicenter_data,
                 NoIndices(PrimitiveType::Points),
-                &resources.shader.epicenter,
-                &uniform! {
+                &EpicenterUniform {
                     aspect_ratio: aspect_ratio,
                     offset: offset.to_slice(),
                     zoom: scale,
