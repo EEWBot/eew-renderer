@@ -33,6 +33,7 @@ mod fonts;
 mod image_buffer;
 mod resources;
 mod vertex;
+mod shader;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const BACKGROUND_COLOR: (f32, f32, f32, f32) = (0.5, 0.8, 1.0, 1.0);
