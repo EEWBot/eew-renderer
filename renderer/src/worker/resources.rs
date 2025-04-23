@@ -86,37 +86,21 @@ impl Buffer {
 
 #[derive(Debug)]
 pub struct Shader<'a> {
-    pub map: ShaderProgram<MapUniform, MapVertex>,
     pub border_line: Program,
-    pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
     pub epicenter: ShaderProgram<EpicenterUniform<'a>, EpicenterVertex>,
-    pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
+    pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
+    pub map: ShaderProgram<MapUniform, MapVertex>,
     pub text: ShaderProgram<TextUniform<'a>, TextVertex>,
+    pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
 }
 
 impl Shader<'_> {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let map = ShaderProgram::from_source(
-            facade,
-            include_str!("../../../assets/shader/map.vsh"),
-            include_str!("../../../assets/shader/map.fsh"),
-            None,
-        )
-        .unwrap();
-
         let border_line = Program::from_source(
             facade,
             include_str!("../../../assets/shader/border_line.vsh"),
             include_str!("../../../assets/shader/border_line.fsh"),
             None,
-        )
-        .unwrap();
-
-        let intensity_icon = ShaderProgram::from_source(
-            facade,
-            include_str!("../../../assets/shader/intensity_icon.vsh"),
-            include_str!("../../../assets/shader/intensity_icon.fsh"),
-            Some(include_str!("../../../assets/shader/intensity_icon.gsh")),
         )
         .unwrap();
 
@@ -128,10 +112,18 @@ impl Shader<'_> {
         )
         .unwrap();
 
-        let textured = ShaderProgram::from_source(
+        let intensity_icon = ShaderProgram::from_source(
             facade,
-            include_str!("../../../assets/shader/textured.vsh"),
-            include_str!("../../../assets/shader/textured.fsh"),
+            include_str!("../../../assets/shader/intensity_icon.vsh"),
+            include_str!("../../../assets/shader/intensity_icon.fsh"),
+            Some(include_str!("../../../assets/shader/intensity_icon.gsh")),
+        )
+        .unwrap();
+        
+        let map = ShaderProgram::from_source(
+            facade,
+            include_str!("../../../assets/shader/map.vsh"),
+            include_str!("../../../assets/shader/map.fsh"),
             None,
         )
         .unwrap();
@@ -144,13 +136,21 @@ impl Shader<'_> {
         )
         .unwrap();
 
+        let textured = ShaderProgram::from_source(
+            facade,
+            include_str!("../../../assets/shader/textured.vsh"),
+            include_str!("../../../assets/shader/textured.fsh"),
+            None,
+        )
+        .unwrap();
+
         Self {
-            map,
             border_line,
-            intensity_icon,
             epicenter,
-            textured,
+            intensity_icon,
+            map,
             text,
+            textured,
         }
     }
 }
