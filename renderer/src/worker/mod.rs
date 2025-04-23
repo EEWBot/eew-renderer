@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use crate::model::Message;
-use crate::worker::fonts::{Font, FontManager, Offset, Origin};
-use chrono_tz::Japan;
+use crate::worker::fonts::FontManager;
 use glium::{
     draw_parameters::{Blend, LinearBlendingFactor},
     framebuffer::SimpleFrameBuffer,
@@ -11,12 +10,11 @@ use glium::{
         display::{GetGlDisplay, GlDisplay},
         surface::{SurfaceAttributesBuilder, WindowSurface},
     },
-    uniform, BlendingFunction, Display, DrawParameters, Surface, Texture2d,
+    BlendingFunction, Display, DrawParameters, Surface, Texture2d,
 };
 use glutin_winit::DisplayBuilder;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
-use rusttype::Scale;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
@@ -64,18 +62,18 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-pub struct FrameContext<'a, F: ?Sized + Facade, S: ?Sized + Surface> {
+pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
     pub rendering_context: &'a RenderingContextV0,
     pub resources: &'a resources::Resources<'a>,
-    pub font_manager: &'a FontManager<'a>,
+    pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
     pub draw_parameters: &'a DrawParameters<'a>,
     pub scale: f32,
     pub offset: Vertex<Screen>,
 }
 
-impl<F: ?Sized + Facade, S: ?Sized + Surface> FrameContext<'_, F, S> {
+impl<F: ?Sized + Facade, S: ?Sized + Surface> FrameContext<'_, '_, F, S> {
     pub fn dimension(&self) -> (u32, u32) {
         self.surface.borrow().get_dimensions()
     }
@@ -118,6 +116,7 @@ impl ApplicationHandler<Message> for App<'_> {
         let display = self.display.as_ref().unwrap();
         let resources = self.resources.as_ref().unwrap();
         let font_manager = self.font_manager.as_mut().unwrap();
+        let font_manager = Rc::new(RefCell::new(font_manager));
 
         let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
@@ -200,28 +199,6 @@ impl ApplicationHandler<Message> for App<'_> {
         drawer_intensity_icon::draw_all(&frame_context);
 
         drawer_overlay::draw(&frame_context);
-
-        let time_text = rendering_context
-            .time
-            .with_timezone(&Japan)
-            .format("%Y年%m月%d日 %H時%M分頃発生")
-            .to_string();
-        let font = Font::BizUDPGothicBold;
-        let color = [0.0f32, 0.0, 0.0, 0.63];
-        let scale = Scale::uniform(30.0);
-        let offset = Offset::new(Origin::RightDown, Origin::RightDown, -30, -30);
-        font_manager.draw_text(
-            &time_text,
-            font,
-            color,
-            scale,
-            offset,
-            DIMENSION,
-            resources,
-            display,
-            frame_buffer.borrow_mut().deref_mut(),
-            &draw_parameters,
-        );
 
         println!("Rendered!");
 

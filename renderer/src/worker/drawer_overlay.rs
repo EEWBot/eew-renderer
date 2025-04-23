@@ -1,7 +1,10 @@
 use std::ops::DerefMut;
+use chrono_tz::Tz::Japan;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::{IndexBuffer, Surface, VertexBuffer};
+use rusttype::Scale;
+use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::FrameContext;
 use super::vertex::{TexturedUniform, TexturedVertex};
 
@@ -15,6 +18,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let draw_parameters = frame_context.draw_parameters;
+    let rendering_context = frame_context.rendering_context;
     
     let rights_position = calculate_rights_notation_position(dimension, aspect_ratio);
     let watermark_position = calculate_watermark_position(dimension, aspect_ratio);
@@ -72,6 +76,28 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
             draw_parameters,
         )
         .unwrap();
+
+    let time_text = rendering_context
+        .time
+        .with_timezone(&Japan)
+        .format("%Y年%m月%d日 %H時%M分頃発生")
+        .to_string();
+    frame_context
+        .font_manager
+        .borrow_mut()
+        .deref_mut()
+        .draw_text(
+            &time_text,
+            Font::BizUDPGothicBold,
+            [0.0f32, 0.0, 0.0, 0.63],
+            Scale::uniform(30.0),
+            Offset::new(Origin::RightDown, Origin::RightDown, -30, -30),
+            frame_context.dimension(),
+            resources,
+            facade,
+            frame_context.surface.borrow_mut().deref_mut(),
+            draw_parameters,
+        );
 }
 
 fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [[f32; 2]; 4] {
