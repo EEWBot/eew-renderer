@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use crate::model::Message;
 use crate::worker::fonts::{Font, FontManager, Offset, Origin};
 use chrono_tz::Japan;
@@ -19,12 +20,16 @@ use rusttype::Scale;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use glium::backend::Facade;
 use tokio::sync::{mpsc, oneshot};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
+use crate::rendering_context_v0::RenderingContextV0;
 use crate::worker::vertex::MapUniform;
 
 mod drawer_border_line;
@@ -57,6 +62,28 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
     event_loop.run_app(&mut App::default()).unwrap();
 
     Ok(())
+}
+
+pub struct FrameContext<'a, F: ?Sized + Facade, S: ?Sized + Surface> {
+    pub facade: &'a F,
+    pub surface: Rc<RefCell<S>>,
+    pub rendering_context: &'a RenderingContextV0,
+    pub resources: &'a resources::Resources<'a>,
+    pub font_manager: &'a FontManager<'a>,
+    pub draw_parameters: &'a DrawParameters<'a>,
+    pub scale: f32,
+    pub offset: Vertex<Screen>,
+}
+
+impl<F: ?Sized + Facade, S: ?Sized + Surface> FrameContext<'_, F, S> {
+    pub fn dimension(&self) -> (u32, u32) {
+        self.surface.borrow().get_dimensions()
+    }
+
+    pub fn aspect_ratio(&self) -> f32 {
+        let dimension = self.dimension();
+        dimension.1 as f32 / dimension.0 as f32
+    }
 }
 
 #[derive(Default)]
@@ -114,7 +141,7 @@ impl ApplicationHandler<Message> for App<'_> {
         let offset = -rendering_bbox.center();
         let scale = calculate_map_scale(rendering_bbox, aspect_ratio);
 
-        let draw_params = DrawParameters {
+        let draw_parameters = DrawParameters {
             multisampling: false,
             blend: Blend {
                 color: BlendingFunction::Addition {
@@ -128,20 +155,34 @@ impl ApplicationHandler<Message> for App<'_> {
         };
 
         let texture = Texture2d::empty(display, DIMENSION.0, DIMENSION.1).unwrap();
-        let mut frame_buffer = SimpleFrameBuffer::new(display, &texture).unwrap();
+        let frame_buffer = SimpleFrameBuffer::new(display, &texture).unwrap();
+        let frame_buffer = Rc::new(RefCell::new(frame_buffer));
 
-        frame_buffer.clear_color(
-            BACKGROUND_COLOR.0,
-            BACKGROUND_COLOR.1,
-            BACKGROUND_COLOR.2,
-            BACKGROUND_COLOR.3,
-        );
+        let frame_context = FrameContext {
+            facade: display,
+            surface: frame_buffer.clone(),
+            rendering_context: &rendering_context,
+            resources,
+            font_manager,
+            draw_parameters: &draw_parameters,
+            scale,
+            offset,
+        };
+
+        frame_buffer
+            .borrow_mut()
+            .clear_color(
+                BACKGROUND_COLOR.0,
+                BACKGROUND_COLOR.1,
+                BACKGROUND_COLOR.2,
+                BACKGROUND_COLOR.3,
+            );
 
         resources
             .shader
             .map
             .draw(
-                &mut frame_buffer,
+                frame_buffer.borrow_mut().deref_mut(),
                 &resources.buffer.vertex,
                 &resources.buffer.map,
                 &MapUniform {
@@ -150,39 +191,15 @@ impl ApplicationHandler<Message> for App<'_> {
                     zoom: scale,
                     color: GROUND_COLOR,
                 },
-                &draw_params,
+                &draw_parameters,
             )
             .unwrap();
 
-        drawer_border_line::draw(
-            offset,
-            aspect_ratio,
-            scale,
-            resources,
-            &mut frame_buffer,
-            &draw_params,
-        );
+        drawer_border_line::draw(&frame_context);
 
-        drawer_intensity_icon::draw_all(
-            rendering_context.epicenter.as_ref(),
-            &rendering_context.area_intensities,
-            offset,
-            aspect_ratio,
-            scale,
-            display,
-            &mut frame_buffer,
-            resources,
-            &draw_params,
-        );
+        drawer_intensity_icon::draw_all(&frame_context);
 
-        drawer_overlay::draw(
-            DIMENSION,
-            aspect_ratio,
-            display,
-            &mut frame_buffer,
-            resources,
-            &draw_params,
-        );
+        drawer_overlay::draw(&frame_context);
 
         let time_text = rendering_context
             .time
@@ -202,8 +219,8 @@ impl ApplicationHandler<Message> for App<'_> {
             DIMENSION,
             resources,
             display,
-            &mut frame_buffer,
-            &draw_params,
+            frame_buffer.borrow_mut().deref_mut(),
+            &draw_parameters,
         );
 
         println!("Rendered!");

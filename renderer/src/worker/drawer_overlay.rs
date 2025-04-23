@@ -1,24 +1,23 @@
+use std::ops::DerefMut;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
-use glium::{uniform, DrawParameters, IndexBuffer, Surface, VertexBuffer};
-
-use super::resources::Resources;
+use glium::{IndexBuffer, Surface, VertexBuffer};
+use crate::worker::FrameContext;
 use super::vertex::{TexturedUniform, TexturedVertex};
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
 const WATERMARK_RATIO_IN_Y_AXIS: f32 = 0.12;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
-    dimension: (u32, u32),
-    aspect: f32,
-    facade: &F,
-    surface: &mut S,
-    resources: &Resources,
-    params: &DrawParameters,
-) {
-    let rights_position = calculate_rights_notation_position(dimension, aspect);
-    let watermark_position = calculate_watermark_position(dimension, aspect);
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>) {
+    let dimension = frame_context.dimension();
+    let aspect_ratio = frame_context.aspect_ratio();
+    let facade = frame_context.facade;
+    let resources = frame_context.resources;
+    let draw_parameters = frame_context.draw_parameters;
+    
+    let rights_position = calculate_rights_notation_position(dimension, aspect_ratio);
+    let watermark_position = calculate_watermark_position(dimension, aspect_ratio);
 
     let vertices = [
         TexturedVertex {
@@ -64,13 +63,13 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         .shader
         .textured
         .draw(
-            surface,
+            frame_context.surface.borrow_mut().deref_mut(),
             &vertex_buffer,
             &index_buffer,
             &TexturedUniform {
                 texture_sampler: &resources.texture.overlay,
             },
-            params,
+            draw_parameters,
         )
         .unwrap();
 }
