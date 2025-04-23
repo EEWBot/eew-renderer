@@ -2,26 +2,14 @@ use array_const_fn_init::array_const_fn_init;
 use enum_map::EnumMap;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::{implement_vertex, uniform, DrawParameters, Surface, VertexBuffer};
+use glium::{uniform, DrawParameters, Surface, VertexBuffer};
 
 use super::resources::Resources;
 use crate::model::震度;
 use renderer_types::*;
+use crate::worker::vertex::{EpicenterVertex, IntensityIconVertex};
 
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
-
-#[derive(Copy, Clone)]
-struct IntensityDrawInformation {
-    position: [f32; 2],
-    uv_offset: [f32; 2],
-}
-implement_vertex!(IntensityDrawInformation, position, uv_offset);
-
-#[derive(Copy, Clone)]
-struct EpicenterDrawInformation {
-    position: [f32; 2],
-}
-implement_vertex!(EpicenterDrawInformation, position);
 
 const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
     use const_soft_float::soft_f32::SoftF32;
@@ -62,9 +50,9 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
                 let nearest_station_coord =
                     renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
-                Some(IntensityDrawInformation {
+                Some(IntensityIconVertex {
                     position: nearest_station_coord.to_slice(),
-                    uv_offset: uv_offset.to_owned(),
+                    uv_offset: uv_offset.to_owned()
                 })
             })
         })
@@ -91,8 +79,8 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     if let Some(epicenter) = epicenter {
         let epicenter_data = VertexBuffer::dynamic(
             facade,
-            &[EpicenterDrawInformation {
-                position: epicenter.to_slice(),
+            &[EpicenterVertex {
+                position: epicenter.to_slice()
             }],
         )
         .unwrap();

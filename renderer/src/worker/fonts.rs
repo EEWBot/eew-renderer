@@ -158,10 +158,22 @@ impl FontManager<'_> {
                 );
 
                 vec![
-                    TextVertex::new((min.0, min.1), (uv_rect.min.x, uv_rect.min.y)),
-                    TextVertex::new((max.0, min.1), (uv_rect.max.x, uv_rect.min.y)),
-                    TextVertex::new((min.0, max.1), (uv_rect.min.x, uv_rect.max.y)),
-                    TextVertex::new((max.0, max.1), (uv_rect.max.x, uv_rect.max.y)),
+                    TextVertex {
+                        position: [min.0, min.1],
+                        uv: [uv_rect.min.x, uv_rect.min.y]
+                    },
+                    TextVertex {
+                        position: [max.0, min.1],
+                        uv: [uv_rect.max.x, uv_rect.min.y]
+                    },
+                    TextVertex {
+                        position: [min.0, max.1],
+                        uv: [uv_rect.min.x, uv_rect.max.y]
+                    },
+                    TextVertex {
+                        position: [max.0, max.1],
+                        uv: [uv_rect.max.x, uv_rect.max.y]
+                    },
                 ]
             })
             .collect();

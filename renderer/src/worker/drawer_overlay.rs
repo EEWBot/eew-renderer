@@ -3,7 +3,7 @@ use glium::index::PrimitiveType;
 use glium::{uniform, DrawParameters, IndexBuffer, Surface, VertexBuffer};
 
 use super::resources::Resources;
-use super::vertex::え;
+use super::vertex::TexturedVertex;
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
@@ -21,14 +21,38 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let watermark_position = calculate_watermark_position(dimension, aspect);
 
     let vertices = [
-        え::new(rights_position[0], (0.0, 0.5)),
-        え::new(rights_position[1], (1.0, 0.5)),
-        え::new(rights_position[2], (0.0, 0.75)),
-        え::new(rights_position[3], (1.0, 0.75)),
-        え::new(watermark_position[0], (0.0, 0.75)),
-        え::new(watermark_position[1], (1.0, 0.75)),
-        え::new(watermark_position[2], (0.0, 1.0)),
-        え::new(watermark_position[3], (1.0, 1.0)),
+        TexturedVertex {
+            position: rights_position[0],
+            uv: [0.0, 0.5]
+        },
+        TexturedVertex {
+            position: rights_position[1],
+            uv: [1.0, 0.5]
+        },
+        TexturedVertex {
+            position: rights_position[2],
+            uv: [0.0, 0.75]
+        },
+        TexturedVertex {
+            position: rights_position[3],
+            uv: [1.0, 0.75]
+        },
+        TexturedVertex {
+            position: watermark_position[0],
+            uv: [0.0, 0.75]
+        },
+        TexturedVertex {
+            position: watermark_position[1],
+            uv: [1.0, 0.75]
+        },
+        TexturedVertex {
+            position: watermark_position[2],
+            uv: [0.0, 1.0]
+        },
+        TexturedVertex {
+            position: watermark_position[3],
+            uv: [1.0, 1.0]
+        },
     ];
     let indices = [0_u32, 1, 2, 3, 3, 4, 4, 5, 6, 7];
 
@@ -49,42 +73,42 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         .unwrap();
 }
 
-fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [(f32, f32); 4] {
+fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [[f32; 2]; 4] {
     let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
-        (-1.0 + x_offset, -1.0 + y_offset),
-        (
+        [-1.0 + x_offset, -1.0 + y_offset],
+        [
             -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
             -1.0 + y_offset,
-        ),
-        (
+        ],
+        [
             -1.0 + x_offset,
             -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
-        ),
-        (
+        ],
+        [
             -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
             -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
-        ),
+        ],
     ]
 }
 
-fn calculate_watermark_position(dimension: (u32, u32), aspect: f32) -> [(f32, f32); 4] {
+fn calculate_watermark_position(dimension: (u32, u32), aspect: f32) -> [[f32; 2]; 4] {
     let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
-        (
+        [
             1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
             1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset,
-        ),
-        (
+        ],
+        [
             1.0 - x_offset,
             1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset,
-        ),
-        (
+        ],
+        [
             1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
             1.0 - y_offset,
-        ),
-        (1.0 - x_offset, 1.0 - y_offset),
+        ],
+        [1.0 - x_offset, 1.0 - y_offset],
     ]
 }

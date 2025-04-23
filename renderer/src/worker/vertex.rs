@@ -1,51 +1,34 @@
 use glium::implement_vertex;
-use renderer_types::*;
+
+#[derive(Copy, Clone)]
+pub struct EpicenterVertex {
+    pub position: [f32; 2],
+}
+implement_vertex!(EpicenterVertex, position);
+
+#[derive(Copy, Clone)]
+pub struct IntensityIconVertex {
+    pub position: [f32; 2],
+    pub uv_offset: [f32; 2],
+}
+implement_vertex!(IntensityIconVertex, position, uv_offset);
 
 #[derive(Copy, Clone, Debug)]
 pub struct MapVertex {
-    position: [f32; 2],
+    pub position: [f32; 2],
 }
-
 implement_vertex!(MapVertex, position);
-
-impl MapVertex {
-    pub fn new(position: Vertex<GeoDegree>) -> Self {
-        Self {
-            position: position.to_slice(),
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct え {
-    position: [f32; 2],
-    uv: [f32; 2],
-}
-
-impl え {
-    pub fn new(position: (f32, f32), uv: (f32, f32)) -> Self {
-        Self {
-            position: [position.0, position.1],
-            uv: [uv.0, uv.1],
-        }
-    }
-}
-
-implement_vertex!(え, position, uv);
 
 #[derive(Copy, Clone, Debug)]
 pub struct TextVertex {
-    position: [f32; 2],
-    uv: [f32; 2],
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
 }
-
-impl TextVertex {
-    pub fn new(position: (f32, f32), uv: (f32, f32)) -> Self {
-        Self {
-            position: [position.0, position.1],
-            uv: [uv.0, uv.1],
-        }
-    }
-}
-
 implement_vertex!(TextVertex, position, uv);
+
+#[derive(Copy, Clone)]
+pub struct TexturedVertex {
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
+}
+implement_vertex!(TexturedVertex, position, uv);

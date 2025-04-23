@@ -1,5 +1,5 @@
 use super::vertex::MapVertex;
-use renderer_types::Vertex;
+use renderer_types::{GeoDegree, Vertex};
 
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
@@ -42,7 +42,9 @@ impl Buffer {
         let vertices: Vec<_> = geom
             .vertices
             .iter()
-            .map(|v| MapVertex::new(Vertex::from(*v)))
+            .map(|v| MapVertex {
+                position: Vertex::<GeoDegree>::from(*v).to_slice()
+            })
             .collect();
 
         let vertex = VertexBuffer::new(facade, &vertices).unwrap();
