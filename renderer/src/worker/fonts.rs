@@ -179,8 +179,9 @@ impl FontManager<'_> {
             .collect();
         let indices: Vec<_> = (0..vertices.len() as u32 / 4)
             .map(|v| v * 4)
-            .scan(false, |&mut first_time, v| {
-                if first_time {
+            .scan(true, |first_time, v| {
+                if *first_time {
+                    *first_time = false;
                     Some(vec![v, v + 1, v + 2, v + 3])
                 } else {
                     Some(vec![v - 1, v, v, v + 1, v + 2, v + 3])
