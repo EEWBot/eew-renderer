@@ -4,7 +4,7 @@ use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::uniforms::MagnifySamplerFilter;
-use glium::{uniform, DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
+use glium::{DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
 use rusttype::gpu_cache::{Cache, CacheBuilder};
 use rusttype::{point, Point, Scale};
 use std::borrow::Cow;
@@ -89,35 +89,46 @@ impl FontManager<'_> {
     ) {
         let font_id = font.font_id();
         let font = &self.fonts[font_id];
+        let v_metrics = font.v_metrics(scale);
+        let lines = text.lines();
 
-        let glyph_offset = point(0.0, font.v_metrics(scale).ascent);
-        let glyphs: Vec<_> = font.layout(text, scale, glyph_offset).collect();
+        let text_width = lines
+            .clone()
+            .map(|l| {
+                font.layout(l, scale, point(0.0, v_metrics.ascent))
+                    .collect::<Vec<_>>()
+            })
+            .map(|v| {
+                let mut min_x = i32::MAX;
+                let mut max_x = i32::MIN;
 
-        let (text_width, text_height) = {
-            let mut min_x = i32::MAX;
-            let mut max_x = i32::MIN;
-            let mut min_y = i32::MAX;
-            let mut max_y = i32::MIN;
+                v.iter()
+                    .filter_map(|glyph| glyph.pixel_bounding_box())
+                    .for_each(|rect| {
+                        min_x = min(min_x, rect.min.x);
+                        max_x = max(max_x, rect.max.x);
+                    });
 
-            glyphs
-                .iter()
-                .filter_map(|glyph| glyph.pixel_bounding_box())
-                .for_each(|rect| {
-                    min_x = min(min_x, rect.min.x);
-                    max_x = max(max_x, rect.max.x);
-                    min_y = min(min_y, rect.min.y);
-                    max_y = max(max_y, rect.max.y);
-                });
+                max_x - min_x
+            })
+            .max()
+            .unwrap();
 
-            ((max_x - min_x) as u32, (max_y - min_y) as u32)
-        };
+        let line_count = lines.clone().count();
+        let glyphs: Vec<_> = lines
+            .enumerate()
+            .flat_map(|(i, l)| {
+                let line_height = v_metrics.ascent - v_metrics.descent;
+                let glyph_offset = offset.glyph_offset(
+                    image_dimension,
+                    (text_width as f32, line_height),
+                    v_metrics.ascent
+                        + (line_height + v_metrics.line_gap) * (i as f32 - line_count as f32 + 1.0),
+                );
 
-        let glyph_offset = offset.glyph_offset(
-            image_dimension,
-            (text_width, text_height),
-            font.v_metrics(scale).ascent,
-        );
-        let glyphs: Vec<_> = font.layout(text, scale, glyph_offset).collect();
+                font.layout(l, scale, glyph_offset).collect::<Vec<_>>()
+            })
+            .collect();
 
         for glyph in &glyphs {
             self.font_cache.queue_glyph(font_id, glyph.clone())
@@ -160,19 +171,19 @@ impl FontManager<'_> {
                 vec![
                     TextVertex {
                         position: [min.0, min.1],
-                        uv: [uv_rect.min.x, uv_rect.min.y]
+                        uv: [uv_rect.min.x, uv_rect.min.y],
                     },
                     TextVertex {
                         position: [max.0, min.1],
-                        uv: [uv_rect.max.x, uv_rect.min.y]
+                        uv: [uv_rect.max.x, uv_rect.min.y],
                     },
                     TextVertex {
                         position: [min.0, max.1],
-                        uv: [uv_rect.min.x, uv_rect.max.y]
+                        uv: [uv_rect.min.x, uv_rect.max.y],
                     },
                     TextVertex {
                         position: [max.0, max.1],
-                        uv: [uv_rect.max.x, uv_rect.max.y]
+                        uv: [uv_rect.max.x, uv_rect.max.y],
                     },
                 ]
             })
@@ -244,7 +255,7 @@ impl Offset {
     fn glyph_offset(
         &self,
         image_dimension: (u32, u32),
-        text_size: (u32, u32),
+        text_size: (f32, f32),
         ascent: f32,
     ) -> Point<f32> {
         let x = self.x as f32;
@@ -259,7 +270,7 @@ impl Offset {
             Origin::Center => (x + image_dimension.0 / 2.0, y + image_dimension.1 / 2.0),
         };
 
-        let text_size = (text_size.0 as f32, text_size.1 as f32);
+        let text_size = (text_size.0, text_size.1);
         let offset = match self.text_origin {
             Origin::LeftUp => (offset.0, offset.1),
             Origin::LeftDown => (offset.0, offset.1 - text_size.1),
@@ -281,31 +292,31 @@ mod tests {
     fn test_offset() {
         let offset = Offset::new(Origin::LeftUp, Origin::LeftUp, 0, 0);
         assert_eq!(
-            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(0.0, 0.0)
         );
 
         let offset = Offset::new(Origin::RightUp, Origin::RightUp, 0, 0);
         assert_eq!(
-            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(90.0, 0.0)
         );
 
         let offset = Offset::new(Origin::LeftDown, Origin::LeftDown, 0, 0);
         assert_eq!(
-            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(0.0, 90.0)
         );
 
         let offset = Offset::new(Origin::RightDown, Origin::RightDown, 0, 0);
         assert_eq!(
-            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(90.0, 90.0)
         );
 
         let offset = Offset::new(Origin::Center, Origin::Center, 0, 0);
         assert_eq!(
-            offset.glyph_offset((100, 100), (10, 10), 0.0),
+            offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(45.0, 45.0)
         );
     }
