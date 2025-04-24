@@ -1,10 +1,13 @@
+use std::ops::DerefMut;
 use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::{uniform, Surface};
+use crate::worker::vertex::MapUniform;
 
 const PREFECTURAL_BORDER_WIDTH: f32 = 5.0;
 const AREA_BORDER_WIDTH: f32 = 2.0;
 
+const GROUND_COLOR: [f32; 3] = [0.8, 0.8, 0.8];
 const PREFECTURAL_BORDER_COLOR: [f32; 3] = [0.35, 0.25, 0.19];
 const AREA_BORDER_COLOR: [f32; 3] = [0.35, 0.25, 0.19];
 
@@ -16,6 +19,23 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
     let scale = frame_context.scale;
     let aspect_ratio = frame_context.aspect_ratio();
     let offset = frame_context.offset.to_slice();
+
+    resources
+        .shader
+        .map
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            &resources.buffer.vertex,
+            &resources.buffer.map,
+            &MapUniform {
+                aspect_ratio,
+                offset,
+                zoom: scale,
+                color: GROUND_COLOR,
+            },
+            &params,
+        )
+        .unwrap();
 
     frame_context
         .surface

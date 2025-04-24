@@ -28,9 +28,8 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
 use crate::rendering_context_v0::RenderingContextV0;
-use crate::worker::vertex::MapUniform;
 
-mod drawer_border_line;
+mod drawer_map;
 mod drawer_intensity_icon;
 mod drawer_overlay;
 mod fonts;
@@ -41,7 +40,6 @@ mod shader;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const BACKGROUND_COLOR: (f32, f32, f32, f32) = (0.5, 0.8, 1.0, 1.0);
-const GROUND_COLOR: [f32; 3] = [0.8, 0.8, 0.8];
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.1;
 
@@ -177,24 +175,7 @@ impl ApplicationHandler<Message> for App<'_> {
                 BACKGROUND_COLOR.3,
             );
 
-        resources
-            .shader
-            .map
-            .draw(
-                frame_buffer.borrow_mut().deref_mut(),
-                &resources.buffer.vertex,
-                &resources.buffer.map,
-                &MapUniform {
-                    aspect_ratio: aspect_ratio,
-                    offset: offset.to_slice(),
-                    zoom: scale,
-                    color: GROUND_COLOR,
-                },
-                &draw_parameters,
-            )
-            .unwrap();
-
-        drawer_border_line::draw(&frame_context);
+        drawer_map::draw(&frame_context);
 
         drawer_intensity_icon::draw_all(&frame_context);
 
