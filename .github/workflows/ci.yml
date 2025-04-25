@@ -173,6 +173,12 @@ jobs:
   docker_merge:
     runs-on: ubuntu-24.04
     if: ${{ github.event_name != 'pull_request' }}
+    permissions:
+      packages: write
+      checks: write
+      contents: read
+      deployments: write
+
     needs:
       - docker_build
     steps:
