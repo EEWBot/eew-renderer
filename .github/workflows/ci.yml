@@ -86,7 +86,7 @@ jobs:
       - name: release build
         run: cargo build --release
 
-  docker:
+  docker_build:
     continue-on-error: false
     strategy:
       fail-fast: false
