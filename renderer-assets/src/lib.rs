@@ -24,15 +24,13 @@ impl QueryInterface {
         }
     }
 
-    pub fn query_bounding_box_by_area(
-        area_code: codes::Area,
-    ) -> Option<BoundingBox<GeoDegree>> {
-        Some(BoundingBox::from_tuple::<GeoDegree>(AREAS.get(&area_code)?.1))
+    pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
+        Some(BoundingBox::from_tuple::<GeoDegree>(
+            AREAS.get(&area_code)?.1,
+        ))
     }
 
-    pub fn query_rendering_center_by_area(
-        area_code: codes::Area,
-    ) -> Option<Vertex<GeoDegree>> {
+    pub fn query_rendering_center_by_area(area_code: codes::Area) -> Option<Vertex<GeoDegree>> {
         Some(INTENSITY_STATION_POSITIONS[AREAS.get(&area_code)?.0].into())
     }
 
@@ -42,14 +40,13 @@ impl QueryInterface {
         Some(INTENSITY_STATION_POSITIONS[*STATION_CODES.get(&intensity_station_code)?].into())
     }
 
-    pub fn query_lod_level_by_scale(
-        scale: f32,
-    ) -> Option<usize> {
-        SCALE_LEVEL_MAP.iter().find_map(|(s, l)| if *s <= scale { Some(*l) } else { None })
+    pub fn query_lod_level_by_scale(scale: f32) -> Option<usize> {
+        SCALE_LEVEL_MAP
+            .iter()
+            .find_map(|(s, l)| if *s <= scale { Some(*l) } else { None })
     }
 
     pub fn query_lod_level_count() -> usize {
         AREA_LINES.len()
     }
-
 }

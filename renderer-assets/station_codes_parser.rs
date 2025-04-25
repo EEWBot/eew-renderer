@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use renderer_types::*;
 
-use serde::Deserialize;
 use itertools::Itertools;
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,11 +42,13 @@ pub struct IntensityStationRange {
     pub n: usize,
 }
 
-pub fn read(s: &str) -> (
+pub fn read(
+    s: &str,
+) -> (
     Vec<(f32, f32)>,
     HashMap<codes::Area, IntensityStationRange>,
     HashMap<codes::IntensityStation, usize>,
-    HashMap<codes::Area, codes::Pref>
+    HashMap<codes::Area, codes::Pref>,
 ) {
     let stations: Vec<JsonEntry> = serde_json::from_str(s).unwrap();
 
@@ -103,7 +105,8 @@ pub fn read(s: &str) -> (
 
     let intensity_station_positions: Vec<_> = intensity_station_internal
         .into_iter()
-        .map(|v| v.position).collect();
+        .map(|v| v.position)
+        .collect();
 
     (
         intensity_station_positions,

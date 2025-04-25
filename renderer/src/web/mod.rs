@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use axum::{
     extract::{Request, State},
@@ -8,6 +8,7 @@ use axum::{
     routing::get,
     Router,
 };
+use chrono::{DateTime, TimeZone};
 use enum_map::enum_map;
 use hmac::{Hmac, Mac};
 use prost::Message;
@@ -46,7 +47,11 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     let body = &bin[21..];
 
     if version != 0 {
-        return (StatusCode::BAD_REQUEST, format!("Unknown protocol v{version}")).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("Unknown protocol v{version}"),
+        )
+            .into_response();
     }
 
     let calculated_sha1 = {
@@ -64,6 +69,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     };
 
     let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
+        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
         epicenter: decoded.epicenter.map(
             |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
                 renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
@@ -121,6 +127,10 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
     }
 
     let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
+        time: chrono_tz::Japan
+            .with_ymd_and_hms(2024, 1, 1, 16, 10, 0)
+            .unwrap()
+            .to_utc(),
         epicenter: Some(Vertex::<GeoDegree>::new(137.2, 37.5)),
         area_intensities: enum_map! {
             震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],

@@ -1,27 +1,13 @@
+use std::ops::DerefMut;
 use array_const_fn_init::array_const_fn_init;
-use enum_map::EnumMap;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::{implement_vertex, uniform, DrawParameters, Surface, VertexBuffer};
+use glium::{Surface, VertexBuffer};
 
-use super::resources::Resources;
-use crate::model::震度;
-use renderer_types::*;
+use crate::worker::FrameContext;
+use crate::worker::vertex::{EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex};
 
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
-
-#[derive(Copy, Clone)]
-struct IntensityDrawInformation {
-    position: [f32; 2],
-    uv_offset: [f32; 2],
-}
-implement_vertex!(IntensityDrawInformation, position, uv_offset);
-
-#[derive(Copy, Clone)]
-struct EpicenterDrawInformation {
-    position: [f32; 2],
-}
-implement_vertex!(EpicenterDrawInformation, position);
 
 const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
     use const_soft_float::soft_f32::SoftF32;
@@ -42,18 +28,17 @@ const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
 
 const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_offset_fn; 9];
 
-pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
-    epicenter: Option<&Vertex<GeoDegree>>,
-    intensity: &EnumMap<震度, Vec<codes::Area>>,
-    offset: Vertex<Screen>,
-    aspect_ratio: f32,
-    scale: f32,
-    facade: &F,
-    surface: &mut S,
-    resources: &Resources,
-    params: &DrawParameters,
-) {
-    let per_icon_data: Vec<_> = intensity
+pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>) {
+    let rendering_context = frame_context.rendering_context;
+    let facade = frame_context.facade;
+    let resources = frame_context.resources;
+    let aspect_ratio = frame_context.aspect_ratio();
+    let offset = frame_context.offset;
+    let scale = frame_context.scale;
+    let draw_parameters = frame_context.draw_parameters;
+    
+    let per_icon_data: Vec<_> = rendering_context
+        .area_intensities
         .iter()
         .flat_map(|(震度, area_codes)| {
             let uv_offset = &震度_TO_UV_OFFSET[震度 as usize];
@@ -62,9 +47,9 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
                 let nearest_station_coord =
                     renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
-                Some(IntensityDrawInformation {
+                Some(IntensityIconVertex {
                     position: nearest_station_coord.to_slice(),
-                    uv_offset: uv_offset.to_owned(),
+                    uv_offset: uv_offset.to_owned()
                 })
             })
         })
@@ -72,44 +57,48 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
 
     let per_icon_data = VertexBuffer::dynamic(facade, &per_icon_data).unwrap();
 
-    surface
+    resources
+        .shader
+        .intensity_icon
         .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
             &per_icon_data,
             NoIndices(PrimitiveType::Points),
-            &resources.shader.intensity_icon,
-            &uniform! {
+            &IntensityIconUniform {
                 aspect_ratio: aspect_ratio,
                 offset: offset.to_slice(),
                 zoom: scale,
                 icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
                 texture_sampler: &resources.texture.intensity,
             },
-            params,
+            draw_parameters,
         )
         .unwrap();
 
-    if let Some(epicenter) = epicenter {
+    if let Some(epicenter) = rendering_context.epicenter {
         let epicenter_data = VertexBuffer::dynamic(
             facade,
-            &[EpicenterDrawInformation {
-                position: epicenter.to_slice(),
+            &[EpicenterVertex {
+                position: epicenter.to_slice()
             }],
         )
         .unwrap();
 
-        surface
+        resources
+            .shader
+            .epicenter
             .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
                 &epicenter_data,
                 NoIndices(PrimitiveType::Points),
-                &resources.shader.epicenter,
-                &uniform! {
+                &EpicenterUniform {
                     aspect_ratio: aspect_ratio,
                     offset: offset.to_slice(),
                     zoom: scale,
                     icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
                     texture_sampler: &resources.texture.epicenter,
                 },
-                params,
+                draw_parameters,
             )
             .unwrap();
     }

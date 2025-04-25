@@ -2,7 +2,12 @@ use enum_map::Enum;
 
 #[derive(Debug)]
 pub enum Message {
-    RenderingRequest((crate::RenderingContextV0, tokio::sync::oneshot::Sender<Vec<u8>>)),
+    RenderingRequest(
+        (
+            crate::RenderingContextV0,
+            tokio::sync::oneshot::Sender<Vec<u8>>,
+        ),
+    ),
 }
 
 #[allow(clippy::enum_variant_names)]

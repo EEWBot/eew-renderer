@@ -154,7 +154,10 @@ impl<'a> PointReferences<'a> {
         let first = self.map.get(line.vertices.first().unwrap()).unwrap();
         let last = self.map.get(line.vertices.last().unwrap()).unwrap();
 
-        first.pref_references().intersection(&last.pref_references()).count()
+        first
+            .pref_references()
+            .intersection(&last.pref_references())
+            .count()
     }
 }
 

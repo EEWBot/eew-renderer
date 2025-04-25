@@ -7,7 +7,6 @@ pub struct RGBAImageData {
     pub height: u32,
 }
 
-
 impl Texture2dDataSink<(u8, u8, u8, u8)> for RGBAImageData {
     fn from_raw(data: Cow<'_, [(u8, u8, u8, u8)]>, width: u32, height: u32) -> Self
     where
@@ -28,4 +27,3 @@ impl Texture2dDataSink<(u8, u8, u8, u8)> for RGBAImageData {
         }
     }
 }
-
