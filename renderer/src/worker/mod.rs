@@ -18,7 +18,6 @@ use renderer_types::*;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use std::ops::DerefMut;
 use std::rc::Rc;
 use glium::backend::Facade;
 use tokio::sync::{mpsc, oneshot};
@@ -28,6 +27,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
 use crate::rendering_context_v0::RenderingContextV0;
+use crate::worker::theme::Theme;
 
 mod drawer_map;
 mod drawer_intensity_icon;
@@ -37,9 +37,9 @@ mod image_buffer;
 mod resources;
 mod vertex;
 mod shader;
+mod theme;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
-const BACKGROUND_COLOR: (f32, f32, f32, f32) = (0.5, 0.8, 1.0, 1.0);
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.1;
 
@@ -64,6 +64,7 @@ pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
     pub rendering_context: &'a RenderingContextV0,
+    pub theme: &'a Theme,
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
     pub draw_parameters: &'a DrawParameters<'a>,
@@ -159,6 +160,7 @@ impl ApplicationHandler<Message> for App<'_> {
             facade: display,
             surface: frame_buffer.clone(),
             rendering_context: &rendering_context,
+            theme: &theme::DEFAULT,
             resources,
             font_manager,
             draw_parameters: &draw_parameters,
@@ -166,14 +168,10 @@ impl ApplicationHandler<Message> for App<'_> {
             offset,
         };
 
+        let clear_color = frame_context.theme.clear_color;
         frame_buffer
             .borrow_mut()
-            .clear_color(
-                BACKGROUND_COLOR.0,
-                BACKGROUND_COLOR.1,
-                BACKGROUND_COLOR.2,
-                BACKGROUND_COLOR.3,
-            );
+            .clear_color(clear_color[0], clear_color[1], clear_color[2], clear_color[3]);
 
         drawer_map::draw(&frame_context);
 

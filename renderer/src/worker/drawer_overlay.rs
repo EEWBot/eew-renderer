@@ -19,6 +19,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
     let resources = frame_context.resources;
     let draw_parameters = frame_context.draw_parameters;
     let rendering_context = frame_context.rendering_context;
+    let theme = frame_context.theme;
     
     let rights_position = calculate_rights_notation_position(dimension, aspect_ratio);
     let watermark_position = calculate_watermark_position(dimension, aspect_ratio);
@@ -89,8 +90,8 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .draw_text(
             &time_text,
             Font::BizUDPGothicBold,
-            [0.0f32, 0.0, 0.0, 0.63],
-            Scale::uniform(30.0),
+            theme.occurrence_time_color,
+            Scale::uniform(30.0), // TODO: calculate from dimension
             Offset::new(Origin::RightDown, Origin::RightDown, -30, -30),
             frame_context.dimension(),
             resources,
