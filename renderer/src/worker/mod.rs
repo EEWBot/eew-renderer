@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::time::Instant;
 use crate::model::Message;
 use crate::worker::fonts::FontManager;
 use glium::{
@@ -110,6 +111,7 @@ impl ApplicationHandler<Message> for App<'_> {
         let (rendering_context, response_socket) = match event {
             Message::RenderingRequest(v) => v,
         };
+        let start_at = std::time::Instant::now();
 
         let display = self.display.as_ref().unwrap();
         let resources = self.resources.as_ref().unwrap();
@@ -151,10 +153,12 @@ impl ApplicationHandler<Message> for App<'_> {
             ..Default::default()
         };
 
+        let t_before_alloc = std::time::Instant::now();
         let texture = Texture2d::empty(display, DIMENSION.0, DIMENSION.1).unwrap();
         let frame_buffer = SimpleFrameBuffer::new(display, &texture).unwrap();
         let frame_buffer = Rc::new(RefCell::new(frame_buffer));
 
+        let t_before_render = std::time::Instant::now();
         let frame_context = FrameContext {
             facade: display,
             surface: frame_buffer.clone(),
@@ -183,8 +187,19 @@ impl ApplicationHandler<Message> for App<'_> {
 
         println!("Rendered!");
 
+        let t_before_bufcpy = std::time::Instant::now();
+
         let pixel_buffer = texture.read_to_pixel_buffer();
         let image: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
+
+        let t_done = std::time::Instant::now();
+        println!("Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?}",
+            t_before_alloc - start_at,
+            t_before_render - t_before_alloc,
+            t_before_bufcpy - t_before_render,
+            t_done - t_before_bufcpy,
+        );
+
 
         tokio::spawn(async move { image_writeback(response_socket, image).await });
     }
@@ -211,6 +226,9 @@ async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAI
     let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
     let image = DynamicImage::ImageRgba8(image).flipv();
 
+
+    let start_at = std::time::Instant::now();
+
     encoder
         .write_image(
             image.as_bytes(),
@@ -219,6 +237,10 @@ async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAI
             image::ExtendedColorType::Rgba8,
         )
         .unwrap();
+
+    let encode_time = std::time::Instant::now() - start_at;
+
+    println!("Encode: {:?}", encode_time);
 
     let target: Vec<u8> = target.into_inner();
 
