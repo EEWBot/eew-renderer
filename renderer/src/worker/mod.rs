@@ -102,9 +102,22 @@ impl ApplicationHandler<Message> for App<'_> {
         let resources = resources::Resources::load(&display);
         let font_manager = FontManager::new(&display);
 
+        println!(
+            "\
+GL_VENDOR: {}
+GL_RENDERER: {}
+GL_VERSION: {:?}
+Profile: {:?}\
+",
+            display.get_opengl_vendor_string(),
+            display.get_opengl_renderer_string(),
+            display.get_opengl_version(),
+            display.get_opengl_profile(),
+        );
+
         self.display = Some(display);
         self.resources = Some(resources);
-        self.font_manager = Some(font_manager)
+        self.font_manager = Some(font_manager);
     }
 
     fn resumed(&mut self, _: &ActiveEventLoop) {}
