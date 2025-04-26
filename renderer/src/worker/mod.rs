@@ -21,6 +21,7 @@ use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 use glium::backend::Facade;
+use glium::glutin::surface::{GlSurface, SwapInterval};
 use tokio::sync::{mpsc, oneshot};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
@@ -287,6 +288,8 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
     }
     .make_current(&surface)
     .unwrap();
+
+    surface.set_swap_interval(&current_context, SwapInterval::DontWait).unwrap();
 
     Display::from_context_surface(current_context, surface).unwrap()
 }
