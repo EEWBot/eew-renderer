@@ -4,16 +4,11 @@ use glium::backend::Facade;
 use glium::{uniform, Surface};
 use crate::worker::vertex::MapUniform;
 
-const PREFECTURAL_BORDER_WIDTH: f32 = 5.0;
-const AREA_BORDER_WIDTH: f32 = 2.0;
-
-const GROUND_COLOR: [f32; 3] = [0.8, 0.8, 0.8];
-const PREFECTURAL_BORDER_COLOR: [f32; 3] = [0.35, 0.25, 0.19];
-const AREA_BORDER_COLOR: [f32; 3] = [0.35, 0.25, 0.19];
-
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>) {
+    let mut theme = frame_context.theme;
+
     let mut params = frame_context.draw_parameters.clone();
-    params.line_width = Some(AREA_BORDER_WIDTH);
+    params.line_width = Some(theme.area_border_width);
     
     let resources = frame_context.resources;
     let scale = frame_context.scale;
@@ -31,7 +26,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 aspect_ratio,
                 offset,
                 zoom: scale,
-                color: GROUND_COLOR,
+                color: theme.ground_color,
             },
             &params,
         )
@@ -48,14 +43,14 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 aspect_ratio: aspect_ratio,
                 offset: offset,
                 zoom: scale,
-                color: AREA_BORDER_COLOR,
+                color: theme.area_border_color,
             },
             &params,
         )
         .unwrap();
 
     let mut params = params.clone();
-    params.line_width = Some(PREFECTURAL_BORDER_WIDTH);
+    params.line_width = Some(theme.prefectural_border_width);
 
     frame_context
         .surface
@@ -68,7 +63,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 aspect_ratio: aspect_ratio,
                 offset: offset,
                 zoom: scale,
-                color: PREFECTURAL_BORDER_COLOR,
+                color: theme.prefectural_border_color,
             },
             &params,
         )
