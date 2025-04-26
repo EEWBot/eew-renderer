@@ -17,3 +17,13 @@ pub const DEFAULT: Theme = Theme {
     area_border_width: 2.0,
     occurrence_time_color: [0.0, 0.0, 0.0, 0.63],
 };
+
+pub const DARK_DEMO: Theme = Theme {
+    clear_color: [0.1, 0.12, 0.15, 1.0],
+    ground_color: [0.35, 0.35, 0.35],
+    prefectural_border_color: [0.75, 0.75, 0.75],
+    prefectural_border_width: 5.0,
+    area_border_color: [0.6, 0.6, 0.6],
+    area_border_width: 2.0,
+    occurrence_time_color: [1.0, 1.0, 1.0, 0.63],
+};
