@@ -1,10 +1,10 @@
-use super::vertex::{EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex};
+use super::vertex::{BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex};
 use renderer_types::{GeoDegree, Vertex};
 
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
-use glium::{IndexBuffer, Program, Texture2d, VertexBuffer};
+use glium::{IndexBuffer, Texture2d, VertexBuffer};
 use crate::worker::shader::ShaderProgram;
 
 #[derive(Debug)]
@@ -86,7 +86,7 @@ impl Buffer {
 
 #[derive(Debug)]
 pub struct Shader<'a> {
-    pub border_line: Program,
+    pub border_line: ShaderProgram<BorderLineUniform, MapVertex>,
     pub epicenter: ShaderProgram<EpicenterUniform<'a>, EpicenterVertex>,
     pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
     pub map: ShaderProgram<MapUniform, MapVertex>,
@@ -96,11 +96,11 @@ pub struct Shader<'a> {
 
 impl Shader<'_> {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let border_line = Program::from_source(
+        let border_line = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/border_line.vsh"),
             include_str!("../../../assets/shader/border_line.fsh"),
-            None,
+            Some(include_str!("../../../assets/shader/border_line.gsh")),
         )
         .unwrap();
 

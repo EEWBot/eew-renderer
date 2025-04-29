@@ -2,10 +2,8 @@
 
 uniform vec3 color;
 
-in float alpha;
-
-out vec4 fragColor;
+out vec4 fragment_color;
 
 void main() {
-    fragColor = vec4(color, step(1.0, alpha));
+    fragment_color = vec4(color, 1.0);
 }

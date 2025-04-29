@@ -1,6 +1,25 @@
 use glium::uniforms::{AsUniformValue, Sampler, UniformValue, Uniforms};
 use glium::{implement_vertex, Texture2d};
 
+#[derive(Debug)]
+pub struct BorderLineUniform {
+    pub dimension: [f32; 2],
+    pub offset: [f32; 2],
+    pub zoom: f32,
+    pub line_width: f32,
+    pub color: [f32; 3],
+}
+
+impl Uniforms for BorderLineUniform {
+    fn visit_values<'a, F: FnMut(&str, UniformValue<'a>)>(&'a self, mut visitor: F) {
+        visitor("dimension", self.dimension.as_uniform_value());
+        visitor("offset", self.offset.as_uniform_value());
+        visitor("zoom", self.zoom.as_uniform_value());
+        visitor("line_width", self.line_width.as_uniform_value());
+        visitor("color", self.color.as_uniform_value());
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct EpicenterVertex {
     pub position: [f32; 2],
