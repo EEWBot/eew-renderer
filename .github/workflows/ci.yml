@@ -37,10 +37,7 @@ jobs:
             arch_s: aarch64
 
     permissions:
-      packages: write
-      checks: write
-      contents: read
-      deployments: write
+      contents: write
 
     runs-on: ${{ matrix.ghimage }}
 
@@ -89,8 +86,6 @@ jobs:
           cp ./CREDITS "$DIR_NAME/"
           cp ./README.md "$DIR_NAME/"
           tar cvf "$DIR_NAME.tar.gz" "$DIR_NAME/"
-
-
 
       - name: pre-release
         uses: softprops/action-gh-release@v2.2.2
