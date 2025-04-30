@@ -11,6 +11,7 @@ use crate::worker::shader::ShaderProgram;
 pub struct Resources<'a> {
     pub shader: Shader<'a>,
     pub buffer: Buffer,
+    pub lake: Lake,
     pub texture: Texture,
 }
 
@@ -18,11 +19,13 @@ impl Resources<'_> {
     pub fn load<F: ?Sized + Facade>(facade: &F) -> Self {
         let shader = Shader::load(facade);
         let buffer = Buffer::load(facade);
+        let lake = Lake::load(facade);
         let texture = Texture::load(facade);
 
         Self {
             shader,
             buffer,
+            lake,
             texture,
         }
     }
@@ -81,6 +84,34 @@ impl Buffer {
     pub fn get_pref_line_by_scale(&self, scale: f32) -> Option<&IndexBuffer<u32>> {
         let i = renderer_assets::QueryInterface::query_lod_level_by_scale(scale)?;
         self.pref_line.get(i)
+    }
+}
+
+#[derive(Debug)]
+pub struct Lake {
+    pub vertex: VertexBuffer<MapVertex>,
+    pub index: IndexBuffer<u32>,
+}
+
+impl Lake {
+    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
+        let geom = renderer_assets::QueryInterface::lake_geometries();
+
+        let vertex: Vec<_> = geom
+            .vertices
+            .iter()
+            .map(|v| MapVertex {
+                position: Vertex::<GeoDegree>::from(*v).to_slice()
+            })
+            .collect();
+        let vertex = VertexBuffer::immutable(facade, &vertex).unwrap();
+
+        let index = IndexBuffer::immutable(facade, PrimitiveType::TrianglesList, geom.indices).unwrap();
+
+        Lake {
+            vertex,
+            index,
+        }
     }
 }
 
