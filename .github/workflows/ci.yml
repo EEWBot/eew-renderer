@@ -82,7 +82,7 @@ jobs:
 
       - name: Make release file
         run: |
-          DIR_NAME="${{ env.PROJ_NAME }}-linux-${{ matrix.arch_s }}-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format("nightly-{0}", github.sha) }}"
+          DIR_NAME="${{ env.PROJ_NAME }}-linux-${{ matrix.arch_s }}-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('nightly-{0}', github.sha) }}"
           mkdir "$DIR_NAME"
           cp ./target/release/renderer "$DIR_NAME/"
           cp ./LICENSE "$DIR_NAME/"
