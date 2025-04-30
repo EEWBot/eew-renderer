@@ -37,8 +37,9 @@ jobs:
           winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
 
       - name: Prepare Map
-        shell: bash.exe {0}
+        shell: C:\msys64\usr\bin\bash.exe {0}
         run: |
+          PATH="$PATH:$(cygpath -u "$APPDATA/../Local/Microsoft/WinGet/Links/")"
           mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
@@ -58,8 +59,9 @@ jobs:
           cargo install cargo-license
 
       - name: Create CREDITS file
-        shell: bash.exe {0}
+        shell: C:\msys64\usr\bin\bash.exe {0}
         run: |
+          PATH="$PATH:$(cygpath -u "$APPDATA/../Local/Microsoft/WinGet/Links/")"
           cargo license \
             --authors \
             --do-not-bundle \
@@ -68,8 +70,9 @@ jobs:
               > CREDITS
 
       - name: Make release file
-        shell: bash.exe {0}
+        shell: C:\msys64\usr\bin\bash.exe {0}
         run: |
+          PATH="$PATH:$(cygpath -u "$APPDATA/../Local/Microsoft/WinGet/Links/")"
           DIR_NAME="${{ env.PROJ_NAME }}-windows-x86_64-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('nightly-{0}', github.sha) }}"
           mkdir "$DIR_NAME"
           cp ./target/release/renderer.exe "$DIR_NAME/"
