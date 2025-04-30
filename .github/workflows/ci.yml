@@ -31,18 +31,13 @@ jobs:
         with:
           submodules: true
 
-      # - name: Install Toolchains
-      #   run: |
-      #     winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
-      #     winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
+      - name: Install Toolchains
+        run: |
+          winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
+          winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
 
       - name: Prepare Map
         shell: C:\shells\gitbash.exe {0}
-        run: |
-          echo
-
-      - name: Prepare Map
-        shell: "%ProgramFiles%\\Git\\bin\\bash.exe {0}"
         run: |
           mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
@@ -63,7 +58,7 @@ jobs:
           cargo install cargo-license
 
       - name: Create CREDITS file
-        shell: "%ProgramFiles%\\Git\\bin\\bash.exe {0}"
+        shell: C:\shells\gitbash.exe {0}
         run: |
           cargo license \
             --authors \
@@ -73,7 +68,7 @@ jobs:
               > CREDITS
 
       - name: Make release file
-        shell: "%ProgramFiles%\\Git\\bin\\bash.exe {0}"
+        shell: C:\shells\gitbash.exe {0}
         run: |
           DIR_NAME="${{ env.PROJ_NAME }}-windows-x86_64-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('nightly-{0}', github.sha) }}"
           mkdir "$DIR_NAME"
