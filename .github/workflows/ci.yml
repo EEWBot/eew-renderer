@@ -39,6 +39,11 @@ jobs:
       - name: Prepare Map
         shell: "\"C:\\Program Files\\Git\\bin\\bash.exe\" {0}"
         run: |
+          echo
+
+      - name: Prepare Map
+        shell: "\"C:\\Program Files\\Git\\bin\\bash.exe\" {0}"
+        run: |
           mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
