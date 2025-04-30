@@ -14,6 +14,11 @@ pub struct Geometries {
     pub pref_lines: &'static [&'static [u32]],
 }
 
+pub struct LakeGeometries {
+    pub vertices: &'static [(f32, f32)],
+    pub indices: &'static [u32],
+}
+
 impl QueryInterface {
     pub fn geometries() -> Geometries {
         Geometries {
@@ -24,6 +29,12 @@ impl QueryInterface {
         }
     }
 
+    pub fn lake_geometries() -> LakeGeometries {
+        LakeGeometries {
+            vertices: LAKE_VERTICES,
+            indices: LAKE_INDICES,
+        }
+    }
     pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
         Some(BoundingBox::from_tuple::<GeoDegree>(
             AREAS.get(&area_code)?.1,
