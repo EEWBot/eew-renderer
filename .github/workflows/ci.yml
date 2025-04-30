@@ -165,7 +165,7 @@ jobs:
         run: |
           DIR_NAME="${{ env.PROJ_NAME }}-linux-${{ matrix.arch_s }}-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('nightly-{0}', github.sha) }}"
           mkdir "$DIR_NAME"
-          cp ./target/release/renderer "$DIR_NAME/"
+          cp ./target/release/renderer.exe "$DIR_NAME/"
           cp ./LICENSE "$DIR_NAME/"
           cp ./CREDITS "$DIR_NAME/"
           cp ./README.md "$DIR_NAME/"
