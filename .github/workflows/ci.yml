@@ -31,13 +31,13 @@ jobs:
         with:
           submodules: true
 
-      - name: Install Toolchains
-        run: |
-          winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
-          winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
+      # - name: Install Toolchains
+      #   run: |
+      #     winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
+      #     winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
 
       - name: Prepare Map
-        shell: "%ProgramFiles%\\Git\\bin\\bash.exe {0}"
+        shell: gitbash {0}
         run: |
           echo
 
