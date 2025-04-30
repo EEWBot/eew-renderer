@@ -31,10 +31,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Install cargo license
-        run: |
-          cargo install cargo-license
-
       - name: Install Toolchains
         run: |
           winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
@@ -57,6 +53,10 @@ jobs:
       - name: Build
         run: |
           cargo build --release
+
+      - name: Install cargo license
+        run: |
+          cargo install cargo-license
 
       - name: Create CREDITS file
         shell: C:\msys64\usr\bin\bash.exe {0}
