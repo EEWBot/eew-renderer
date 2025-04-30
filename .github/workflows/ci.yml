@@ -37,7 +37,7 @@ jobs:
           winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
 
       - name: Prepare Map
-        shell: "\"C:\\Program Files\\Git\\bin\\bash.exe\" {0}"
+        shell: gitbash.exe {0}
         run: |
           echo
 
