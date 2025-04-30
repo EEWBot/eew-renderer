@@ -30,7 +30,7 @@ rusttype = { version = "0.9.3", features = ["gpu_cache"] }
 strum = { version = "0.27.1", features = ["derive"] }
 
 [build-dependencies]
-prost-build = "0.13.0"
+prost-build = "0.13.5"
 
 [profile.release]
 opt-level = 3
