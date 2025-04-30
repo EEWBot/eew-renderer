@@ -37,16 +37,16 @@ jobs:
 
       - name: Install Toolchains
         run: |
-          winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
           winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
 
       - name: Prepare Map
         shell: C:\msys64\usr\bin\bash.exe {0}
         run: |
+          PATH="$PATH:$(pwd)"
           curl -O https://dl.min.io/client/mc/release/windows-amd64/mc.exe
-          ./mc.exe alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
+          mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
-          ./mc.exe get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
+          mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
           7z e ./earthquake_detailed.zip
           popd
 
