@@ -39,23 +39,14 @@ jobs:
         run: |
           winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
           winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
-          winget install --scope machine Cygwin.Cygwin --exact --accept-package-agreements --accept-source-agreements
-
-      - name: Add Cygwin Packages
-        run: |
-          cd c:\cygwin64\
-          curl -O https://www.cygwin.com/setup-x86_64.exe
-          .\setup-x86_64.exe -q -P unzip
-          .\setup-x86_64.exe -q -P zip
-
 
       - name: Prepare Map
-        shell: c:\cygwin64\bin\bash.exe
+        shell: msys2bash.exe {0}
         run: |
           mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/earthquake_detailed
           mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
-          unzip ./earthquake_detailed.zip
+          7z e ./earthquake_detailed.zip
           popd
 
       - uses: Swatinem/rust-cache@v2.7.8
@@ -67,7 +58,7 @@ jobs:
           cargo build --release
 
       - name: Create CREDITS file
-        shell: c:\cygwin64\bin\bash.exe
+        shell: msys2bash.exe {0}
         run: |
           cargo license \
             --authors \
@@ -77,7 +68,7 @@ jobs:
               > CREDITS
 
       - name: Make release file
-        shell: c:\cygwin64\bin\bash.exe
+        shell: msys2bash.exe {0}
         run: |
           DIR_NAME="${{ env.PROJ_NAME }}-linux-${{ matrix.arch_s }}-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('nightly-{0}', github.sha) }}"
           mkdir "$DIR_NAME"
@@ -85,7 +76,7 @@ jobs:
           cp ./LICENSE "$DIR_NAME/"
           cp ./CREDITS "$DIR_NAME/"
           cp ./README.md "$DIR_NAME/"
-          zip -r "$DIR_NAME.zip" "$DIR_NAME/"
+          7z a "$DIR_NAME.zip" "$DIR_NAME/"
 
       - name: pre-release
         uses: softprops/action-gh-release@v2.2.2
