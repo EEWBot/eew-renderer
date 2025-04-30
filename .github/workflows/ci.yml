@@ -18,9 +18,100 @@ env:
   CARGO_INCREMENTAL: 0
   RUST_CACHE_VERSION: v1
   REGISTRY_IMAGE: ghcr.io/eewbot/eew-renderer
+  PROJ_NAME: eew-renderer
 
 jobs:
-  rust:
+  release_linux:
+    if: ${{ github.event_name != 'pull_request' }}
+    continue-on-error: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ghimage: ubuntu-24.04
+            mcarch: amd64
+            arch_s: x86_64
+
+          - ghimage: ubuntu-24.04-arm
+            mcarch: arm64
+            arch_s: aarch64
+
+    permissions:
+      packages: write
+      checks: write
+      contents: read
+      deployments: write
+
+    runs-on: ${{ matrix.ghimage }}
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          submodules: true
+
+      - run: |
+          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
+          sudo chmod +x /bin/mc
+          mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
+          pushd assets/shapefile/earthquake_detailed
+          mc get yr32srv/eewbot/earthquake_detailed.zip ./earthquake_detailed.zip
+          unzip -o ./earthquake_detailed.zip
+          popd
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install cargo license
+        run: |
+          cargo install cargo-license
+
+      - uses: Swatinem/rust-cache@v2.7.8
+        with:
+          prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
+
+      - name: Build
+        run: |
+          cargo build --release
+
+      - name: Create CREDITS file
+        run: |
+          cargo license \
+            --authors \
+            --do-not-bundle \
+            --avoid-dev-deps \
+            --filter-platform "$(rustc -vV | sed -n 's|host: ||p')" \
+              > CREDITS
+
+      - name: Make release file
+        run: |
+          DIR_NAME="${{ env.PROJ_NAME }}-linux-${{ matrix.arch_s }}-${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format("nightly-{0}", github.sha) }}"
+          mkdir "$DIR_NAME"
+          cp ./target/release/renderer "$DIR_NAME/"
+          cp ./LICENSE "$DIR_NAME/"
+          cp ./CREDITS "$DIR_NAME/"
+          cp ./README.md "$DIR_NAME/"
+          tar cvf "$DIR_NAME.tar.gz" "$DIR_NAME/"
+
+
+
+      - name: pre-release
+        uses: softprops/action-gh-release@v2.2.2
+        if: "! startsWith(github.ref, 'refs/tags/')"
+        with:
+          tag_name: nightly-${{ github.sha }}
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: |
+            *.tar.gz
+
+      - name: tagged-release
+        uses: softprops/action-gh-release@v2.2.2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          fail_on_unmatched_files: true
+          files: |
+            *.tar.gz
+
+
+  clippy_and_test:
     continue-on-error: false
     strategy:
       fail-fast: false
@@ -68,8 +159,7 @@ jobs:
           toolchain: ${{ steps.toolchain.outputs.toolchain }}
           components: clippy
 
-      - name: cache dependencies
-        uses: Swatinem/rust-cache@v2.7.8
+      - uses: Swatinem/rust-cache@v2.7.8
         with:
           prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
 
@@ -82,9 +172,6 @@ jobs:
         run: |
           cargo test --no-run --locked
           cargo test
-
-      - name: release build
-        run: cargo build --release
 
   docker_build:
     continue-on-error: false
