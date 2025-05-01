@@ -28,6 +28,12 @@ chrono = "0.4.40"
 chrono-tz = "0.10.3"
 rusttype = { version = "0.9.3", features = ["gpu_cache"] }
 strum = { version = "0.27.1", features = ["derive"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+anyhow = "1.0.98"
+rand = "0.9.1"
+
+justnames = { git = "https://github.com/EEWBot/justnames", tag = "v0.1.0" }
 
 [build-dependencies]
 prost-build = "0.13.5"

@@ -9,4 +9,5 @@ pub struct RenderingContextV0 {
     pub time: DateTime<Utc>,
     pub epicenter: Option<Vertex<GeoDegree>>,
     pub area_intensities: EnumMap<震度, Vec<Area>>,
+    pub request_identity: String,
 }

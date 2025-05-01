@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use anyhow::{Context, Result};
 use axum::{
     extract::{Request, State},
     http::{header::CONTENT_TYPE, HeaderName, HeaderValue, StatusCode},
@@ -26,6 +27,8 @@ pub struct AppState {
 }
 
 async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
+    let request_id = crate::namesgenerator::generate(&mut rand::rng());
+
     let bin = &req.uri().path()[1..];
 
     let Ok(bin) = urlencoding::decode(bin) else {
@@ -35,8 +38,6 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     let Ok(bin) = base65536::decode(&bin, false) else {
         return (StatusCode::BAD_REQUEST, "Failed to Base65536 decoding").into_response();
     };
-
-    println!("{bin:x?}");
 
     if bin.len() < 21 {
         return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied").into_response();
@@ -68,6 +69,8 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
         return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
     };
 
+    let short_hash = &format!("{:x}", calculated_sha1)[0..6];
+
     let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
         epicenter: decoded.epicenter.map(
@@ -86,6 +89,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
             震度::震度6強 => decoded.six_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
             震度::震度7 => decoded.seven.clone().map(|v| v.codes).unwrap_or(vec![]),
         },
+        request_identity: format!("{short_hash}#{request_id}"),
     };
 
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -120,6 +124,8 @@ async fn root_handler(State(app): State<AppState>) -> Response {
 }
 
 async fn demo_handler(State(app): State<AppState>) -> Response {
+    let request_id = crate::namesgenerator::generate(&mut rand::rng());
+
     use renderer_types::*;
 
     if !app.allow_demo {
@@ -143,6 +149,7 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
             震度::震度6強 => vec![],
             震度::震度7 => vec![390],
         },
+        request_identity: format!("demo#{request_id}"),
     };
 
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -171,7 +178,7 @@ pub async fn run(
     hmac_key: &str,
     instance_name: &str,
     allow_demo: bool,
-) {
+) -> Result<()> {
     let hmac_key = Arc::new(hmac_key.to_string());
     let instance_name = Arc::new(instance_name.to_string());
 
@@ -186,7 +193,13 @@ pub async fn run(
             allow_demo,
         });
 
-    let listener = tokio::net::TcpListener::bind(listen).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(listen)
+        .await
+        .with_context(|| format!("Failed to bind address {listen}"))?;
 
-    axum::serve(listener, app).await.expect("Failed to serve");
+    tracing::info!("Listening on {listen}");
+
+    axum::serve(listener, app).await.unwrap();
+
+    Ok(())
 }

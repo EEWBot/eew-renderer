@@ -1,7 +1,9 @@
-use std::cell::RefCell;
-use std::time::Instant;
 use crate::model::Message;
+use crate::rendering_context_v0::RenderingContextV0;
 use crate::worker::fonts::FontManager;
+use crate::worker::theme::Theme;
+use glium::backend::Facade;
+use glium::glutin::surface::{GlSurface, SwapInterval};
 use glium::{
     draw_parameters::{Blend, LinearBlendingFactor},
     framebuffer::SimpleFrameBuffer,
@@ -16,30 +18,28 @@ use glium::{
 use glutin_winit::DisplayBuilder;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
+use std::cell::RefCell;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::rc::Rc;
-use glium::backend::Facade;
-use glium::glutin::surface::{GlSurface, SwapInterval};
+use std::time::Instant;
 use tokio::sync::{mpsc, oneshot};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
-use crate::rendering_context_v0::RenderingContextV0;
-use crate::worker::theme::Theme;
 
-mod drawer_map;
 mod drawer_intensity_icon;
+mod drawer_map;
 mod drawer_overlay;
 mod fonts;
 mod image_buffer;
 mod resources;
-mod vertex;
 mod shader;
 mod theme;
+mod vertex;
 
 const DIMENSION: (u32, u32) = (1440, 1080);
 const MAXIMUM_SCALE: f32 = 100.0;
@@ -102,18 +102,13 @@ impl ApplicationHandler<Message> for App<'_> {
         let resources = resources::Resources::load(&display);
         let font_manager = FontManager::new(&display);
 
-        println!(
-            "\
-GL_VENDOR: {}
-GL_RENDERER: {}
-GL_VERSION: {:?}
-Profile: {:?}\
-",
-            display.get_opengl_vendor_string(),
-            display.get_opengl_renderer_string(),
-            display.get_opengl_version(),
-            display.get_opengl_profile(),
-        );
+        let gl_vendor = display.get_opengl_vendor_string();
+        let gl_renderer = display.get_opengl_renderer_string();
+        let gl_version = display.get_opengl_version_string();
+
+        tracing::info!("GL_VENDOR: {gl_vendor}");
+        tracing::info!("GL_RENDERER: {gl_renderer}");
+        tracing::info!("GL_VERSION: {gl_version}");
 
         self.display = Some(display);
         self.resources = Some(resources);
@@ -168,12 +163,14 @@ Profile: {:?}\
             ..Default::default()
         };
 
-        let t_before_alloc = std::time::Instant::now();
+        let t_before_alloc = Instant::now();
+
         let texture = Texture2d::empty(display, DIMENSION.0, DIMENSION.1).unwrap();
         let frame_buffer = SimpleFrameBuffer::new(display, &texture).unwrap();
         let frame_buffer = Rc::new(RefCell::new(frame_buffer));
 
-        let t_before_render = std::time::Instant::now();
+        let t_before_render = Instant::now();
+
         let frame_context = FrameContext {
             facade: display,
             surface: frame_buffer.clone(),
@@ -187,9 +184,12 @@ Profile: {:?}\
         };
 
         let clear_color = frame_context.theme.clear_color;
-        frame_buffer
-            .borrow_mut()
-            .clear_color(clear_color[0], clear_color[1], clear_color[2], clear_color[3]);
+        frame_buffer.borrow_mut().clear_color(
+            clear_color[0],
+            clear_color[1],
+            clear_color[2],
+            clear_color[3],
+        );
 
         drawer_map::draw(&frame_context);
 
@@ -197,36 +197,42 @@ Profile: {:?}\
 
         drawer_overlay::draw(&frame_context);
 
-        println!("Rendered!");
-
-        let t_before_bufcpy = std::time::Instant::now();
+        let t_before_bufcpy = Instant::now();
 
         let pixel_buffer = texture.read_to_pixel_buffer();
         let image: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
 
-        let t_done = std::time::Instant::now();
-        println!("Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?}",
+        let t_done = Instant::now();
+
+        tracing::info!(
+            "{} Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?}",
+            rendering_context.request_identity,
             t_before_alloc - start_at,
             t_before_render - t_before_alloc,
             t_before_bufcpy - t_before_render,
             t_done - t_before_bufcpy,
         );
 
-
-        tokio::spawn(async move { image_writeback(response_socket, image).await });
+        tokio::spawn(async move {
+            image_writeback(&rendering_context.request_identity, response_socket, image).await
+        });
     }
 
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, _: WindowEvent) {}
 }
 
-async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAImageData) {
+async fn image_writeback(
+    request_identity: &str,
+    response_socket: oneshot::Sender<Vec<u8>>,
+    image: RGBAImageData,
+) {
     use std::io::Cursor;
 
     use image::codecs::png::*;
     use image::{DynamicImage, ImageEncoder, RgbaImage};
 
     if response_socket.is_closed() {
-        println!("もういらないっていわれちゃった……");
+        tracing::debug!("{request_identity} もういらないっていわれちゃった……");
         return;
     }
 
@@ -237,7 +243,6 @@ async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAI
 
     let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
     let image = DynamicImage::ImageRgba8(image).flipv();
-
 
     let start_at = std::time::Instant::now();
 
@@ -252,16 +257,16 @@ async fn image_writeback(response_socket: oneshot::Sender<Vec<u8>>, image: RGBAI
 
     let encode_time = std::time::Instant::now() - start_at;
 
-    println!("Encode: {:?}", encode_time);
+    tracing::info!("{request_identity} Encode: {:?}", encode_time);
 
     let target: Vec<u8> = target.into_inner();
 
-    println!("Encoded");
+    // println!("Encoded");
 
     let 相手はもういらないかもしれない = response_socket.send(target);
 
     if 相手はもういらないかもしれない.is_err() {
-        println!("えんこーどまでしたのにー…むきーっ！");
+        tracing::debug!("{request_identity} えんこーどまでしたのにー…むきーっ！");
     }
 }
 
@@ -302,7 +307,9 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
     .make_current(&surface)
     .unwrap();
 
-    surface.set_swap_interval(&current_context, SwapInterval::DontWait).unwrap();
+    surface
+        .set_swap_interval(&current_context, SwapInterval::DontWait)
+        .unwrap();
 
     Display::from_context_surface(current_context, surface).unwrap()
 }

@@ -6,6 +6,7 @@ mod model;
 mod rendering_context_v0;
 mod web;
 mod worker;
+mod namesgenerator;
 
 use std::error::Error;
 use std::net::SocketAddr;
@@ -33,22 +34,37 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
+    tracing::info!("Instance Name: {}", cli.instance_name);
+    tracing::info!("Allow Demo: {}", cli.allow_demo);
+
+    let (webe_tx, webe_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
 
     tokio::spawn(async move {
-        web::run(
+        let e = web::run(
             cli.listen,
             tx,
             &cli.hmac_key,
             &cli.instance_name,
             cli.allow_demo,
         )
-        .await
+        .await;
+
+        webe_tx.send(e).unwrap()
     });
 
-    worker::run(rx).await?;
+    tokio::select! {
+        e = worker::run(rx) => {
+            tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
+        }
+        e = webe_rx => {
+            tracing::error!("UNRECOVERABLE ERROR (Web): {e:?}");
+        }
+    }
 
     Ok(())
 }
