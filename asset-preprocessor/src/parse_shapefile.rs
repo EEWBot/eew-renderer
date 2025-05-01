@@ -443,7 +443,7 @@ fn calculate_area_centers(shapefile: &Shapefile) -> HashMap<codes::Area, Vertex<
                 .iter()
                 .map(|ring| LineString::new(ring.points().iter().map(|p| p.into()).collect_vec()))
                 .map(|geo_line_string| Polygon::new(geo_line_string, vec![]))
-                .map(|geo_polygon| (geo_polygon.signed_area(), geo_polygon.centroid().unwrap()))
+                .map(|geo_polygon| (geo_polygon.unsigned_area(), geo_polygon.centroid().unwrap()))
                 .collect();
 
             (area_rings.area_code, area_polygons)
