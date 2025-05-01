@@ -199,8 +199,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let t_before_bufcpy = Instant::now();
 
-        let pixel_buffer = texture.read_to_pixel_buffer();
-        let image: RGBAImageData = pixel_buffer.read_as_texture_2d().unwrap();
+        let image: RGBAImageData = texture.read();
 
         let t_done = Instant::now();
 
@@ -238,13 +237,14 @@ async fn image_writeback(
 
     let mut target = Cursor::new(Vec::new());
 
+    let start_at = Instant::now();
+
     let encoder =
-        PngEncoder::new_with_quality(&mut target, CompressionType::Fast, FilterType::Adaptive);
+        PngEncoder::new_with_quality(&mut target, CompressionType::Fast, FilterType::Up);
 
     let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
-    let image = DynamicImage::ImageRgba8(image).flipv();
-
-    let start_at = std::time::Instant::now();
+    let mut image = DynamicImage::ImageRgba8(image);
+    image.apply_orientation(image::metadata::Orientation::FlipVertical);
 
     encoder
         .write_image(
@@ -255,13 +255,11 @@ async fn image_writeback(
         )
         .unwrap();
 
-    let encode_time = std::time::Instant::now() - start_at;
+    let encode_time = Instant::now() - start_at;
 
     tracing::info!("Encode: {:?} ({request_identity})", encode_time);
 
     let target: Vec<u8> = target.into_inner();
-
-    // println!("Encoded");
 
     let 相手はもういらないかもしれない = response_socket.send(target);
 
