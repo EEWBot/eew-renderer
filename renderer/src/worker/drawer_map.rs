@@ -35,6 +35,23 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
 
     resources
         .shader
+        .map
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            &resources.lake.vertex,
+            &resources.lake.index,
+            &MapUniform {
+                aspect_ratio,
+                offset,
+                zoom: scale,
+                color: [theme.clear_color[0], theme.clear_color[1], theme.clear_color[2]],
+            },
+            &params,
+        )
+        .unwrap();
+
+    resources
+        .shader
         .border_line
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
