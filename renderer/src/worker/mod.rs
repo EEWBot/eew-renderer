@@ -205,12 +205,12 @@ impl ApplicationHandler<Message> for App<'_> {
         let t_done = Instant::now();
 
         tracing::info!(
-            "{} Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?}",
-            rendering_context.request_identity,
+            "Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?} ({})",
             t_before_alloc - start_at,
             t_before_render - t_before_alloc,
             t_before_bufcpy - t_before_render,
             t_done - t_before_bufcpy,
+            rendering_context.request_identity,
         );
 
         tokio::spawn(async move {
@@ -232,7 +232,7 @@ async fn image_writeback(
     use image::{DynamicImage, ImageEncoder, RgbaImage};
 
     if response_socket.is_closed() {
-        tracing::debug!("{request_identity} もういらないっていわれちゃった……");
+        tracing::debug!("もういらないっていわれちゃった…… ({request_identity})");
         return;
     }
 
@@ -257,7 +257,7 @@ async fn image_writeback(
 
     let encode_time = std::time::Instant::now() - start_at;
 
-    tracing::info!("{request_identity} Encode: {:?}", encode_time);
+    tracing::info!("Encode: {:?} ({request_identity})", encode_time);
 
     let target: Vec<u8> = target.into_inner();
 
@@ -266,7 +266,7 @@ async fn image_writeback(
     let 相手はもういらないかもしれない = response_socket.send(target);
 
     if 相手はもういらないかもしれない.is_err() {
-        tracing::debug!("{request_identity} えんこーどまでしたのにー…むきーっ！");
+        tracing::debug!("えんこーどまでしたのにー…むきーっ！ ({request_identity})");
     }
 }
 
