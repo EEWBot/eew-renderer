@@ -205,6 +205,7 @@ pub fn read(
     #[allow(non_snake_case)] area_code__pref_code: &HashMap<codes::Area, codes::Pref>,
 ) -> (
     HashMap<codes::Area, BoundingBox<GeoDegree>>, // area_bounding_box
+    HashMap<codes::Area, Vertex<GeoDegree>>,      // area_centers
     Vec<(f32, f32)>,                              // vertex_buffer
     Vec<u32>,                                     // map_indices
     Vec<Vec<u32>>,                                // area_lines
@@ -218,6 +219,8 @@ pub fn read(
     let mut vertex_buffer = VertexBuffer::new();
 
     // @Siro_256 にゃ～っ…！ (ΦωΦ）
+
+    let area_centers = calculate_area_centers(&shapefile);
 
     let area_bounding_box: HashMap<codes::Area, BoundingBox<GeoDegree>> = shapefile
         .entries
@@ -347,6 +350,7 @@ pub fn read(
     {
         (
             area_bounding_box,
+            area_centers,
             vertex_buffer.into_buffer(),
             map_indices,
             area_lines,
@@ -421,4 +425,60 @@ fn gen_lod(
             v
         })
         .collect()
+}
+
+fn calculate_area_centers(shapefile: &Shapefile) -> HashMap<codes::Area, Vertex<GeoDegree>> {
+    use geo::{
+        algorithm::{Area, Centroid},
+        LineString, Polygon,
+    };
+
+    let area_weighted_vectors: HashMap<codes::Area, Vec<(f64, geo::Point)>> = shapefile
+        .entries
+        .iter()
+        .filter(|area_rings| area_rings.area_code != codes::UNNUMBERED_AREA)
+        .map(|area_rings| {
+            let area_polygons: Vec<(f64, geo::Point)> = area_rings
+                .rings
+                .iter()
+                .map(|ring| LineString::new(ring.points().iter().map(|p| p.into()).collect_vec()))
+                .map(|geo_line_string| Polygon::new(geo_line_string, vec![]))
+                .map(|geo_polygon| (geo_polygon.signed_area(), geo_polygon.centroid().unwrap()))
+                .collect();
+
+            (area_rings.area_code, area_polygons)
+        })
+        .collect();
+
+    let area_centers: HashMap<codes::Area, Point> = area_weighted_vectors
+        .into_iter()
+        .map(|(area_code, weighted_vectors)| {
+            let area_weight: f64 = weighted_vectors
+                .iter()
+                .map(|(weight, _vector)| weight)
+                .sum();
+
+            let area_vector: Point = weighted_vectors
+                .iter()
+                .map(|(weight, vector)| {
+                    let vector: Point = vector.into();
+                    vector.multiply_by(*weight as f32)
+                })
+                .fold(Point::new(0.0.into(), 0.0.into()), |a, b| a + b);
+
+            (area_code, area_vector.divide_by(area_weight as f32))
+        })
+        .collect();
+
+    let area_centers: HashMap<codes::Area, Vertex<GeoDegree>> = area_centers
+        .into_iter()
+        .map(|(area_code, center)| {
+            (
+                area_code,
+                Vertex::new(center.latitude.into(), center.longitude.into()),
+            )
+        })
+        .collect();
+
+    area_centers
 }

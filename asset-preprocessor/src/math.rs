@@ -6,8 +6,8 @@ pub(crate) type Of32 = ordered_float::OrderedFloat<f32>;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub(crate) struct Point {
-    latitude: Of32,
-    longitude: Of32,
+    pub(crate) latitude: Of32,
+    pub(crate) longitude: Of32,
 }
 
 impl Point {
@@ -17,7 +17,40 @@ impl Point {
             longitude,
         }
     }
+
+    pub(crate) fn multiply_by(&self, scale: f32) -> Self {
+        Self {
+            latitude: self.latitude * scale,
+            longitude: self.longitude * scale,
+        }
+    }
+
+    pub(crate) fn divide_by(&self, scale: f32) -> Self {
+        Self {
+            latitude: self.latitude / scale,
+            longitude: self.longitude / scale,
+        }
+    }
 }
+
+impl std::ops::Add for Point {
+    type Output = Point;
+
+    fn add(self, other: Point) ->  Self::Output {
+        Self::Output {
+            latitude: self.latitude + other.latitude,
+            longitude: self.longitude + other.longitude,
+        }
+    }
+}
+
+
+impl From<&geo::Point> for Point {
+    fn from(value: &geo::Point) -> Self {
+        Self::new(Of32::from(value.x() as f32), Of32::from(value.y() as f32))
+    }
+}
+
 
 impl From<shapefile::Point> for Point {
     fn from(value: shapefile::Point) -> Self {
@@ -37,8 +70,8 @@ impl From<Point> for (Of32, Of32) {
     }
 }
 
-impl From<Point> for geo::Coord {
-    fn from(val: Point) -> Self {
+impl From<&Point> for geo::Coord {
+    fn from(val: &Point) -> Self {
         geo::coord! { x: val.longitude.0 as f64, y: val.latitude.0 as f64 }
     }
 }
@@ -163,7 +196,7 @@ impl Line {
 
 impl From<&Line> for geo::LineString {
     fn from(val: &Line) -> Self {
-        geo::LineString::new(val.vertices.iter().map(|v| (*v).into()).collect())
+        geo::LineString::new(val.vertices.iter().map(|v| v.into()).collect())
     }
 }
 

@@ -21,10 +21,12 @@ fn main() {
         area_code__pref_code,
     ) = station_codes_parser::read(&s);
 
-    let (code_to_physically_center, vertices, indices, area_lines, pref_lines, scale_level_map) =
+    #[allow(non_snake_case)]
+    let (area_code__bbox, area_code__centers, vertices, indices, area_lines, pref_lines, scale_level_map) =
         parse_shapefile::read(&area_code__pref_code);
 
-    let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = code_to_physically_center
+    // <AreaCode, (StationIndex, (BBox))>
+    let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = area_code__bbox
         .iter()
         .map(|(code, bbox)| {
             let area = area_code__intensity_station_range
@@ -33,11 +35,13 @@ fn main() {
 
             let stations = &intensity_station_minimized[area.start_i..area.start_i + area.n];
 
+            let area_center = area_code__centers.get(code).unwrap();
+
             let nearest_intensity_station_index = stations
                 .iter()
                 .enumerate()
                 .min_by_key(|(_i, &station)| {
-                    NotNan::new(bbox.center().euclidean_distance(station))
+                    NotNan::new(area_center.euclidean_distance(station))
                         .expect("なぁん…観測点距離が何故かNaN")
                 })
                 .map(|(offset, _station)| area.start_i + offset)
