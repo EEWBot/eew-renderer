@@ -43,7 +43,7 @@ mod vertex;
 
 const DIMENSION: (u32, u32) = (1024, 768);
 const MAXIMUM_SCALE: f32 = 100.0;
-const SCALE_FACTOR: f32 = 1.1;
+const SCALE_FACTOR: f32 = 1.2;
 
 pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
     let event_loop = winit::event_loop::EventLoop::<Message>::with_user_event().build()?;
