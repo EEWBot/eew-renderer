@@ -91,8 +91,8 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
             &time_text,
             Font::BizUDPGothicBold,
             theme.occurrence_time_color,
-            Scale::uniform(30.0), // TODO: calculate from dimension
-            Offset::new(Origin::RightDown, Origin::RightDown, -30, -30),
+            Scale::uniform(20.0), // TODO: calculate from dimension
+            Offset::new(Origin::RightDown, Origin::RightDown, -20, -20),
             frame_context.dimension(),
             resources,
             facade,

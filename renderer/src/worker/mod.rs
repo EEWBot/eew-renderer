@@ -41,7 +41,7 @@ mod shader;
 mod theme;
 mod vertex;
 
-const DIMENSION: (u32, u32) = (1440, 1080);
+const DIMENSION: (u32, u32) = (1024, 768);
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.1;
 
