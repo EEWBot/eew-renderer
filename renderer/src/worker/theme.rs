@@ -9,6 +9,7 @@ pub struct Theme {
 }
 
 pub const DEFAULT: Theme = Theme {
+    #[allow(clippy::eq_op)]
     clear_color: [130.0 / 255.0, 188.0 / 255.0, 255.0 / 255.0, 1.0],
     ground_color: [222.0 / 255.0, 226.0 / 255.0, 229.0 / 255.0],
     prefectural_border_color: [148.0 / 255.0, 151.0 / 255.0, 153.0 / 255.0],
