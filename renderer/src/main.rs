@@ -33,7 +33,7 @@ struct Cli {
     allow_demo: bool,
 
     #[clap(long, env)]
-    #[clap(default_value = "100ms")]
+    #[clap(default_value = "50ms")]
     minimum_response_interval: humantime::Duration,
 }
 
