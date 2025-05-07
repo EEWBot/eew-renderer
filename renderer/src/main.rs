@@ -2,6 +2,7 @@ pub mod quake_prefecture {
     include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
 }
 
+mod rate_limiter;
 mod model;
 mod rendering_context_v0;
 mod web;
@@ -30,6 +31,10 @@ struct Cli {
 
     #[clap(env, long, default_value_t = false)]
     allow_demo: bool,
+
+    #[clap(long, env)]
+    #[clap(default_value = "100ms")]
+    minimum_response_interval: humantime::Duration,
 }
 
 #[tokio::main]
@@ -51,6 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             &cli.hmac_key,
             &cli.instance_name,
             cli.allow_demo,
+            cli.minimum_response_interval.into(),
         )
         .await;
 

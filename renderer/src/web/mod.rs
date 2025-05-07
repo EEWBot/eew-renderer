@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use axum::{
@@ -15,6 +16,7 @@ use hmac::{Hmac, Mac};
 use prost::Message;
 
 use crate::model::*;
+use crate::rate_limiter::ResponseRateLimiter;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 
@@ -24,6 +26,7 @@ pub struct AppState {
     hmac_key: Arc<String>,
     instance_name: Arc<String>,
     allow_demo: bool,
+    response_limiter: ResponseRateLimiter,
 }
 
 async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
@@ -99,6 +102,11 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
         .await
         .unwrap();
 
+    let bin = rx.await.unwrap();
+
+    let response_at = app.response_limiter.schedule(calculated_sha1.into());
+    tokio::time::sleep_until(response_at.into()).await;
+
     (
         [
             (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
@@ -107,7 +115,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        rx.await.unwrap(),
+        bin,
     )
         .into_response()
 }
@@ -159,6 +167,11 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
         .await
         .unwrap();
 
+    let bin = rx.await.unwrap();
+
+    let response_at = app.response_limiter.schedule([0; 20]);
+    tokio::time::sleep_until(response_at.into()).await;
+
     (
         [
             (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
@@ -167,7 +180,7 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        rx.await.unwrap(),
+        bin,
     )
         .into_response()
 }
@@ -178,9 +191,12 @@ pub async fn run(
     hmac_key: &str,
     instance_name: &str,
     allow_demo: bool,
+    minimum_response_interval: Duration,
 ) -> Result<()> {
     let hmac_key = Arc::new(hmac_key.to_string());
     let instance_name = Arc::new(instance_name.to_string());
+
+    let limiter = ResponseRateLimiter::new(minimum_response_interval);
 
     let app = Router::new()
         .route("/", get(root_handler))
@@ -191,6 +207,7 @@ pub async fn run(
             hmac_key,
             instance_name,
             allow_demo,
+            response_limiter: limiter,
         });
 
     let listener = tokio::net::TcpListener::bind(listen)
