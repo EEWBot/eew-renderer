@@ -21,6 +21,7 @@ mod rate_limiter;
 use rate_limiter::ResponseRateLimiter;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
+pub(in crate::web) type Sha1Bytes = [u8; 20];
 
 #[derive(Clone, Debug)]
 pub struct AppState {
@@ -29,7 +30,7 @@ pub struct AppState {
     instance_name: Arc<String>,
     allow_demo: bool,
     response_limiter: ResponseRateLimiter,
-    cache: moka::future::Cache<[u8; 20], bytes::Bytes>,
+    cache: moka::future::Cache<Sha1Bytes, bytes::Bytes>,
 }
 
 async fn render_handler(State(app): State<AppState>, req: Request) -> Response {

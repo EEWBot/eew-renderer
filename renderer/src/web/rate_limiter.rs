@@ -8,7 +8,7 @@ use moka::{
 #[derive(Debug, Clone)]
 pub struct ResponseRateLimiter {
     minimum_response_interval: Duration,
-    last_respond_ats: Cache<[u8; 20], Instant>,
+    last_respond_ats: Cache<super::Sha1Bytes, Instant>,
 }
 
 impl ResponseRateLimiter {
@@ -21,7 +21,7 @@ impl ResponseRateLimiter {
         }
     }
 
-    pub fn schedule(&self, sha1: [u8; 20], identity: &str) -> Instant {
+    pub fn schedule(&self, sha1: super::Sha1Bytes, identity: &str) -> Instant {
         let now = Instant::now();
 
         let schedule_responce_at =
