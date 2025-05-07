@@ -30,6 +30,14 @@ struct Cli {
 
     #[clap(env, long, default_value_t = false)]
     allow_demo: bool,
+
+    #[clap(long, env)]
+    #[clap(default_value = "50ms")]
+    minimum_response_interval: humantime::Duration,
+
+    #[clap(long, env)]
+    #[clap(default_value_t = 512)]
+    image_cache_capacity: u64,
 }
 
 #[tokio::main]
@@ -51,6 +59,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             &cli.hmac_key,
             &cli.instance_name,
             cli.allow_demo,
+            cli.minimum_response_interval.into(),
+            cli.image_cache_capacity,
         )
         .await;
 

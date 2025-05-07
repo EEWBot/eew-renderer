@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use axum::{
@@ -16,7 +17,11 @@ use prost::Message;
 
 use crate::model::*;
 
+mod rate_limiter;
+use rate_limiter::ResponseRateLimiter;
+
 type HmacSha1 = Hmac<sha1::Sha1>;
+pub(in crate::web) type Sha1Bytes = [u8; 20];
 
 #[derive(Clone, Debug)]
 pub struct AppState {
@@ -24,6 +29,8 @@ pub struct AppState {
     hmac_key: Arc<String>,
     instance_name: Arc<String>,
     allow_demo: bool,
+    response_limiter: ResponseRateLimiter,
+    cache: moka::future::Cache<Sha1Bytes, bytes::Bytes>,
 }
 
 async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
@@ -70,34 +77,50 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     };
 
     let short_hash = &format!("{:x}", calculated_sha1)[0..6];
+    let request_identity = &format!("{short_hash}#{request_id}");
 
-    let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
-        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-        epicenter: decoded.epicenter.map(
-            |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
-                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-            },
-        ),
-        area_intensities: enum_map! {
-            震度::震度1 => decoded.one.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度2 => decoded.two.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度3 => decoded.three.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度4 => decoded.four.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度5弱 => decoded.five_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度5強 => decoded.five_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度6弱 => decoded.six_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度6強 => decoded.six_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
-            震度::震度7 => decoded.seven.clone().map(|v| v.codes).unwrap_or(vec![]),
-        },
-        request_identity: format!("{short_hash}#{request_id}"),
-    };
+    tracing::info!("Request: {request_identity}");
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
+    let bin = app
+        .cache
+        .get_with(calculated_sha1.into(), async move {
+            let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
+                time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
+                epicenter: decoded.epicenter.map(
+                    |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
+                        renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
+                    },
+                ),
+                area_intensities: enum_map! {
+                    震度::震度1 => decoded.one.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度2 => decoded.two.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度3 => decoded.three.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度4 => decoded.four.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度5弱 => decoded.five_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度5強 => decoded.five_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度6弱 => decoded.six_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度6強 => decoded.six_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                    震度::震度7 => decoded.seven.clone().map(|v| v.codes).unwrap_or(vec![]),
+                },
+                request_identity: request_identity.to_string(),
+            };
 
-    app.request_channel
-        .send(crate::Message::RenderingRequest((rendering_context, tx)))
-        .await
-        .unwrap();
+            let (tx, rx) = tokio::sync::oneshot::channel();
+
+            app.request_channel
+                .send(crate::Message::RenderingRequest((rendering_context, tx)))
+                .await
+                .unwrap();
+
+            bytes::Bytes::from_owner(rx.await.unwrap())
+        })
+        .await;
+
+    let response_at = app
+        .response_limiter
+        .schedule(calculated_sha1.into(), request_identity);
+
+    tokio::time::sleep_until(response_at.into()).await;
 
     (
         [
@@ -107,7 +130,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        rx.await.unwrap(),
+        bin,
     )
         .into_response()
 }
@@ -132,6 +155,8 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
         return (StatusCode::UNAUTHORIZED, "Demo endpoint is not allowed").into_response();
     }
 
+    let request_identity = &format!("demo#{request_id}");
+
     let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
         time: chrono_tz::Japan
             .with_ymd_and_hms(2024, 1, 1, 16, 10, 0)
@@ -149,7 +174,7 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
             震度::震度6強 => vec![],
             震度::震度7 => vec![390],
         },
-        request_identity: format!("demo#{request_id}"),
+        request_identity: request_identity.to_string(),
     };
 
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -159,6 +184,12 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
         .await
         .unwrap();
 
+    let bin = rx.await.unwrap();
+
+    let response_at = app.response_limiter.schedule([0; 20], request_identity);
+
+    tokio::time::sleep_until(response_at.into()).await;
+
     (
         [
             (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
@@ -167,7 +198,7 @@ async fn demo_handler(State(app): State<AppState>) -> Response {
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        rx.await.unwrap(),
+        bin,
     )
         .into_response()
 }
@@ -178,9 +209,17 @@ pub async fn run(
     hmac_key: &str,
     instance_name: &str,
     allow_demo: bool,
+    minimum_response_interval: Duration,
+    image_cache_capacity: u64,
 ) -> Result<()> {
     let hmac_key = Arc::new(hmac_key.to_string());
     let instance_name = Arc::new(instance_name.to_string());
+
+    let response_limiter = ResponseRateLimiter::new(minimum_response_interval);
+
+    let cache = moka::future::Cache::builder()
+        .max_capacity(image_cache_capacity)
+        .build();
 
     let app = Router::new()
         .route("/", get(root_handler))
@@ -191,6 +230,8 @@ pub async fn run(
             hmac_key,
             instance_name,
             allow_demo,
+            response_limiter,
+            cache,
         });
 
     let listener = tokio::net::TcpListener::bind(listen)
