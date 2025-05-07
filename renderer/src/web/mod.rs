@@ -209,7 +209,7 @@ pub async fn run(
     instance_name: &str,
     allow_demo: bool,
     minimum_response_interval: Duration,
-    image_cache_entries: u64,
+    image_cache_capacity: u64,
 ) -> Result<()> {
     let hmac_key = Arc::new(hmac_key.to_string());
     let instance_name = Arc::new(instance_name.to_string());
@@ -217,7 +217,7 @@ pub async fn run(
     let response_limiter = ResponseRateLimiter::new(minimum_response_interval);
 
     let cache = moka::future::Cache::builder()
-        .max_capacity(image_cache_entries)
+        .max_capacity(image_cache_capacity)
         .build();
 
     let app = Router::new()
