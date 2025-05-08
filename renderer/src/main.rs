@@ -32,7 +32,7 @@ struct Cli {
     allow_demo: bool,
 
     #[clap(long, env)]
-    #[clap(default_value = "50ms")]
+    #[clap(default_value = "200ms")]
     minimum_response_interval: humantime::Duration,
 
     #[clap(long, env)]
@@ -48,6 +48,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tracing::info!("Instance Name: {}", cli.instance_name);
     tracing::info!("Allow Demo: {}", cli.allow_demo);
+    tracing::info!("Image Cache Capacity: {}", cli.image_cache_capacity);
+    tracing::info!("Minimum Response Interval: {}", cli.minimum_response_interval);
 
     let (webe_tx, webe_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
