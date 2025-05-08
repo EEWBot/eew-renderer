@@ -29,7 +29,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 zoom: scale,
                 color: theme.ground_color,
             },
-            &params,
+            params,
         )
         .unwrap();
 
@@ -46,7 +46,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 zoom: scale,
                 color: [theme.clear_color[0], theme.clear_color[1], theme.clear_color[2]],
             },
-            &params,
+            params,
         )
         .unwrap();
 
@@ -64,7 +64,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 line_width: theme.area_border_width,
                 color: theme.area_border_color,
             },
-            &params,
+            params,
         )
         .unwrap();
 
@@ -82,7 +82,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 line_width: theme.prefectural_border_width,
                 color: theme.prefectural_border_color,
             },
-            &params,
+            params,
         )
         .unwrap();
 }

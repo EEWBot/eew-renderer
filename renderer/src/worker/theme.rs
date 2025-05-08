@@ -19,6 +19,7 @@ pub const DEFAULT: Theme = Theme {
     occurrence_time_color: [0.0, 0.0, 0.0, 0.63],
 };
 
+#[allow(dead_code)]
 pub const DARK_DEMO: Theme = Theme {
     clear_color: [0.1, 0.12, 0.15, 1.0],
     ground_color: [0.35, 0.35, 0.35],
