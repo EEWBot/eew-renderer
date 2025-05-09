@@ -31,6 +31,9 @@ struct Cli {
     #[clap(env, long, default_value_t = false)]
     allow_demo: bool,
 
+    #[clap(env, long, default_value_t = false)]
+    bypass_hmac: bool,
+
     #[clap(long, env)]
     #[clap(default_value = "200ms")]
     minimum_response_interval: humantime::Duration,
@@ -51,6 +54,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!("Image Cache Capacity: {}", cli.image_cache_capacity);
     tracing::info!("Minimum Response Interval: {}", cli.minimum_response_interval);
 
+    if cli.bypass_hmac {
+        tracing::warn!("[SECURITY NOTICE] BYPASS HMAC MODE!");
+        tracing::warn!("[SECURITY NOTICE] DO NOT USE THIS OPTION IN PRODUCTION!!");
+    }
+
     let (webe_tx, webe_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
 
@@ -61,6 +69,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             &cli.hmac_key,
             &cli.instance_name,
             cli.allow_demo,
+            cli.bypass_hmac,
             cli.minimum_response_interval.into(),
             cli.image_cache_capacity,
         )

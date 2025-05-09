@@ -29,6 +29,7 @@ pub struct AppState {
     hmac_key: Arc<String>,
     instance_name: Arc<String>,
     allow_demo: bool,
+    bypass_hmac: bool,
     response_limiter: ResponseRateLimiter,
     cache: moka::future::Cache<Sha1Bytes, bytes::Bytes>,
 }
@@ -50,8 +51,11 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
         return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied").into_response();
     }
 
+    use generic_array::typenum::U20;
+    use generic_array::GenericArray;
+
     let version = bin[0];
-    let provided_sha1 = &bin[1..21];
+    let provided_sha1 = GenericArray::<_, U20>::from_slice(&bin[1..21]);
     let body = &bin[21..];
 
     if version != 0 {
@@ -68,15 +72,22 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
         mac.finalize().into_bytes()
     };
 
-    if calculated_sha1.as_slice() != provided_sha1 {
-        return (StatusCode::UNAUTHORIZED, "Invalid HMAC Key").into_response();
+    let short_hash = &format!("{:x}", provided_sha1)[0..6];
+
+    if *calculated_sha1 != **provided_sha1 {
+        if app.bypass_hmac {
+            tracing::warn!(
+                "Invalid a HMAC Key provided, but allowed by server configuration. {short_hash}"
+            );
+        } else {
+            return (StatusCode::UNAUTHORIZED, "Invalid HMAC Key").into_response();
+        }
     }
 
     let Ok(decoded) = crate::quake_prefecture::QuakePrefectureData::decode(body) else {
         return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
     };
 
-    let short_hash = &format!("{:x}", calculated_sha1)[0..6];
     let request_identity = &format!("{short_hash}#{request_id}");
 
     tracing::info!("Request: {request_identity}");
@@ -139,8 +150,10 @@ async fn root_handler(State(app): State<AppState>) -> Response {
     (
         [(CONTENT_TYPE, HeaderValue::from_str("text/html").unwrap())],
         format!(
-            "<h1>EEW Renderer</h1><p>Instance Name: {}</p>",
-            app.instance_name
+            "<h1>EEW Renderer</h1><p>Instance Name: {}</p><p>Demo Endpoint: {}</p><p>Bypass HMAC: {}</p>",
+            app.instance_name,
+            app.allow_demo,
+            app.bypass_hmac,
         ),
     )
         .into_response()
@@ -209,6 +222,7 @@ pub async fn run(
     hmac_key: &str,
     instance_name: &str,
     allow_demo: bool,
+    bypass_hmac: bool,
     minimum_response_interval: Duration,
     image_cache_capacity: u64,
 ) -> Result<()> {
@@ -230,6 +244,7 @@ pub async fn run(
             hmac_key,
             instance_name,
             allow_demo,
+            bypass_hmac,
             response_limiter,
             cache,
         });
