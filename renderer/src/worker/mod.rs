@@ -118,9 +118,7 @@ impl ApplicationHandler<Message> for App<'_> {
     fn resumed(&mut self, _: &ActiveEventLoop) {}
 
     fn user_event(&mut self, _: &ActiveEventLoop, event: Message) {
-        let (rendering_context, response_socket) = match event {
-            Message::RenderingRequest(v) => v,
-        };
+        let Message::RenderingRequest((rendering_context, response_socket)) = event;
         let start_at = std::time::Instant::now();
 
         let display = self.display.as_ref().unwrap();

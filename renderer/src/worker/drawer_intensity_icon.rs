@@ -65,7 +65,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameCo
             &per_icon_data,
             NoIndices(PrimitiveType::Points),
             &IntensityIconUniform {
-                aspect_ratio: aspect_ratio,
+                aspect_ratio,
                 offset: offset.to_slice(),
                 zoom: scale,
                 icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
@@ -92,7 +92,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameCo
                 &epicenter_data,
                 NoIndices(PrimitiveType::Points),
                 &EpicenterUniform {
-                    aspect_ratio: aspect_ratio,
+                    aspect_ratio,
                     offset: offset.to_slice(),
                     zoom: scale,
                     icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,

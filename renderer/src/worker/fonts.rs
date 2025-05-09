@@ -74,6 +74,7 @@ impl FontManager<'_> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_text<F: ?Sized + Facade, S: ?Sized + Surface>(
         &mut self,
         text: &str,
@@ -217,7 +218,7 @@ impl FontManager<'_> {
                         .font_cache_texture
                         .sampled()
                         .magnify_filter(MagnifySamplerFilter::Nearest),
-                    color: color,
+                    color,
                 },
                 draw_params,
             )
@@ -225,6 +226,7 @@ impl FontManager<'_> {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Debug)]
 pub enum Origin {
     LeftUp,

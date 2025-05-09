@@ -28,7 +28,7 @@ impl<U: Uniforms, V: Vertex> ShaderProgram<U, V> {
         geometry_shader: Option<&str>,
     ) -> Result<Self, ShaderInstantiationError> {
         let program = Program::from_source(facade, vertex_shader, fragment_shader, geometry_shader)
-            .map_err(|e| ShaderInstantiationError::ProgramCreation(e))?;
+            .map_err(ShaderInstantiationError::ProgramCreation)?;
         Self::from_program(program)
     }
 
