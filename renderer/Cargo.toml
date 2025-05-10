@@ -16,6 +16,7 @@ chrono-tz = "0.10.3"
 clap = { version = "4.5.36", features = ["derive", "env"] }
 const_soft_float = "0.1.4"
 enum-map = "2.7.3"
+generic-array = "1.2.0"
 glium = "0.36.0"
 glutin-winit = "0.5.0"
 hmac = "0.12.1"
