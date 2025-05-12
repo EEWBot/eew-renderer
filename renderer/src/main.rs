@@ -28,11 +28,8 @@ struct Cli {
     #[clap(default_value = "0.0.0.0:3000")]
     listen: SocketAddr,
 
-    #[clap(env, long, default_value_t = false)]
-    allow_demo: bool,
-
-    #[clap(env, long, default_value_t = false)]
-    bypass_hmac: bool,
+    #[command(flatten)]
+    security_rules: web::SecurityRules,
 
     #[clap(long, env)]
     #[clap(default_value = "200ms")]
@@ -50,11 +47,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     tracing::info!("Instance Name: {}", cli.instance_name);
-    tracing::info!("Allow Demo: {}", cli.allow_demo);
+    tracing::info!("Allow Demo: {}", cli.security_rules.allow_demo);
+    tracing::info!("Allow RemoteIP from CF header: {}", cli.security_rules.allow_remote_ip_from_cf_header);
     tracing::info!("Image Cache Capacity: {}", cli.image_cache_capacity);
     tracing::info!("Minimum Response Interval: {}", cli.minimum_response_interval);
 
-    if cli.bypass_hmac {
+    if cli.security_rules.bypass_hmac {
         tracing::warn!("[SECURITY NOTICE] BYPASS HMAC MODE!");
         tracing::warn!("[SECURITY NOTICE] DO NOT USE THIS OPTION IN PRODUCTION!!");
     }
@@ -68,8 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tx,
             &cli.hmac_key,
             &cli.instance_name,
-            cli.allow_demo,
-            cli.bypass_hmac,
+            cli.security_rules,
             cli.minimum_response_interval.into(),
             cli.image_cache_capacity,
         )
