@@ -31,6 +31,10 @@ struct Cli {
     #[command(flatten)]
     security_rules: web::SecurityRules,
 
+    /// See: https://docs.rs/axum-client-ip/1.0.0/axum_client_ip/index.html#configurable-vs-specific-extractors
+    #[clap(env, long, default_value = "ConnectInfo")]
+    client_ip_source: axum_client_ip::ClientIpSource,
+
     #[clap(long, env)]
     #[clap(default_value = "200ms")]
     minimum_response_interval: humantime::Duration,
@@ -48,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     tracing::info!("Instance Name: {}", cli.instance_name);
     tracing::info!("Allow Demo: {}", cli.security_rules.allow_demo);
-    tracing::info!("Allow RemoteIP from CF header: {}", cli.security_rules.allow_remote_ip_from_cf_header);
+    tracing::info!("ClientIP from: {:?}", cli.client_ip_source);
     tracing::info!("Image Cache Capacity: {}", cli.image_cache_capacity);
     tracing::info!("Minimum Response Interval: {}", cli.minimum_response_interval);
 
@@ -66,6 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tx,
             &cli.hmac_key,
             &cli.instance_name,
+            cli.client_ip_source,
             cli.security_rules,
             cli.minimum_response_interval.into(),
             cli.image_cache_capacity,

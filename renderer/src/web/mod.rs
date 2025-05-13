@@ -4,12 +4,13 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::{ConnectInfo, Request, State},
-    http::{header::{HeaderMap, CONTENT_TYPE}, HeaderName, HeaderValue, StatusCode},
+    extract::{Request, State},
+    http::{header::CONTENT_TYPE, HeaderName, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
 };
+use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_extra::TypedHeader;
 use chrono::{DateTime, TimeZone};
 use enum_map::enum_map;
@@ -32,9 +33,6 @@ pub struct SecurityRules {
 
     #[clap(env, long, default_value_t = false)]
     pub bypass_hmac: bool,
-
-    #[clap(env, long, default_value_t = false)]
-    pub allow_remote_ip_from_cf_header: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -49,15 +47,10 @@ pub struct AppState {
 
 async fn render_handler(
     State(app): State<AppState>,
-    remote_sock: ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     TypedHeader(user_agent): TypedHeader<UserAgent>,
     req: Request,
 ) -> Response {
-    let remote_ip = match req.headers().get("CF-Connecting-IP").map(|v| v.to_str()) {
-        Some(Ok(ip)) if app.security_rules.allow_remote_ip_from_cf_header => ip.to_string(),
-        _ => remote_sock.to_string(),
-    };
-
     let request_id = crate::namesgenerator::generate(&mut rand::rng());
 
     let bin = &req.uri().path()[1..];
@@ -113,7 +106,7 @@ async fn render_handler(
 
     let request_identity = &format!("{short_hash}#{request_id}");
 
-    tracing::info!("Request: {request_identity} {remote_ip} - {user_agent}");
+    tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
     let bin = app
         .cache
@@ -169,7 +162,10 @@ async fn render_handler(
         .into_response()
 }
 
-async fn root_handler(State(app): State<AppState>) -> Response {
+async fn root_handler(
+    State(app): State<AppState>,
+    ClientIp(_client_ip): ClientIp,
+) -> Response {
     (
         [(CONTENT_TYPE, HeaderValue::from_str("text/html").unwrap())],
         format!(
@@ -184,15 +180,9 @@ async fn root_handler(State(app): State<AppState>) -> Response {
 
 async fn demo_handler(
     State(app): State<AppState>,
-    remote_sock: ConnectInfo<SocketAddr>,
+    ClientIp(client_ip): ClientIp,
     TypedHeader(user_agent): TypedHeader<UserAgent>,
-    headers: HeaderMap,
 ) -> Response {
-    let remote_ip = match headers.get("CF-Connecting-IP").map(|v| v.to_str()) {
-        Some(Ok(ip)) if app.security_rules.allow_remote_ip_from_cf_header => ip.to_string(),
-        _ => remote_sock.to_string(),
-    };
-
     let request_id = crate::namesgenerator::generate(&mut rand::rng());
 
     use renderer_types::*;
@@ -202,7 +192,7 @@ async fn demo_handler(
     }
 
     let request_identity = &format!("demo#{request_id}");
-    tracing::info!("Request: {request_identity} {remote_ip} - {user_agent}");
+    tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
     let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
         time: chrono_tz::Japan
@@ -255,6 +245,7 @@ pub async fn run(
     request_channel: tokio::sync::mpsc::Sender<crate::Message>,
     hmac_key: &str,
     instance_name: &str,
+    client_ip_source: ClientIpSource,
     security_rules: SecurityRules,
     minimum_response_interval: Duration,
     image_cache_capacity: u64,
@@ -279,7 +270,8 @@ pub async fn run(
             security_rules,
             response_limiter,
             cache,
-        });
+        })
+        .layer(client_ip_source.into_extension());
 
     let listener = tokio::net::TcpListener::bind(listen)
         .await
@@ -287,7 +279,12 @@ pub async fn run(
 
     tracing::info!("Listening on {listen}");
 
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }

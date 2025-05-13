@@ -39,6 +39,7 @@ urlencoding = "2.1.3"
 winit = "0.30.9"
 
 justnames = { git = "https://github.com/EEWBot/justnames", tag = "v0.1.0" }
+axum-client-ip = "1.0.0"
 
 [build-dependencies]
 prost-build = "0.13.5"
