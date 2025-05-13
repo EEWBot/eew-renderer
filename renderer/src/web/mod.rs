@@ -10,8 +10,11 @@ use axum::{
     routing::get,
     Router,
 };
+use axum_client_ip::{ClientIp, ClientIpSource};
+use axum_extra::TypedHeader;
 use chrono::{DateTime, TimeZone};
 use enum_map::enum_map;
+use headers::UserAgent;
 use hmac::{Hmac, Mac};
 use prost::Message;
 
@@ -23,18 +26,31 @@ use rate_limiter::ResponseRateLimiter;
 type HmacSha1 = Hmac<sha1::Sha1>;
 pub(in crate::web) type Sha1Bytes = [u8; 20];
 
+#[derive(Clone, Debug, clap::Parser)]
+pub struct SecurityRules {
+    #[clap(env, long, default_value_t = false)]
+    pub allow_demo: bool,
+
+    #[clap(env, long, default_value_t = false)]
+    pub bypass_hmac: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct AppState {
     request_channel: tokio::sync::mpsc::Sender<crate::model::Message>,
     hmac_key: Arc<String>,
     instance_name: Arc<String>,
-    allow_demo: bool,
-    bypass_hmac: bool,
     response_limiter: ResponseRateLimiter,
+    security_rules: SecurityRules,
     cache: moka::future::Cache<Sha1Bytes, bytes::Bytes>,
 }
 
-async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
+async fn render_handler(
+    State(app): State<AppState>,
+    ClientIp(client_ip): ClientIp,
+    TypedHeader(user_agent): TypedHeader<UserAgent>,
+    req: Request,
+) -> Response {
     let request_id = crate::namesgenerator::generate(&mut rand::rng());
 
     let bin = &req.uri().path()[1..];
@@ -75,7 +91,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
     let short_hash = &format!("{:x}", provided_sha1)[0..6];
 
     if *calculated_sha1 != **provided_sha1 {
-        if app.bypass_hmac {
+        if app.security_rules.bypass_hmac {
             tracing::warn!(
                 "Invalid a HMAC Key provided, but allowed by server configuration. {short_hash}"
             );
@@ -90,7 +106,7 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
 
     let request_identity = &format!("{short_hash}#{request_id}");
 
-    tracing::info!("Request: {request_identity}");
+    tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
     let bin = app
         .cache
@@ -146,29 +162,37 @@ async fn render_handler(State(app): State<AppState>, req: Request) -> Response {
         .into_response()
 }
 
-async fn root_handler(State(app): State<AppState>) -> Response {
+async fn root_handler(
+    State(app): State<AppState>,
+    ClientIp(_client_ip): ClientIp,
+) -> Response {
     (
         [(CONTENT_TYPE, HeaderValue::from_str("text/html").unwrap())],
         format!(
             "<h1>EEW Renderer</h1><p>Instance Name: {}</p><p>Demo Endpoint: {}</p><p>Bypass HMAC: {}</p>",
             app.instance_name,
-            app.allow_demo,
-            app.bypass_hmac,
+            app.security_rules.allow_demo,
+            app.security_rules.bypass_hmac,
         ),
     )
         .into_response()
 }
 
-async fn demo_handler(State(app): State<AppState>) -> Response {
+async fn demo_handler(
+    State(app): State<AppState>,
+    ClientIp(client_ip): ClientIp,
+    TypedHeader(user_agent): TypedHeader<UserAgent>,
+) -> Response {
     let request_id = crate::namesgenerator::generate(&mut rand::rng());
 
     use renderer_types::*;
 
-    if !app.allow_demo {
+    if !app.security_rules.allow_demo {
         return (StatusCode::UNAUTHORIZED, "Demo endpoint is not allowed").into_response();
     }
 
     let request_identity = &format!("demo#{request_id}");
+    tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
     let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
         time: chrono_tz::Japan
@@ -221,8 +245,8 @@ pub async fn run(
     request_channel: tokio::sync::mpsc::Sender<crate::Message>,
     hmac_key: &str,
     instance_name: &str,
-    allow_demo: bool,
-    bypass_hmac: bool,
+    client_ip_source: ClientIpSource,
+    security_rules: SecurityRules,
     minimum_response_interval: Duration,
     image_cache_capacity: u64,
 ) -> Result<()> {
@@ -243,11 +267,11 @@ pub async fn run(
             request_channel,
             hmac_key,
             instance_name,
-            allow_demo,
-            bypass_hmac,
+            security_rules,
             response_limiter,
             cache,
-        });
+        })
+        .layer(client_ip_source.into_extension());
 
     let listener = tokio::net::TcpListener::bind(listen)
         .await
@@ -255,7 +279,12 @@ pub async fn run(
 
     tracing::info!("Listening on {listen}");
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }
