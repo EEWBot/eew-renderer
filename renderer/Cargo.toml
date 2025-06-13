@@ -25,7 +25,7 @@ hmac = "0.12.1"
 humantime = "2.2.0"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 moka = { version = "0.12.10", features = ["future", "sync"] }
-prost = "0.13.0"
+prost = "0.14.0"
 rand = "0.9.1"
 renderer-assets = { path = "../renderer-assets/" }
 renderer-types = { path = "../renderer-types/" }
@@ -42,7 +42,7 @@ justnames = { git = "https://github.com/EEWBot/justnames", tag = "v0.1.0" }
 axum-client-ip = "1.0.0"
 
 [build-dependencies]
-prost-build = "0.13.5"
+prost-build = "0.14.0"
 
 [profile.release]
 opt-level = 3
