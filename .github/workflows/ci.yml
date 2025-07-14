@@ -280,6 +280,7 @@ jobs:
           mc get yr32srv/eewbot/shapefiles_v0.zip ./shapefiles_v0.zip
           unzip -o ./shapefiles_v0.zip
           popd
+          sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
 
       - uses: docker/metadata-action@v5.7.0
