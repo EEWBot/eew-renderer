@@ -570,9 +570,9 @@ dependencies = [
 
 [[package]]
 name = "const-gen"
-version = "1.6.6"
+version = "1.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d7617801a02ebd66905a39f5a15390bfb7d6ab90316fdbf7dc36a1161ffb56b"
+checksum = "6eeaffdd545c28802c91ce816239dd9951cce0ec83d947f2d09dcfbddcd96f5f"
 dependencies = [
  "const-gen-derive",
 ]
