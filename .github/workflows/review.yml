@@ -33,7 +33,7 @@ jobs:
     runs-on: ${{ matrix.ghimage }}
 
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v4.3.0
         with:
           submodules: true
 
