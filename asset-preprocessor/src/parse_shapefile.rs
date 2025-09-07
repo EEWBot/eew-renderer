@@ -383,7 +383,7 @@ fn gen_lod(
 
     lod_details
         .iter()
-        .map(|(_, e)| geo_lines.iter().map(|l| l.simplify(e)).collect_vec())
+        .map(|(_, e)| geo_lines.iter().map(|l| l.simplify(*e)).collect_vec())
         .map(|l| {
             let mut v = Vec::new();
             for l in l {
