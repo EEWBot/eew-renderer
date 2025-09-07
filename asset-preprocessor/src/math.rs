@@ -89,7 +89,7 @@ impl Ring {
         &self.points
     }
 
-    pub(crate) fn iter_adjacent_points(&self) -> AdjacentPointsIter {
+    pub(crate) fn iter_adjacent_points(&self) -> AdjacentPointsIter<'_> {
         AdjacentPointsIter::new(&self.points)
     }
 

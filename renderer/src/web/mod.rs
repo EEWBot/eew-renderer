@@ -240,6 +240,7 @@ async fn demo_handler(
         .into_response()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn run(
     listen: SocketAddr,
     request_channel: tokio::sync::mpsc::Sender<crate::Message>,
