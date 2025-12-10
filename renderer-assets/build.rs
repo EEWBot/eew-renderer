@@ -9,7 +9,7 @@ mod station_codes_parser;
 use asset_preprocessor::{parse_lake_shapefile, parse_shapefile, parse_tsunami_shapefile};
 
 fn main() {
-    let (tsunami_vertices, tsunami_indices) = parse_tsunami_shapefile::read();
+    let tsunami_line_map = parse_tsunami_shapefile::read();
 
     let (lake_vertices, lake_indices) = parse_lake_shapefile::read();
 
@@ -64,8 +64,7 @@ fn main() {
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
         const_declaration!(LAKE_VERTICES = lake_vertices),
         const_declaration!(LAKE_INDICES = lake_indices),
-        const_declaration!(TSUNAMI_VERTICES = tsunami_vertices),
-        const_declaration!(TSUNAMI_INDICES = tsunami_indices),
+        const_declaration!(TSUNAMI_LINE_MAP = tsunami_line_map),
     ]
     .join("\n");
 
