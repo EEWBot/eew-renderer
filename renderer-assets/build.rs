@@ -6,9 +6,11 @@ use const_gen::*;
 use ordered_float::NotNan;
 
 mod station_codes_parser;
-use asset_preprocessor::{parse_lake_shapefile, parse_shapefile};
+use asset_preprocessor::{parse_lake_shapefile, parse_shapefile, parse_tsunami_shapefile};
 
 fn main() {
+    let (tsunami_vertices, tsunami_indices) = parse_tsunami_shapefile::read();
+
     let (lake_vertices, lake_indices) = parse_lake_shapefile::read();
 
     let s = std::fs::read_to_string("../assets/intensity_stations.json").unwrap();
@@ -62,6 +64,8 @@ fn main() {
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
         const_declaration!(LAKE_VERTICES = lake_vertices),
         const_declaration!(LAKE_INDICES = lake_indices),
+        const_declaration!(TSUNAMI_VERTICES = tsunami_vertices),
+        const_declaration!(TSUNAMI_INDICES = tsunami_indices),
     ]
     .join("\n");
 

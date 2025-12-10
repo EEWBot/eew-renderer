@@ -194,6 +194,13 @@ impl Line {
     }
 }
 
+impl From<Vec<shapefile::Point>> for Line {
+    fn from(value: Vec<shapefile::Point>) -> Self {
+        let points: Vec<_> = value.into_iter().map(|p| p.into()).collect();
+        Self::new(&points)
+    }
+}
+
 impl From<&Line> for geo::LineString {
     fn from(val: &Line) -> Self {
         geo::LineString::new(val.vertices.iter().map(|v| v.into()).collect())
