@@ -2,6 +2,10 @@ pub mod quake_prefecture {
     include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
 }
 
+pub mod tsunami {
+    include!(concat!(env!("OUT_DIR"), "/tsunami_v0.rs"));
+}
+
 mod model;
 mod rendering_context_v0;
 mod web;

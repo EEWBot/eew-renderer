@@ -1,5 +1,7 @@
-use glium::uniforms::{AsUniformValue, Sampler, UniformValue, Uniforms};
-use glium::{implement_vertex, Texture2d};
+use glium::uniforms::{AsUniformValue, Sampler, UniformBlock, UniformBuffer, UniformValue, Uniforms};
+use glium::{implement_uniform_block, implement_vertex, Texture2d};
+use glium::backend::Facade;
+use glium::texture::Texture1d;
 
 #[derive(Debug)]
 pub struct BorderLineUniform {
@@ -99,6 +101,68 @@ impl Uniforms for MapUniform {
         visitor("color", self.color.as_uniform_value());
     }
 }
+
+#[derive(Copy, Clone, Debug)]
+pub struct TsunamiVertex {
+    pub position: [f32; 2],
+    pub code: u16,
+}
+implement_vertex!(TsunamiVertex, position, code);
+
+#[derive(Debug)]
+pub struct TsunamiUniform {
+    pub dimension: [f32; 2],
+    pub offset: [f32; 2],
+    pub zoom: f32,
+    pub colors: UniformBuffer<TsunamiLineColors>,
+    pub levels: Texture1d,
+    pub line_width: f32,
+}
+
+impl TsunamiUniform {
+    pub fn new<F: ?Sized + Facade>(
+        facade: &F,
+        dimension: [f32; 2],
+        offset: [f32; 2],
+        zoom: f32,
+        colors: TsunamiLineColors,
+        levels: Texture1d,
+        line_width: f32,
+    ) -> Self {
+        let colors = UniformBuffer::dynamic(facade, colors).unwrap();
+
+        Self {
+            dimension,
+            offset,
+            zoom,
+            colors,
+            levels,
+            line_width,
+        }
+    }
+}
+
+impl Uniforms for TsunamiUniform {
+    fn visit_values<'a, Fn: FnMut(&str, UniformValue<'a>)>(&'a self, mut visitor: Fn) {
+        visitor("dimension", self.dimension.as_uniform_value());
+        visitor("offset", self.offset.as_uniform_value());
+        visitor("zoom", self.zoom.as_uniform_value());
+        let colors = UniformValue::Block(self.colors.as_slice_any(), |block| TsunamiLineColors::matches(&block.layout, 0));
+        visitor("colors", colors);
+        visitor("levels", self.levels.as_uniform_value());
+        visitor("line_width", self.line_width.as_uniform_value());
+        // meow
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct TsunamiLineColors {
+    pub forecast: [f32; 3],
+    pub advisory: [f32; 3],
+    pub warning: [f32; 3],
+    pub major_warning: [f32; 3],
+}
+implement_uniform_block!(TsunamiLineColors, forecast, advisory, warning, major_warning);
 
 #[derive(Copy, Clone, Debug)]
 pub struct TextVertex {
