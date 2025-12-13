@@ -45,15 +45,14 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
             frame_context.surface.borrow_mut().deref_mut(),
             &frame_context.resources.buffer.tsunami_vertex,
             &frame_context.resources.buffer.tsunami_indices,
-            &TsunamiUniform::new(
-                facade,
+            &TsunamiUniform {
                 dimension,
-                offset.to_slice(),
-                scale,
-                frame_context.theme.tsunami_colors,
+                offset: offset.to_slice(),
+                zoom: scale,
+                colors: frame_context.theme.tsunami_colors,
                 levels,
-                frame_context.theme.tsunami_width,
-            ),
+                line_width: frame_context.theme.tsunami_width,
+            },
             draw_parameters,
         )
         .unwrap();

@@ -44,6 +44,6 @@ pub const DARK_DEMO: Theme = Theme {
         warning: [255.0 / 255.0, 170.0 / 255.0, 0.0 / 255.0],
         major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
     },
-    tsunami_width: 3.0,
+    tsunami_width: 8.0,
     occurrence_time_color: [1.0, 1.0, 1.0, 0.63],
 };

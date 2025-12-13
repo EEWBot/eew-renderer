@@ -114,32 +114,9 @@ pub struct TsunamiUniform {
     pub dimension: [f32; 2],
     pub offset: [f32; 2],
     pub zoom: f32,
-    pub colors: UniformBuffer<TsunamiLineColors>,
+    pub colors: TsunamiLineColors,
     pub levels: UnsignedTexture1d,
     pub line_width: f32,
-}
-
-impl TsunamiUniform {
-    pub fn new<F: ?Sized + Facade>(
-        facade: &F,
-        dimension: [f32; 2],
-        offset: [f32; 2],
-        zoom: f32,
-        colors: TsunamiLineColors,
-        levels: UnsignedTexture1d,
-        line_width: f32,
-    ) -> Self {
-        let colors = UniformBuffer::dynamic(facade, colors).unwrap();
-
-        Self {
-            dimension,
-            offset,
-            zoom,
-            colors,
-            levels,
-            line_width,
-        }
-    }
 }
 
 impl Uniforms for TsunamiUniform {
@@ -147,8 +124,11 @@ impl Uniforms for TsunamiUniform {
         visitor("dimension", self.dimension.as_uniform_value());
         visitor("offset", self.offset.as_uniform_value());
         visitor("zoom", self.zoom.as_uniform_value());
-        let colors = UniformValue::Block(self.colors.as_slice_any(), |block| TsunamiLineColors::matches(&block.layout, 0));
-        visitor("colors", colors);
+        // gliumが構造体の転送に対応していないので、バラバラに渡すしかない
+        visitor("forecast_color", self.colors.forecast.as_uniform_value());
+        visitor("advisory_color", self.colors.advisory.as_uniform_value());
+        visitor("warning_color", self.colors.warning.as_uniform_value());
+        visitor("major_warning_color", self.colors.major_warning.as_uniform_value());
         let mut behavior = ImageUnitBehavior::default();
         behavior.access = ImageUnitAccess::Read;
         behavior.format = ImageUnitFormat::R8;

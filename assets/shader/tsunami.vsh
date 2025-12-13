@@ -1,14 +1,13 @@
-#version 420
+#version 460
 
 uniform vec2 dimension;
 uniform vec2 offset;
 uniform float zoom;
-uniform LineColors {
-    vec3 forecast;
-    vec3 advisory;
-    vec3 warning;
-    vec3 major_warning;
-} colors;
+uniform vec3 forecast_color;
+uniform vec3 advisory_color;
+uniform vec3 warning_color;
+uniform vec3 major_warning_color;
+
 /**
  * 0 -> 発令なし
  * 1 -> 津波予報(若干の海面変動)
@@ -42,15 +41,16 @@ void main() {
     vec2 display_coordinate = vec2(map_coordinate.x, map_coordinate.y / aspect_ratio);
     vec2 no_forecast_cull = display_coordinate * sign(level);
     gl_Position = vec4(no_forecast_cull, 0.0, 1.0);
+    vertex_id_vsh_out = gl_VertexID;
 
     if (level == 1) {
-        color_vsh_out = vec4(colors.forecast, 1.0);
+        color_vsh_out = vec4(forecast_color, 1.0);
     } else if (level == 2) {
-        color_vsh_out = vec4(colors.advisory, 1.0);
+        color_vsh_out = vec4(advisory_color, 1.0);
     } else if (level == 3) {
-        color_vsh_out = vec4(colors.warning, 1.0);
+        color_vsh_out = vec4(warning_color, 1.0);
     } else if (level == 4) {
-        color_vsh_out = vec4(colors.major_warning, 1.0);
+        color_vsh_out = vec4(major_warning_color, 1.0);
     } else {
         color_vsh_out = vec4(0.0, 0.0, 0.0, 0.0);
     }
