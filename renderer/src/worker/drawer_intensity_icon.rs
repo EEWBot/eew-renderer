@@ -3,11 +3,8 @@ use array_const_fn_init::array_const_fn_init;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::{Surface, VertexBuffer};
-
 use crate::worker::FrameContext;
-use crate::worker::vertex::{EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex};
-
-const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
+use crate::worker::vertex::{IntensityIconUniform, IntensityIconVertex};
 
 const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
     use const_soft_float::soft_f32::SoftF32;
@@ -28,8 +25,7 @@ const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
 
 const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_offset_fn; 9];
 
-pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>) {
-    let rendering_context = frame_context.rendering_context;
+pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>, rendering_context: &crate::rendering_context::V0) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let aspect_ratio = frame_context.aspect_ratio();
@@ -68,38 +64,10 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameCo
                 aspect_ratio,
                 offset: offset.to_slice(),
                 zoom: scale,
-                icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
+                icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
                 texture_sampler: &resources.texture.intensity,
             },
             draw_parameters,
         )
         .unwrap();
-
-    if let Some(epicenter) = rendering_context.epicenter {
-        let epicenter_data = VertexBuffer::dynamic(
-            facade,
-            &[EpicenterVertex {
-                position: epicenter.to_slice()
-            }],
-        )
-        .unwrap();
-
-        resources
-            .shader
-            .epicenter
-            .draw(
-                frame_context.surface.borrow_mut().deref_mut(),
-                &epicenter_data,
-                NoIndices(PrimitiveType::Points),
-                &EpicenterUniform {
-                    aspect_ratio,
-                    offset: offset.to_slice(),
-                    zoom: scale,
-                    icon_ratio_in_y_axis: ICON_RATIO_IN_Y_AXIS,
-                    texture_sampler: &resources.texture.epicenter,
-                },
-                draw_parameters,
-            )
-            .unwrap();
-    }
 }

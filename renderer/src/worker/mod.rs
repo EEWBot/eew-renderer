@@ -1,20 +1,15 @@
 use crate::model::Message;
-use crate::rendering_context_v0::RenderingContextV0;
+use crate::rendering_context::RenderingContext;
 use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
 use glium::backend::Facade;
 use glium::glutin::surface::{GlSurface, SwapInterval};
-use glium::{
-    draw_parameters::{Blend, LinearBlendingFactor},
-    framebuffer::SimpleFrameBuffer,
-    glutin::{
-        config::ConfigTemplateBuilder,
-        context::{ContextAttributesBuilder, NotCurrentGlContext},
-        display::{GetGlDisplay, GlDisplay},
-        surface::{SurfaceAttributesBuilder, WindowSurface},
-    },
-    BlendingFunction, Display, DrawParameters, Surface, Texture2d,
-};
+use glium::{draw_parameters::{Blend, LinearBlendingFactor}, framebuffer::SimpleFrameBuffer, glutin::{
+    config::ConfigTemplateBuilder,
+    context::{ContextAttributesBuilder, NotCurrentGlContext},
+    display::{GetGlDisplay, GlDisplay},
+    surface::{SurfaceAttributesBuilder, WindowSurface},
+}, BlendingFunction, Display, DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
 use glutin_winit::DisplayBuilder;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
@@ -22,14 +17,17 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
+use std::ops::DerefMut;
 use std::rc::Rc;
 use std::time::Instant;
+use glium::index::PrimitiveType;
 use tokio::sync::{mpsc, oneshot};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
+use crate::worker::vertex::{BorderLineUniform, MapVertex};
 
 mod drawer_intensity_icon;
 mod drawer_map;
@@ -40,10 +38,13 @@ mod resources;
 mod shader;
 mod theme;
 mod vertex;
+mod drawer_tsunami;
+mod drawer_epicenter;
 
 const DIMENSION: (u32, u32) = (1024, 768);
 const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.2;
+const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
 pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
     let event_loop = winit::event_loop::EventLoop::<Message>::with_user_event().build()?;
@@ -65,7 +66,6 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
 pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
-    pub rendering_context: &'a RenderingContextV0,
     pub theme: &'a Theme,
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
@@ -128,15 +128,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
-        let bounding_box = calculate_bounding_box(
-            &rendering_context
-                .area_intensities
-                .values()
-                .flatten()
-                .copied()
-                .collect::<Vec<_>>(),
-            rendering_context.epicenter.as_ref(),
-        );
+        let bounding_box = calculate_bounding_box(&rendering_context);
 
         let rendering_bbox = BoundingBox::from_vertices(
             &bounding_box
@@ -172,7 +164,6 @@ impl ApplicationHandler<Message> for App<'_> {
         let frame_context = FrameContext {
             facade: display,
             surface: frame_buffer.clone(),
-            rendering_context: &rendering_context,
             theme: &theme::DEFAULT,
             resources,
             font_manager,
@@ -189,11 +180,22 @@ impl ApplicationHandler<Message> for App<'_> {
             clear_color[3],
         );
 
-        drawer_map::draw(&frame_context);
+        match &rendering_context {
+            RenderingContext::V0(v0) => {
+                drawer_map::draw(&frame_context, true);
+                drawer_intensity_icon::draw_all(&frame_context, v0);
+                drawer_epicenter::draw(&frame_context, v0);
+                drawer_overlay::draw(&frame_context, v0);
+            }
+            RenderingContext::Tsunami(tsunami) => {
+                drawer_map::draw(&frame_context, false);
+                drawer_epicenter::draw(&frame_context, tsunami);
+                drawer_tsunami::draw(&frame_context, tsunami);
+                drawer_overlay::draw(&frame_context, tsunami);
+            }
+        }
 
-        drawer_intensity_icon::draw_all(&frame_context);
 
-        drawer_overlay::draw(&frame_context);
 
         let t_before_bufcpy = Instant::now();
 
@@ -207,11 +209,11 @@ impl ApplicationHandler<Message> for App<'_> {
             t_before_render - t_before_alloc,
             t_before_bufcpy - t_before_render,
             t_done - t_before_bufcpy,
-            rendering_context.request_identity,
+            rendering_context.request_identity(),
         );
 
         tokio::spawn(async move {
-            image_writeback(&rendering_context.request_identity, response_socket, image).await
+            image_writeback(&rendering_context.request_identity(), response_socket, image).await
         });
     }
 
@@ -310,33 +312,41 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
     Display::from_context_surface(current_context, surface).unwrap()
 }
 
-pub fn calculate_bounding_box(
-    areas: &[u32],
-    epicenter: Option<&Vertex<GeoDegree>>,
-) -> BoundingBox<GeoDegree> {
-    let bbox = areas
-        .iter()
-        .filter_map(|code| renderer_assets::QueryInterface::query_bounding_box_by_area(*code))
-        .fold(
-            BoundingBox {
-                min: Vertex {
-                    x: 180.0,
-                    y: 90.0,
-                    _type: PhantomData,
-                },
-                max: Vertex {
-                    x: -180.0,
-                    y: -90.0,
-                    _type: PhantomData,
-                },
-            },
-            |acc, e| acc.extends_with(&e),
-        );
+pub fn calculate_bounding_box(ctx: &RenderingContext) -> BoundingBox<GeoDegree> {
+    match ctx {
+        RenderingContext::V0(ctx) => {
+            let areas = ctx
+                .area_intensities
+                .values()
+                .flatten()
+                .copied()
+                .collect::<Vec<_>>();
+            let bbox = areas
+                .iter()
+                .filter_map(|code| renderer_assets::QueryInterface::query_bounding_box_by_area(*code))
+                .fold(
+                    BoundingBox {
+                        min: Vertex {
+                            x: 180.0,
+                            y: 90.0,
+                            _type: PhantomData,
+                        },
+                        max: Vertex {
+                            x: -180.0,
+                            y: -90.0,
+                            _type: PhantomData,
+                        },
+                    },
+                    |acc, e| acc.extends_with(&e),
+                );
 
-    if let Some(epicenter) = epicenter {
-        bbox.extends_by_vertex(epicenter)
-    } else {
-        bbox
+            if let Some(epicenter) = ctx.epicenter {
+                bbox.extends_by_vertex(&epicenter)
+            } else {
+                bbox
+            }
+        }
+        RenderingContext::Tsunami(ctx) => BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5))
     }
 }
 

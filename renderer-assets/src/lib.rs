@@ -20,7 +20,8 @@ pub struct LakeGeometries {
 }
 
 pub struct TsunamiGeometries {
-    pub line_map: &'static phf::Map<codes::TsunamiArea, &'static [&'static [(f32, f32)]]>,
+    pub vertices: &'static [(f32, f32, u32)],
+    pub indices: &'static [u32],
 }
 
 impl QueryInterface {
@@ -42,7 +43,8 @@ impl QueryInterface {
 
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
-            line_map: &TSUNAMI_LINE_MAP,
+            vertices: &TSUNAMI_VERTICES,
+            indices: &TSUNAMI_INDICES,
         }
     }
 

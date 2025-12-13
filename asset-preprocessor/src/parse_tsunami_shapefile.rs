@@ -9,6 +9,36 @@ use shapefile::{Shape, ShapeReader};
 use crate::math::*;
 use renderer_types::codes;
 
+struct VertexBuffer {
+    buffer: Vec<(Of32, Of32, u32)>,
+    dict: HashMap<(Of32, Of32, u32), usize>,
+}
+
+impl VertexBuffer {
+    fn new() -> Self {
+        Self {
+            buffer: Default::default(),
+            dict: Default::default(),
+        }
+    }
+
+    fn insert(&mut self, v: (Of32, Of32, u32)) -> usize {
+        match self.dict.get(&v) {
+            Some(index) => *index,
+            None => {
+                self.buffer.push(v);
+                let index = self.buffer.len() - 1;
+                self.dict.insert(v, index);
+                index
+            }
+        }
+    }
+
+    fn into_buffer(self) -> Vec<(f32, f32, u32)> {
+        self.buffer.into_iter().map(|(x, y, code)| (x.0, y.0, code)).collect()
+    }
+}
+
 struct AreaLines {
     lines: Vec<Line>,
     tsunami_area_code: codes::TsunamiArea,
@@ -83,25 +113,33 @@ Please follow:
     }
 }
 
-pub fn read() -> HashMap<codes::TsunamiArea, Vec<Vec<(f32, f32)>>> // lineses
+pub fn read() -> (
+    Vec<(f32, f32, u32)>, // vertices
+    Vec<u32>,        // indices
+)
 {
     let shapefile = Shapefile::new(
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.shp",
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.dbf",
     );
 
-    let mut lines_map = HashMap::new();
+    let mut vertex_buffer = VertexBuffer::new();
+    let mut lines = Vec::new();
 
     for e in shapefile.entries {
-        let lines: &mut Vec<_> = lines_map.entry(e.tsunami_area_code).or_default();
+        for line in e.lines {
+            let line: Vec<u32> = line.vertices.into_iter().map(|v|
+                vertex_buffer.insert(
+                    (Of32::from(v.latitude), Of32::from(v.longitude), e.tsunami_area_code)
+                ) as u32
+            ).collect();
 
-        lines.extend(e.lines.into_iter().map(|line| {
-            line.vertices
-                .into_iter()
-                .map(|v| (f32::from(v.longitude), f32::from(v.latitude)))
-                .collect::<Vec<_>>()
-        }));
+            lines.extend_from_slice(&line);
+
+            // append NUL vertex
+            lines.push(0);
+        }
     }
 
-    lines_map
+    (vertex_buffer.into_buffer(), lines)
 }

@@ -7,7 +7,7 @@ pub mod tsunami {
 }
 
 mod model;
-mod rendering_context_v0;
+mod rendering_context;
 mod web;
 mod worker;
 mod namesgenerator;
@@ -18,7 +18,6 @@ use std::net::SocketAddr;
 use clap::Parser;
 
 use crate::model::*;
-use crate::rendering_context_v0::RenderingContextV0;
 
 #[derive(Parser)]
 struct Cli {

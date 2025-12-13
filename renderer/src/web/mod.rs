@@ -22,6 +22,7 @@ use crate::model::*;
 
 mod rate_limiter;
 use rate_limiter::ResponseRateLimiter;
+use crate::rendering_context::RenderingContext;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 pub(in crate::web) type Sha1Bytes = [u8; 20];
@@ -111,7 +112,7 @@ async fn render_handler(
     let bin = app
         .cache
         .get_with(calculated_sha1.into(), async move {
-            let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
+            let rendering_context = crate::rendering_context::V0 {
                 time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
                 epicenter: decoded.epicenter.map(
                     |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
@@ -135,7 +136,7 @@ async fn render_handler(
             let (tx, rx) = tokio::sync::oneshot::channel();
 
             app.request_channel
-                .send(crate::Message::RenderingRequest((rendering_context, tx)))
+                .send(crate::Message::RenderingRequest((RenderingContext::V0(rendering_context), tx)))
                 .await
                 .unwrap();
 
@@ -194,7 +195,7 @@ async fn demo_handler(
     let request_identity = &format!("demo#{request_id}");
     tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
-    let rendering_context = crate::rendering_context_v0::RenderingContextV0 {
+    let rendering_context = crate::rendering_context::V0 {
         time: chrono_tz::Japan
             .with_ymd_and_hms(2024, 1, 1, 16, 10, 0)
             .unwrap()
@@ -217,7 +218,7 @@ async fn demo_handler(
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
-        .send(crate::Message::RenderingRequest((rendering_context, tx)))
+        .send(crate::Message::RenderingRequest((RenderingContext::V0(rendering_context), tx)))
         .await
         .unwrap();
 

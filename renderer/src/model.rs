@@ -4,7 +4,7 @@ use enum_map::Enum;
 pub enum Message {
     RenderingRequest(
         (
-            crate::RenderingContextV0,
+            crate::rendering_context::RenderingContext,
             tokio::sync::oneshot::Sender<Vec<u8>>,
         ),
     ),
@@ -23,4 +23,14 @@ pub enum 震度 {
     震度6弱,
     震度6強,
     震度7,
+}
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Enum, Clone, Copy, Debug)]
+#[repr(u8)]
+pub enum 津波情報 {
+    津波予報,
+    津波注意報,
+    津波警報,
+    大津波警報,
 }
