@@ -241,6 +241,63 @@ async fn demo_handler(
         .into_response()
 }
 
+async fn tsunami_demo_handler(
+    State(app): State<AppState>,
+    ClientIp(client_ip): ClientIp,
+    TypedHeader(user_agent): TypedHeader<UserAgent>,
+) -> Response {
+    let request_id = crate::namesgenerator::generate(&mut rand::rng());
+
+    use renderer_types::*;
+
+    if !app.security_rules.allow_demo {
+        return (StatusCode::UNAUTHORIZED, "Demo endpoint is not allowed").into_response();
+    }
+
+    let request_identity = &format!("demo#{request_id}");
+    tracing::info!("TsunamiRequest: {request_identity} [{client_ip}] - {user_agent}");
+
+    let rendering_context = crate::rendering_context::Tsunami {
+        time: chrono_tz::Japan
+            .with_ymd_and_hms(2025, 12, 8, 23, 23, 0)
+            .unwrap()
+            .to_utc(),
+        epicenter: Some(Vertex::<GeoDegree>::new(142.3, 41.0)),
+        forecast_levels: enum_map! {
+            津波情報::津波予報 => vec![111, 202, 300, 310, 311, 312, 320, 321, 330, 380, 400, 580, 610, 771, 772],
+            津波情報::津波注意報 => vec![100, 102, 200, 220, 250],
+            津波情報::津波警報 => vec![101, 201, 210],
+            _ => vec![],
+        },
+        request_identity: request_identity.to_string(),
+    };
+
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    app.request_channel
+        .send(crate::Message::RenderingRequest((RenderingContext::Tsunami(rendering_context), tx)))
+        .await
+        .unwrap();
+
+    let bin = rx.await.unwrap();
+
+    let response_at = app.response_limiter.schedule([0; 20], request_identity);
+
+    tokio::time::sleep_until(response_at.into()).await;
+
+    (
+        [
+            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (
+                HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
+                HeaderValue::from_str(&app.instance_name).unwrap(),
+            ),
+        ],
+        bin,
+    )
+        .into_response()
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
     listen: SocketAddr,
@@ -264,6 +321,7 @@ pub async fn run(
     let app = Router::new()
         .route("/", get(root_handler))
         .route("/demo", get(demo_handler))
+        .route("/tsunami_demo", get(tsunami_demo_handler))
         .fallback(get(render_handler))
         .with_state(AppState {
             request_channel,

@@ -130,7 +130,7 @@ pub fn read() -> (
         for line in e.lines {
             let line: Vec<u32> = line.vertices.into_iter().map(|v|
                 vertex_buffer.insert(
-                    (Of32::from(v.latitude), Of32::from(v.longitude), e.tsunami_area_code)
+                    (Of32::from(v.longitude), Of32::from(v.latitude), e.tsunami_area_code)
                 ) as u32
             ).collect();
 

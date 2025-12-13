@@ -1,6 +1,6 @@
 use glium::backend::Facade;
 use glium::Surface;
-use glium::texture::{ClientFormat, MipmapsOption, RawImage1d, Texture1d, UncompressedFloatFormat};
+use glium::texture::{ClientFormat, MipmapsOption, RawImage1d, UncompressedUintFormat, UnsignedTexture1d};
 use std::borrow::Cow;
 use std::ops::DerefMut;
 use crate::worker::FrameContext;
@@ -24,15 +24,16 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .for_each(|(level, areas)| {
             areas.iter().for_each(|area| levels[*area as usize] = level as u8)
         });
+    println!("{:?}", levels);
     let levels = RawImage1d {
         data: Cow::from(&levels),
         width: levels.len() as u32,
         format: ClientFormat::U8,
     };
-    let levels = Texture1d::with_format(
+    let levels = UnsignedTexture1d::with_format(
         facade,
         levels,
-        UncompressedFloatFormat::U8,
+        UncompressedUintFormat::U8,
         MipmapsOption::NoMipmap,
     )
     .unwrap();

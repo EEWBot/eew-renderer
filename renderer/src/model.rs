@@ -29,8 +29,8 @@ pub enum 震度 {
 #[derive(Enum, Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum 津波情報 {
-    津波予報,
-    津波注意報,
-    津波警報,
-    大津波警報,
+    津波予報 = 1,
+    津波注意報 = 2,
+    津波警報 = 3,
+    大津波警報 = 4,
 }

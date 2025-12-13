@@ -270,7 +270,7 @@ async fn image_writeback(
 
 fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
     let display_builder = DisplayBuilder::new()
-        .with_window_attributes(Some(WindowAttributes::default().with_visible(false)));
+        .with_window_attributes(Some(WindowAttributes::default()));
 
     let (window, gl_config) = display_builder
         .build(event_loop, ConfigTemplateBuilder::new(), |mut configs| {

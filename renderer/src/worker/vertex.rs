@@ -1,7 +1,7 @@
-use glium::uniforms::{AsUniformValue, Sampler, UniformBlock, UniformBuffer, UniformValue, Uniforms};
+use glium::uniforms::{AsUniformValue, ImageUnitAccess, ImageUnitBehavior, ImageUnitFormat, Sampler, UniformBlock, UniformBuffer, UniformValue, Uniforms};
 use glium::{implement_uniform_block, implement_vertex, Texture2d};
 use glium::backend::Facade;
-use glium::texture::Texture1d;
+use glium::texture::{Texture1d, UnsignedTexture1d};
 
 #[derive(Debug)]
 pub struct BorderLineUniform {
@@ -115,7 +115,7 @@ pub struct TsunamiUniform {
     pub offset: [f32; 2],
     pub zoom: f32,
     pub colors: UniformBuffer<TsunamiLineColors>,
-    pub levels: Texture1d,
+    pub levels: UnsignedTexture1d,
     pub line_width: f32,
 }
 
@@ -126,7 +126,7 @@ impl TsunamiUniform {
         offset: [f32; 2],
         zoom: f32,
         colors: TsunamiLineColors,
-        levels: Texture1d,
+        levels: UnsignedTexture1d,
         line_width: f32,
     ) -> Self {
         let colors = UniformBuffer::dynamic(facade, colors).unwrap();
@@ -149,7 +149,10 @@ impl Uniforms for TsunamiUniform {
         visitor("zoom", self.zoom.as_uniform_value());
         let colors = UniformValue::Block(self.colors.as_slice_any(), |block| TsunamiLineColors::matches(&block.layout, 0));
         visitor("colors", colors);
-        visitor("levels", self.levels.as_uniform_value());
+        let mut behavior = ImageUnitBehavior::default();
+        behavior.access = ImageUnitAccess::Read;
+        behavior.format = ImageUnitFormat::R8;
+        visitor("levels", UniformValue::UnsignedImage1d(&self.levels, Some(behavior)));
         visitor("line_width", self.line_width.as_uniform_value());
         // meow
     }
