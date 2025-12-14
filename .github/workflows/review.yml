@@ -40,7 +40,7 @@ jobs:
       - run: |
           sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
           sudo chmod +x /bin/mc
-          mc alias set yr32srv https://minio-s3.yr32.net eewbot-ci "${{ secrets.YR32SRV_EEWBOT_CI_SECRET }}"
+          mc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
           mc get yr32srv/eewbot/shapefiles_v0.zip ./shapefiles_v0.zip
           unzip -o ./shapefiles_v0.zip
