@@ -8,7 +8,7 @@ use renderer_types::*;
 pub struct QueryInterface;
 
 pub struct Geometries {
-    pub vertices: &'static [(f32, f32)],
+    pub vertices: &'static [(f32, f32, u32)],
     pub map_triangles: &'static [u32],
     pub area_lines: &'static [&'static [u32]],
     pub pref_lines: &'static [&'static [u32]],

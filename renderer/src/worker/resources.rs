@@ -47,7 +47,7 @@ impl Buffer {
             .vertices
             .iter()
             .map(|v| MapVertex {
-                position: Vertex::<GeoDegree>::from(*v).to_slice()
+                position: Vertex::<GeoDegree>::from((v.0, v.1)).to_slice()
             })
             .collect();
 
