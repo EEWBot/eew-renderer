@@ -131,7 +131,7 @@ impl Uniforms for TsunamiUniform {
         visitor("major_warning_color", self.colors.major_warning.as_uniform_value());
         let mut behavior = ImageUnitBehavior::default();
         behavior.access = ImageUnitAccess::Read;
-        behavior.format = ImageUnitFormat::R8;
+        behavior.format = ImageUnitFormat::R8UI;
         visitor("levels", UniformValue::UnsignedImage1d(&self.levels, Some(behavior)));
         visitor("line_width", self.line_width.as_uniform_value());
         // meow
