@@ -1,12 +1,18 @@
+use crate::worker::vertex::TsunamiUniform;
+use crate::worker::FrameContext;
 use glium::backend::Facade;
+use glium::texture::{
+    ClientFormat, MipmapsOption, RawImage1d, UncompressedUintFormat, UnsignedTexture1d,
+};
 use glium::Surface;
-use glium::texture::{ClientFormat, MipmapsOption, RawImage1d, UncompressedUintFormat, UnsignedTexture1d};
+use renderer_assets::QueryInterface;
 use std::borrow::Cow;
 use std::ops::DerefMut;
-use crate::worker::FrameContext;
-use crate::worker::vertex::TsunamiUniform;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>, rendering_context: &crate::rendering_context::Tsunami) {
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
+    frame_context: &FrameContext<F, S>,
+    rendering_context: &crate::rendering_context::Tsunami,
+) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let offset = frame_context.offset;
@@ -22,7 +28,15 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .forecast_levels
         .iter()
         .for_each(|(level, areas)| {
-            areas.iter().for_each(|area| levels[*area as usize] = level as u8)
+            areas.iter().for_each(|area| {
+
+                let code = *area;
+                let internal = QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap();
+                println!("Remap {code} -> {internal}");
+                levels
+                    [QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap() as usize] =
+                    level as u8
+            })
         });
     println!("{:?}", levels);
     let levels = RawImage1d {

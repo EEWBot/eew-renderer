@@ -76,7 +76,7 @@ impl Buffer {
             .iter()
             .map(|v| TsunamiVertex {
                 position: [v.0, v.1],
-                code: v.2 as u16,
+                code: v.2,
             })
             .collect::<Vec<_>>();
         let tsunami_vertex = VertexBuffer::immutable(facade, &tsunami_vertex).unwrap();
