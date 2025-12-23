@@ -9,9 +9,37 @@ use shapefile::{Shape, ShapeReader};
 use crate::math::*;
 use renderer_types::codes;
 
+struct TsunamiAreaCodeBuffer {
+    area_code_to_internal_code: HashMap<u32, u16>,
+}
+
+impl TsunamiAreaCodeBuffer {
+    fn new() -> Self {
+        Self {
+            area_code_to_internal_code: Default::default(),
+        }
+    }
+
+    fn insert(&mut self, area_code: u32) -> u16 {
+        match self.area_code_to_internal_code.get(&area_code) {
+            Some(index) => *index,
+            None => {
+                let index = self.area_code_to_internal_code.len();
+                self.area_code_to_internal_code
+                    .insert(area_code, index as u16);
+                index as u16
+            }
+        }
+    }
+
+    fn into_buffer(self) -> HashMap<u32, u16> {
+        self.area_code_to_internal_code
+    }
+}
+
 struct VertexBuffer {
-    buffer: Vec<(Of32, Of32, u32)>,
-    dict: HashMap<(Of32, Of32, u32), usize>,
+    buffer: Vec<(Of32, Of32, u16)>,
+    dict: HashMap<(Of32, Of32, u16), usize>,
 }
 
 impl VertexBuffer {
@@ -22,7 +50,7 @@ impl VertexBuffer {
         }
     }
 
-    fn insert(&mut self, v: (Of32, Of32, u32)) -> usize {
+    fn insert(&mut self, v: (Of32, Of32, u16)) -> usize {
         match self.dict.get(&v) {
             Some(index) => *index,
             None => {
@@ -34,8 +62,11 @@ impl VertexBuffer {
         }
     }
 
-    fn into_buffer(self) -> Vec<(f32, f32, u32)> {
-        self.buffer.into_iter().map(|(x, y, code)| (x.0, y.0, code)).collect()
+    fn into_buffer(self) -> Vec<(f32, f32, u16)> {
+        self.buffer
+            .into_iter()
+            .map(|(x, y, code)| (x.0, y.0, code))
+            .collect()
     }
 }
 
@@ -114,10 +145,10 @@ Please follow:
 }
 
 pub fn read() -> (
-    Vec<(f32, f32, u32)>, // vertices
-    Vec<u32>,        // indices
-)
-{
+    Vec<(f32, f32, u16)>, // vertices
+    Vec<u32>,             // indices
+    HashMap<u32, u16>,    // tsunami_area_code_to_internal_code
+) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.shp",
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.dbf",
@@ -125,14 +156,21 @@ pub fn read() -> (
 
     let mut vertex_buffer = VertexBuffer::new();
     let mut lines = Vec::new();
+    let mut tsunami_area_code_buffer = TsunamiAreaCodeBuffer::new();
 
     for e in shapefile.entries {
         for line in e.lines {
-            let line: Vec<u32> = line.vertices.into_iter().map(|v|
-                vertex_buffer.insert(
-                    (Of32::from(v.longitude), Of32::from(v.latitude), e.tsunami_area_code)
-                ) as u32
-            ).collect();
+            let line: Vec<u32> = line
+                .vertices
+                .into_iter()
+                .map(|v| {
+                    vertex_buffer.insert((
+                        Of32::from(v.longitude),
+                        Of32::from(v.latitude),
+                        tsunami_area_code_buffer.insert(e.tsunami_area_code),
+                    )) as u32
+                })
+                .collect();
 
             lines.extend_from_slice(&line);
 
@@ -141,5 +179,5 @@ pub fn read() -> (
         }
     }
 
-    (vertex_buffer.into_buffer(), lines)
+    (vertex_buffer.into_buffer(), lines, tsunami_area_code_buffer.into_buffer())
 }

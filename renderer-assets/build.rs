@@ -9,7 +9,8 @@ mod station_codes_parser;
 use asset_preprocessor::{parse_lake_shapefile, parse_shapefile, parse_tsunami_shapefile};
 
 fn main() {
-    let (tsunami_vertices, tsunami_indices) = parse_tsunami_shapefile::read();
+    let (tsunami_vertices, tsunami_indices, tsunami_area_code_to_internal_code) =
+        parse_tsunami_shapefile::read();
 
     let (lake_vertices, lake_indices) = parse_lake_shapefile::read();
 
@@ -24,8 +25,15 @@ fn main() {
     ) = station_codes_parser::read(&s);
 
     #[allow(non_snake_case)]
-    let (area_code__bbox, area_code__centers, vertices, indices, area_lines, pref_lines, scale_level_map) =
-        parse_shapefile::read(&area_code__pref_code);
+    let (
+        area_code__bbox,
+        area_code__centers,
+        vertices,
+        indices,
+        area_lines,
+        pref_lines,
+        scale_level_map,
+    ) = parse_shapefile::read(&area_code__pref_code);
 
     // <AreaCode, (StationIndex, (BBox))>
     let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = area_code__bbox
@@ -66,6 +74,7 @@ fn main() {
         const_declaration!(LAKE_INDICES = lake_indices),
         const_declaration!(TSUNAMI_VERTICES = tsunami_vertices),
         const_declaration!(TSUNAMI_INDICES = tsunami_indices),
+        const_declaration!(TSUNAMI_AREA_CODE_TO_INTERNAL_CODE = tsunami_area_code_to_internal_code),
     ]
     .join("\n");
 
