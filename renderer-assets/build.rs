@@ -31,6 +31,7 @@ fn main() {
         area_lines,
         pref_lines,
         scale_level_map,
+        area_code_to_internal_code,
     ) = parse_shapefile::read(&area_code__pref_code);
 
     // <AreaCode, (StationIndex, (BBox))>
@@ -66,6 +67,7 @@ fn main() {
         const_declaration!(MAP_VERTICES = map_vertices),
         const_declaration!(LINE_VERTICES = line_vertices),
         const_declaration!(MAP_TRIANGLES = indices),
+        const_declaration!(AREA_CODE_TO_INTERNAL_CODE = area_code_to_internal_code),
         const_declaration!(AREA_LINES = area_lines),
         const_declaration!(PREF_LINES = pref_lines),
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),

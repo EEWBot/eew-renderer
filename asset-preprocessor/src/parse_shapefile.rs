@@ -13,6 +13,35 @@ use renderer_types::*;
 
 use crate::math::*;
 
+struct AreaCodeBuffer {
+    area_code_to_internal_code: HashMap<u32, u16>,
+}
+
+impl AreaCodeBuffer {
+    fn new() -> Self {
+        Self {
+            area_code_to_internal_code: Default::default(),
+        }
+    }
+
+    fn insert(&mut self, area_code: u32) -> u16 {
+        match self.area_code_to_internal_code.get(&area_code) {
+            Some(index) => *index,
+            None => {
+                let index = self.area_code_to_internal_code.len();
+                self.area_code_to_internal_code
+                    .insert(area_code, index as u16);
+                index as u16
+            }
+        }
+    }
+
+    fn into_buffer(self) -> HashMap<u32, u16> {
+        self.area_code_to_internal_code
+    }
+}
+
+
 struct VertexBuffer<T: Hash + Eq + Clone + Copy> {
     buffer: Vec<T>,
     dict: HashMap<T, usize>,
@@ -207,18 +236,20 @@ pub fn read(
 ) -> (
     HashMap<codes::Area, BoundingBox<GeoDegree>>, // area_bounding_box
     HashMap<codes::Area, Vertex<GeoDegree>>,      // area_centers
-    Vec<(f32, f32, u32)>,                         // map_vertex_buffer
+    Vec<(f32, f32, u16)>,                         // map_vertex_buffer
     Vec<(f32, f32)>,                              // line_vertex_buffer
     Vec<u32>,                                     // map_indices
     Vec<Vec<u32>>,                                // area_lines
     Vec<Vec<u32>>,                                // pref_lines
     Vec<(f32, usize)>,                            // scale_level_map
+    HashMap<codes::Area, u16>,                    // area_code_to_internal_code
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp",
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.dbf",
     );
     let mut map_vertex_buffer = VertexBuffer::new();
+    let mut area_code_buffer = AreaCodeBuffer::new();
 
     // @Siro_256 にゃ～っ…！ (ΦωΦ）
 
@@ -235,6 +266,7 @@ pub fn read(
 
     for entry in &shapefile.entries {
         let area_code = entry.area_code;
+        let internal_code = area_code_buffer.insert(area_code);
 
         map_indices.extend(
             entry
@@ -243,7 +275,7 @@ pub fn read(
                 .flat_map(|ring| ring.triangulate())
                 .map(|p| {
                     let p = Into::<(Of32, Of32)>::into(p);
-                    map_vertex_buffer.insert((p.0, p.1, area_code)) as u32
+                    map_vertex_buffer.insert((p.0, p.1, internal_code)) as u32
                 }),
         );
     }
@@ -343,6 +375,7 @@ pub fn read(
             area_lines,
             pref_lines,
             scale_level_map,
+            area_code_buffer.into_buffer(),
         )
     }
 }

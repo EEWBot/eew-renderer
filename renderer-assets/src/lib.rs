@@ -8,7 +8,7 @@ use renderer_types::*;
 pub struct QueryInterface;
 
 pub struct Geometries {
-    pub map_vertices: &'static [(f32, f32, u32)],
+    pub map_vertices: &'static [(f32, f32, u16)],
     pub map_triangles: &'static [u32],
     pub line_vertices: &'static [(f32, f32)],
     pub area_lines: &'static [&'static [u32]],
@@ -37,6 +37,15 @@ impl QueryInterface {
             indices: LAKE_INDICES,
         }
     }
+
+    pub fn area_code_to_internal_code(area_code: codes::Area) -> Option<u16> {
+        AREA_CODE_TO_INTERNAL_CODE.get(&area_code).copied()
+    }
+
+    pub fn area_code_count() -> usize {
+        AREA_CODE_TO_INTERNAL_CODE.len()
+    }
+
     pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
         Some(BoundingBox::from_tuple::<GeoDegree>(
             AREAS.get(&area_code)?.1,
