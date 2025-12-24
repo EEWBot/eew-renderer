@@ -21,7 +21,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .map
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.vertex,
+            &resources.buffer.map_vertex,
             &resources.buffer.map,
             &MapUniform {
                 aspect_ratio,
@@ -55,7 +55,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .border_line
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.vertex,
+            &resources.buffer.line_vertex,
             resources.buffer.get_area_line_by_scale(scale).unwrap(),
             &BorderLineUniform {
                 dimension,
@@ -73,7 +73,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .border_line
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.vertex,
+            &resources.buffer.line_vertex,
             resources.buffer.get_pref_line_by_scale(scale).unwrap(),
             &BorderLineUniform {
                 dimension,
