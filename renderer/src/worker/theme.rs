@@ -21,9 +21,9 @@ pub const DEFAULT: Theme = Theme {
     area_border_color: [148.0 / 255.0, 151.0 / 255.0, 153.0 / 255.0],
     area_border_width: 1.0,
     tsunami_colors: TsunamiLineColors {
-        forecast: [242.0 / 255.0, 242.0 / 255.0, 255.0 / 255.0],
+        forecast: [0.0 / 255.0, 191.0 / 255.0, 255.0 / 255.0],
         advisory: [250.0 / 255.0, 245.0 / 255.0, 0.0 / 255.0],
-        warning: [255.0 / 255.0, 170.0 / 255.0, 0.0 / 255.0],
+        warning: [255.0 / 255.0, 40.0 / 255.0, 0.0 / 255.0],
         major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
     },
     tsunami_width: 3.0,
@@ -39,9 +39,9 @@ pub const DARK_DEMO: Theme = Theme {
     area_border_color: [0.6, 0.6, 0.6],
     area_border_width: 2.0,
     tsunami_colors: TsunamiLineColors {
-        forecast: [242.0 / 255.0, 242.0 / 255.0, 255.0 / 255.0],
+        forecast: [0.0 / 255.0, 191.0 / 255.0, 255.0 / 255.0],
         advisory: [250.0 / 255.0, 245.0 / 255.0, 0.0 / 255.0],
-        warning: [255.0 / 255.0, 170.0 / 255.0, 0.0 / 255.0],
+        warning: [255.0 / 255.0, 40.0 / 255.0, 0.0 / 255.0],
         major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
     },
     tsunami_width: 8.0,
