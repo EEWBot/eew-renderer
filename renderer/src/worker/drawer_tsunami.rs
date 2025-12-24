@@ -23,21 +23,21 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     };
     let draw_parameters = frame_context.draw_parameters;
 
-    let mut levels = [0_u8; 1024];
+    let area_code_count = QueryInterface::tsunami_area_code_count();
+    println!("AreaCodeCount: {area_code_count}");
+
+    let mut levels = vec![0_u8; area_code_count];
     rendering_context
         .forecast_levels
         .iter()
         .for_each(|(level, areas)| {
             areas.iter().for_each(|area| {
-
-                let code = *area;
-                let internal = QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap();
-                println!("Remap {code} -> {internal}");
                 levels
                     [QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap() as usize] =
                     level as u8
             })
         });
+
     println!("{:?}", levels);
     let levels = RawImage1d {
         data: Cow::from(&levels),

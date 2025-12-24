@@ -52,6 +52,10 @@ impl QueryInterface {
         TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.get(&area_code).copied()
     }
 
+    pub fn tsunami_area_code_count() -> usize {
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len()
+    }
+
     pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
         Some(BoundingBox::from_tuple::<GeoDegree>(
             AREAS.get(&area_code)?.1,
