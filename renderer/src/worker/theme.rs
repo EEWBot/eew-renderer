@@ -9,6 +9,7 @@ pub struct Theme {
     pub area_border_width: f32,
     pub tsunami_colors: TsunamiLineColors,
     pub tsunami_width: f32,
+    pub tsunami_legend_color: [f32; 4],
     pub occurrence_time_color: [f32; 4],
 }
 
@@ -27,6 +28,7 @@ pub const DEFAULT: Theme = Theme {
         major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
     },
     tsunami_width: 3.0,
+    tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
     occurrence_time_color: [0.0, 0.0, 0.0, 0.63],
 };
 
@@ -45,5 +47,6 @@ pub const DARK_DEMO: Theme = Theme {
         major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
     },
     tsunami_width: 8.0,
+    tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
     occurrence_time_color: [1.0, 1.0, 1.0, 0.63],
 };

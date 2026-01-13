@@ -103,6 +103,23 @@ impl Uniforms for MapUniform {
 }
 
 #[derive(Copy, Clone, Debug)]
+pub struct ShapeVertex {
+    pub position: [f32; 2],
+}
+implement_vertex!(ShapeVertex, position);
+
+#[derive(Debug)]
+pub struct ShapeUniform {
+    pub color: [f32; 4],
+}
+
+impl Uniforms for ShapeUniform {
+    fn visit_values<'a, F: FnMut(&str, UniformValue<'a>)>(&'a self, mut visitor: F) {
+        visitor("color", self.color.as_uniform_value());
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub struct TsunamiVertex {
     pub position: [f32; 2],
     pub code: u16,

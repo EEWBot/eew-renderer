@@ -1,4 +1,4 @@
-use super::vertex::{BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex, TsunamiUniform, TsunamiVertex};
+use super::vertex::{BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, ShapeUniform, ShapeVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex, TsunamiUniform, TsunamiVertex};
 use renderer_types::{GeoDegree, Vertex};
 
 use glium::backend::Facade;
@@ -137,6 +137,7 @@ pub struct Shader<'a> {
     pub epicenter: ShaderProgram<EpicenterUniform<'a>, EpicenterVertex>,
     pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
     pub map: ShaderProgram<MapUniform, MapVertex>,
+    pub shape: ShaderProgram<ShapeUniform, ShapeVertex>,
     pub tsunami: ShaderProgram<TsunamiUniform, TsunamiVertex>,
     pub text: ShaderProgram<TextUniform<'a>, TextVertex>,
     pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
@@ -176,6 +177,14 @@ impl Shader<'_> {
         )
         .unwrap();
 
+        let shape = ShaderProgram::from_source(
+            facade,
+            include_str!("../../../assets/shader/shape.vsh"),
+            include_str!("../../../assets/shader/shape.fsh"),
+            None,
+        )
+        .unwrap();
+
         let tsunami = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/tsunami.vsh"),
@@ -205,6 +214,7 @@ impl Shader<'_> {
             epicenter,
             intensity_icon,
             map,
+            shape,
             tsunami,
             text,
             textured,
