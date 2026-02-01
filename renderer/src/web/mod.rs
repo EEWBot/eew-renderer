@@ -21,8 +21,8 @@ use prost::Message;
 use crate::model::*;
 
 mod rate_limiter;
-use rate_limiter::ResponseRateLimiter;
 use crate::rendering_context::RenderingContext;
+use rate_limiter::ResponseRateLimiter;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 pub(in crate::web) type Sha1Bytes = [u8; 20];
@@ -60,28 +60,53 @@ async fn render_handler(
         return (StatusCode::BAD_REQUEST, "Failed to UTF-8 parsing").into_response();
     };
 
-    let Ok(bin) = base65536::decode(&bin, false) else {
-        return (StatusCode::BAD_REQUEST, "Failed to Base65536 decoding").into_response();
+    let Some(first_char) = bin.chars().nth(0) else {
+        return (
+            StatusCode::BAD_REQUEST,
+            "Failed to get first char for decoding",
+        )
+            .into_response();
     };
 
-    if bin.len() < 21 {
-        return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied").into_response();
-    }
+    let bin = if first_char as u16 & 0xff == 0 {
+        let Ok(bin) = base65536::decode(&bin, false) else {
+            return (StatusCode::BAD_REQUEST, "Failed to Base65536 decoding").into_response();
+        };
+
+        bin
+    } else {
+        let Ok(bin) = base32768::decode(&bin) else {
+            return (StatusCode::BAD_REQUEST, "Failed to Base32768 decoding").into_response();
+        };
+
+        bin
+    };
 
     use generic_array::typenum::U20;
     use generic_array::GenericArray;
 
-    let version = bin[0];
-    let provided_sha1 = GenericArray::<_, U20>::from_slice(&bin[1..21]);
-    let body = &bin[21..];
+    let (version, provided_sha1, body) = if first_char as u16 & 0xff == 0 {
+        if bin.len() < 21 {
+            return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied (Base65536)").into_response();
+        }
 
-    if version != 0 {
-        return (
-            StatusCode::BAD_REQUEST,
-            format!("Unknown protocol v{version}"),
-        )
-            .into_response();
-    }
+        let version = bin[0];
+        let provided_sha1 = GenericArray::<_, U20>::from_slice(&bin[1..21]);
+        let body = &bin[21..];
+
+        (version, provided_sha1, body)
+    } else {
+        if bin.len() < 22 {
+            return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied (Base32768)").into_response();
+        }
+
+        let version = bin[0];
+        let _non_base65536_marker = bin[1];
+        let provided_sha1 = GenericArray::<_, U20>::from_slice(&bin[2..22]);
+        let body = &bin[22..];
+
+        (version, provided_sha1, body)
+    };
 
     let calculated_sha1 = {
         let mut mac = HmacSha1::new_from_slice(app.hmac_key.as_bytes()).unwrap();
@@ -101,48 +126,94 @@ async fn render_handler(
         }
     }
 
-    let Ok(decoded) = crate::quake_prefecture::QuakePrefectureData::decode(body) else {
-        return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
-    };
-
     let request_identity = &format!("{short_hash}#{request_id}");
 
     tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
-    let bin = app
-        .cache
-        .get_with(calculated_sha1.into(), async move {
-            let rendering_context = crate::rendering_context::V0 {
-                time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                epicenter: decoded.epicenter.map(
-                    |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
-                        renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-                    },
-                ),
-                area_intensities: enum_map! {
-                    震度::震度1 => decoded.one.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度2 => decoded.two.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度3 => decoded.three.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度4 => decoded.four.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度5弱 => decoded.five_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度5強 => decoded.five_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度6弱 => decoded.six_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度6強 => decoded.six_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                    震度::震度7 => decoded.seven.clone().map(|v| v.codes).unwrap_or(vec![]),
-                },
-                request_identity: request_identity.to_string(),
+    let png = match version {
+        0 => {
+            let Ok(decoded) = crate::quake_prefecture::QuakePrefectureData::decode(body) else {
+                return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
-            let (tx, rx) = tokio::sync::oneshot::channel();
+            app
+                .cache
+                .get_with(calculated_sha1.into(), async move {
+                    let rendering_context = crate::rendering_context::V0 {
+                        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
+                        epicenter: decoded.epicenter.map(
+                            |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
+                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
+                            },
+                        ),
+                        area_intensities: enum_map! {
+                            震度::震度1 => decoded.one.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度2 => decoded.two.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度3 => decoded.three.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度4 => decoded.four.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度5弱 => decoded.five_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度5強 => decoded.five_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度6弱 => decoded.six_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度6強 => decoded.six_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            震度::震度7 => decoded.seven.clone().map(|v| v.codes).unwrap_or(vec![]),
+                        },
+                        request_identity: request_identity.to_string(),
+                    };
 
-            app.request_channel
-                .send(crate::Message::RenderingRequest((RenderingContext::V0(rendering_context), tx)))
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+
+                    app.request_channel
+                        .send(crate::Message::RenderingRequest((RenderingContext::V0(rendering_context), tx)))
+                        .await
+                        .unwrap();
+
+                    bytes::Bytes::from_owner(rx.await.unwrap())
+                })
                 .await
-                .unwrap();
+        }
+        1 => {
+            let Ok(decoded) = crate::tsunami::TsunamiForecastData::decode(body) else {
+                return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
+            };
 
-            bytes::Bytes::from_owner(rx.await.unwrap())
-        })
-        .await;
+            app
+                .cache
+                .get_with(calculated_sha1.into(), async move {
+                    let rendering_context = crate::rendering_context::Tsunami {
+                        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
+                        epicenter: decoded.epicenter.map(
+                            |crate::tsunami::Epicenter { lat_x10, lon_x10 }| {
+                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
+                            },
+                        ),
+                        forecast_levels: enum_map! {
+                            津波情報::津波予報 => decoded.forecast.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            津波情報::津波注意報 => decoded.advisory.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            津波情報::津波警報 => decoded.warning.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            津波情報::大津波警報 => decoded.major_warning.clone().map(|v| v.codes).unwrap_or(vec![]),
+                        },
+                        request_identity: request_identity.to_string(),
+                    };
+
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+
+                    app.request_channel
+                        .send(crate::Message::RenderingRequest((RenderingContext::Tsunami(rendering_context), tx)))
+                        .await
+                        .unwrap();
+
+                    bytes::Bytes::from_owner(rx.await.unwrap())
+                })
+                .await
+        }
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                format!("Unknown protocol v{version}"),
+            )
+                .into_response()
+        }
+    };
 
     let response_at = app
         .response_limiter
@@ -158,15 +229,12 @@ async fn render_handler(
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        bin,
+        png,
     )
         .into_response()
 }
 
-async fn root_handler(
-    State(app): State<AppState>,
-    ClientIp(_client_ip): ClientIp,
-) -> Response {
+async fn root_handler(State(app): State<AppState>, ClientIp(_client_ip): ClientIp) -> Response {
     (
         [(CONTENT_TYPE, HeaderValue::from_str("text/html").unwrap())],
         format!(
@@ -218,7 +286,10 @@ async fn demo_handler(
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
-        .send(crate::Message::RenderingRequest((RenderingContext::V0(rendering_context), tx)))
+        .send(crate::Message::RenderingRequest((
+            RenderingContext::V0(rendering_context),
+            tx,
+        )))
         .await
         .unwrap();
 
@@ -275,7 +346,10 @@ async fn tsunami_demo_handler(
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
-        .send(crate::Message::RenderingRequest((RenderingContext::Tsunami(rendering_context), tx)))
+        .send(crate::Message::RenderingRequest((
+            RenderingContext::Tsunami(rendering_context),
+            tx,
+        )))
         .await
         .unwrap();
 
