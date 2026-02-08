@@ -34,9 +34,10 @@ jobs:
 
       - name: Install Toolchains
         run: |
-          winget install --id=Google.Protobuf --exact --accept-package-agreements --accept-source-agreements
+          winget install --id=Google.Protobuf -l C:\protobuf --exact --accept-package-agreements --accept-source-agreements
           winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
           echo $Env:APPDATA\..\Local\Microsoft\WinGet\Links | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo C:\protobuf\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Prepare Map
         shell: C:\shells\gitbash.exe {0}
