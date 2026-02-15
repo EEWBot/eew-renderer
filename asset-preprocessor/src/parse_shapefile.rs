@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::hash::Hash;
 
 use geo::Simplify;
 use itertools::Itertools;
@@ -12,12 +13,41 @@ use renderer_types::*;
 
 use crate::math::*;
 
-struct VertexBuffer {
-    buffer: Vec<(Of32, Of32)>,
-    dict: HashMap<(Of32, Of32), usize>,
+struct AreaCodeBuffer {
+    area_code_to_internal_code: HashMap<u32, u16>,
 }
 
-impl VertexBuffer {
+impl AreaCodeBuffer {
+    fn new() -> Self {
+        Self {
+            area_code_to_internal_code: Default::default(),
+        }
+    }
+
+    fn insert(&mut self, area_code: u32) -> u16 {
+        match self.area_code_to_internal_code.get(&area_code) {
+            Some(index) => *index,
+            None => {
+                let index = self.area_code_to_internal_code.len();
+                self.area_code_to_internal_code
+                    .insert(area_code, index as u16);
+                index as u16
+            }
+        }
+    }
+
+    fn into_buffer(self) -> HashMap<u32, u16> {
+        self.area_code_to_internal_code
+    }
+}
+
+
+struct VertexBuffer<T: Hash + Eq + Clone + Copy> {
+    buffer: Vec<T>,
+    dict: HashMap<T, usize>,
+}
+
+impl<T: Hash + Eq + Clone + Copy> VertexBuffer<T> {
     fn new() -> Self {
         Self {
             buffer: Default::default(),
@@ -25,7 +55,7 @@ impl VertexBuffer {
         }
     }
 
-    fn insert(&mut self, v: (Of32, Of32)) -> usize {
+    fn insert(&mut self, v: T) -> usize {
         match self.dict.get(&v) {
             Some(index) => *index,
             None => {
@@ -37,8 +67,8 @@ impl VertexBuffer {
         }
     }
 
-    fn into_buffer(self) -> Vec<(f32, f32)> {
-        self.buffer.into_iter().map(|(x, y)| (x.0, y.0)).collect()
+    fn into_buffer(self) -> Vec<T> {
+        self.buffer
     }
 }
 
@@ -206,17 +236,20 @@ pub fn read(
 ) -> (
     HashMap<codes::Area, BoundingBox<GeoDegree>>, // area_bounding_box
     HashMap<codes::Area, Vertex<GeoDegree>>,      // area_centers
-    Vec<(f32, f32)>,                              // vertex_buffer
+    Vec<(f32, f32, u16)>,                         // map_vertex_buffer
+    Vec<(f32, f32)>,                              // line_vertex_buffer
     Vec<u32>,                                     // map_indices
     Vec<Vec<u32>>,                                // area_lines
     Vec<Vec<u32>>,                                // pref_lines
     Vec<(f32, usize)>,                            // scale_level_map
+    HashMap<codes::Area, u16>,                    // area_code_to_internal_code
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp",
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.dbf",
     );
-    let mut vertex_buffer = VertexBuffer::new();
+    let mut map_vertex_buffer = VertexBuffer::new();
+    let mut area_code_buffer = AreaCodeBuffer::new();
 
     // @Siro_256 にゃ～っ…！ (ΦωΦ）
 
@@ -229,13 +262,23 @@ pub fn read(
         .map(|area_rings| (area_rings.area_code, area_rings.bounding_box))
         .collect();
 
-    let map_indices = shapefile
-        .entries
-        .iter()
-        .flat_map(|area_rings| &area_rings.rings)
-        .flat_map(|r| r.triangulate())
-        .map(|p| vertex_buffer.insert(p.into()) as u32)
-        .collect();
+    let mut map_indices = vec![];
+
+    for entry in &shapefile.entries {
+        let area_code = entry.area_code;
+        let internal_code = area_code_buffer.insert(area_code);
+
+        map_indices.extend(
+            entry
+                .rings
+                .iter()
+                .flat_map(|ring| ring.triangulate())
+                .map(|p| {
+                    let p = Into::<(Of32, Of32)>::into(p);
+                    map_vertex_buffer.insert((p.0, p.1, internal_code)) as u32
+                }),
+        );
+    }
 
     let references = PointReferences::tally_of(&shapefile, area_code__pref_code);
 
@@ -308,8 +351,10 @@ pub fn read(
         (100.0_f32.powf(0.24), 0.117),
     ];
 
-    let area_lines = gen_lod(&mut vertex_buffer, &lod_details, &area_lines);
-    let pref_lines = gen_lod(&mut vertex_buffer, &lod_details, &pref_lines);
+    let mut line_vertex_buffer = VertexBuffer::new();
+
+    let area_lines = gen_lod(&mut line_vertex_buffer, &lod_details, &area_lines);
+    let pref_lines = gen_lod(&mut line_vertex_buffer, &lod_details, &pref_lines);
 
     let scale_level_map = lod_details
         .into_iter()
@@ -324,11 +369,13 @@ pub fn read(
         (
             area_bounding_box,
             area_centers,
-            vertex_buffer.into_buffer(),
+            map_vertex_buffer.into_buffer().into_iter().map(|(x, y, code)| (x.0, y.0, code)).collect(),
+            line_vertex_buffer.into_buffer().into_iter().map(|(x, y)| (x.0, y.0)).collect(),
             map_indices,
             area_lines,
             pref_lines,
             scale_level_map,
+            area_code_buffer.into_buffer(),
         )
     }
 }
@@ -372,7 +419,7 @@ fn cut_rings(rings: &[&Ring], cut_points: &[Point]) -> Vec<Line> {
 }
 
 fn gen_lod(
-    vertex_buffer: &mut VertexBuffer,
+    vertex_buffer: &mut VertexBuffer<(Of32, Of32)>,
     lod_details: &[(f32, f64)],
     base_lines: &[&Line],
 ) -> Vec<Vec<u32>> {

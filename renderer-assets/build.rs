@@ -22,8 +22,17 @@ fn main() {
     ) = station_codes_parser::read(&s);
 
     #[allow(non_snake_case)]
-    let (area_code__bbox, area_code__centers, vertices, indices, area_lines, pref_lines, scale_level_map) =
-        parse_shapefile::read(&area_code__pref_code);
+    let (
+        area_code__bbox,
+        area_code__centers,
+        map_vertices,
+        line_vertices,
+        indices,
+        area_lines,
+        pref_lines,
+        scale_level_map,
+        area_code_to_internal_code,
+    ) = parse_shapefile::read(&area_code__pref_code);
 
     // <AreaCode, (StationIndex, (BBox))>
     let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = area_code__bbox
@@ -55,8 +64,10 @@ fn main() {
         const_declaration!(INTENSITY_STATION_POSITIONS = intensity_station_minimized),
         const_declaration!(AREAS = areas),
         const_declaration!(STATION_CODES = station_code__index),
-        const_declaration!(VERTICES = vertices),
+        const_declaration!(MAP_VERTICES = map_vertices),
+        const_declaration!(LINE_VERTICES = line_vertices),
         const_declaration!(MAP_TRIANGLES = indices),
+        const_declaration!(AREA_CODE_TO_INTERNAL_CODE = area_code_to_internal_code),
         const_declaration!(AREA_LINES = area_lines),
         const_declaration!(PREF_LINES = pref_lines),
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
