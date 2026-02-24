@@ -31,7 +31,7 @@ renderer-assets = { path = "../renderer-assets/" }
 renderer-types = { path = "../renderer-types/" }
 rusttype = { version = "0.9.3", features = ["gpu_cache"] }
 sha1 = "0.10.6"
-strum = { version = "0.27.1", features = ["derive"] }
+strum = { version = "0.28.0", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros", "net"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
