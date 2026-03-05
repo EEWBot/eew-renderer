@@ -85,7 +85,9 @@ async fn render_handler(
     use generic_array::typenum::U20;
     use generic_array::GenericArray;
 
-    let (version, provided_sha1, body) = if first_char as u16 & 0xff == 0 {
+    let is_legacy_format = first_char as u16 & 0xff == 0;
+
+    let (version, provided_sha1, body) = if is_legacy_format {
         if bin.len() < 21 {
             return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied (Base65536)").into_response();
         }
@@ -108,9 +110,22 @@ async fn render_handler(
         (version, provided_sha1, body)
     };
 
+    if is_legacy_format && version != 0 {
+        return (StatusCode::BAD_REQUEST, "Unused pair detected").into_response();
+    }
+
+    let signing_target = if is_legacy_format {
+        body.to_vec()
+    } else {
+        let mut buffer = Vec::new();
+        buffer.push(version);
+        buffer.extend_from_slice(&body);
+        buffer
+    };
+
     let calculated_sha1 = {
         let mut mac = HmacSha1::new_from_slice(app.hmac_key.as_bytes()).unwrap();
-        mac.update(body);
+        mac.update(&signing_target);
         mac.finalize().into_bytes()
     };
 
