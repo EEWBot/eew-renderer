@@ -29,7 +29,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let theme = frame_context.theme;
 
     let area_code_count = QueryInterface::tsunami_area_code_count();
-    println!("AreaCodeCount: {area_code_count}");
+    // println!("AreaCodeCount: {area_code_count}");
 
     let mut levels = vec![0_u8; area_code_count];
 
@@ -54,7 +54,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             })
         });
 
-    println!("{:?}", levels);
+    // println!("{:?}", levels);
     let levels = RawImage1d {
         data: Cow::from(&levels),
         width: levels.len() as u32,
@@ -169,7 +169,7 @@ fn calculate_legend_position(dimension: [f32; 2], index: usize) -> ([ShapeVertex
         ShapeVertex { position: [shape_right, shape_top] },
     ];
 
-    println!("y_origin: {y_origin}, shape: {:?}", shape);
+    // println!("y_origin: {y_origin}, shape: {:?}", shape);
 
     (shape, text_origin)
 }
