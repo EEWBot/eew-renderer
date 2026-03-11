@@ -2,8 +2,12 @@ pub mod quake_prefecture {
     include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
 }
 
+pub mod tsunami {
+    include!(concat!(env!("OUT_DIR"), "/tsunami_v0.rs"));
+}
+
 mod model;
-mod rendering_context_v0;
+mod rendering_context;
 mod web;
 mod worker;
 mod namesgenerator;
@@ -14,7 +18,6 @@ use std::net::SocketAddr;
 use clap::Parser;
 
 use crate::model::*;
-use crate::rendering_context_v0::RenderingContextV0;
 
 #[derive(Parser)]
 struct Cli {

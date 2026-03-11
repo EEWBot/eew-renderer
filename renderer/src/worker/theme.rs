@@ -1,3 +1,6 @@
+#![allow(clippy::eq_op)]
+use crate::worker::vertex::TsunamiLineColors;
+
 pub struct Theme {
     pub clear_color: [f32; 4],
     pub ground_color: [f32; 3],
@@ -5,6 +8,9 @@ pub struct Theme {
     pub prefectural_border_width: f32,
     pub area_border_color: [f32; 3],
     pub area_border_width: f32,
+    pub tsunami_colors: TsunamiLineColors,
+    pub tsunami_width: f32,
+    pub tsunami_legend_color: [f32; 4],
     pub occurrence_time_color: [f32; 4],
 }
 
@@ -16,6 +22,14 @@ pub const DEFAULT: Theme = Theme {
     prefectural_border_width: 2.0,
     area_border_color: [148.0 / 255.0, 151.0 / 255.0, 153.0 / 255.0],
     area_border_width: 1.0,
+    tsunami_colors: TsunamiLineColors {
+        forecast: [0.0 / 255.0, 191.0 / 255.0, 255.0 / 255.0],
+        advisory: [250.0 / 255.0, 245.0 / 255.0, 0.0 / 255.0],
+        warning: [255.0 / 255.0, 40.0 / 255.0, 0.0 / 255.0],
+        major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
+    },
+    tsunami_width: 3.0,
+    tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
     occurrence_time_color: [0.0, 0.0, 0.0, 0.63],
 };
 
@@ -27,5 +41,13 @@ pub const DARK_DEMO: Theme = Theme {
     prefectural_border_width: 5.0,
     area_border_color: [0.6, 0.6, 0.6],
     area_border_width: 2.0,
+    tsunami_colors: TsunamiLineColors {
+        forecast: [0.0 / 255.0, 191.0 / 255.0, 255.0 / 255.0],
+        advisory: [250.0 / 255.0, 245.0 / 255.0, 0.0 / 255.0],
+        warning: [255.0 / 255.0, 40.0 / 255.0, 0.0 / 255.0],
+        major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
+    },
+    tsunami_width: 8.0,
+    tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
     occurrence_time_color: [1.0, 1.0, 1.0, 0.63],
 };

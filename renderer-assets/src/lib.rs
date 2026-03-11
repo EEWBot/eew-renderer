@@ -19,6 +19,11 @@ pub struct LakeGeometries {
     pub indices: &'static [u32],
 }
 
+pub struct TsunamiGeometries {
+    pub vertices: &'static [(f32, f32, u16)],
+    pub indices: &'static [u32],
+}
+
 impl QueryInterface {
     pub fn geometries() -> Geometries {
         Geometries {
@@ -35,6 +40,22 @@ impl QueryInterface {
             indices: LAKE_INDICES,
         }
     }
+
+    pub fn tsunami_geometries() -> TsunamiGeometries {
+        TsunamiGeometries {
+            vertices: &TSUNAMI_VERTICES,
+            indices: &TSUNAMI_INDICES,
+        }
+    }
+
+    pub fn tsunami_area_code_to_internal_code(area_code: codes::TsunamiArea) -> Option<u16> {
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.get(&area_code).copied()
+    }
+
+    pub fn tsunami_area_code_count() -> usize {
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len()
+    }
+
     pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
         Some(BoundingBox::from_tuple::<GeoDegree>(
             AREAS.get(&area_code)?.1,

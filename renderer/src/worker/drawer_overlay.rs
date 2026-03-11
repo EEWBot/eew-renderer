@@ -7,19 +7,22 @@ use rusttype::Scale;
 use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::FrameContext;
 use super::vertex::{TexturedUniform, TexturedVertex};
+use crate::rendering_context::HasTime;
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
 const WATERMARK_RATIO_IN_Y_AXIS: f32 = 0.12;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>) {
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
+    frame_context: &FrameContext<F, S>, rendering_context: &C
+) {
     let dimension = frame_context.dimension();
     let aspect_ratio = frame_context.aspect_ratio();
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let draw_parameters = frame_context.draw_parameters;
-    let rendering_context = frame_context.rendering_context;
     let theme = frame_context.theme;
+
     
     let rights_position = calculate_rights_notation_position(dimension, aspect_ratio);
     let watermark_position = calculate_watermark_position(dimension, aspect_ratio);
@@ -79,7 +82,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
         .unwrap();
 
     let time_text = rendering_context
-        .time
+        .time()
         .with_timezone(&Japan)
         .format("%Y年%m月%d日 %H時%M分頃発生")
         .to_string();

@@ -1,4 +1,4 @@
-use super::vertex::{BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex};
+use super::vertex::{BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, ShapeUniform, ShapeVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex, TsunamiUniform, TsunamiVertex};
 use renderer_types::{GeoDegree, Vertex};
 
 use glium::backend::Facade;
@@ -33,15 +33,18 @@ impl Resources<'_> {
 
 #[derive(Debug)]
 pub struct Buffer {
-    pub vertex: VertexBuffer<MapVertex>,
+    pub map_vertex: VertexBuffer<MapVertex>,
     area_line: Vec<IndexBuffer<u32>>,
     pref_line: Vec<IndexBuffer<u32>>,
     pub map: IndexBuffer<u32>,
+    pub tsunami_vertex: VertexBuffer<TsunamiVertex>,
+    pub tsunami_indices: IndexBuffer<u32>,
 }
 
 impl Buffer {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
         let geom = renderer_assets::QueryInterface::geometries();
+        let tsunami_geom = renderer_assets::QueryInterface::tsunami_geometries();
 
         let vertices: Vec<_> = geom
             .vertices
@@ -68,11 +71,24 @@ impl Buffer {
             .map(|i| IndexBuffer::new(facade, PrimitiveType::LineStrip, i).unwrap())
             .collect();
 
+        let tsunami_vertex = tsunami_geom
+            .vertices
+            .iter()
+            .map(|v| TsunamiVertex {
+                position: [v.0, v.1],
+                code: v.2,
+            })
+            .collect::<Vec<_>>();
+        let tsunami_vertex = VertexBuffer::immutable(facade, &tsunami_vertex).unwrap();
+        let tsunami_indices = IndexBuffer::immutable(facade, PrimitiveType::LineStrip, tsunami_geom.indices).unwrap();
+
         Buffer {
-            vertex,
+            map_vertex: vertex,
             map,
             area_line,
             pref_line,
+            tsunami_vertex,
+            tsunami_indices,
         }
     }
 
@@ -121,6 +137,8 @@ pub struct Shader<'a> {
     pub epicenter: ShaderProgram<EpicenterUniform<'a>, EpicenterVertex>,
     pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
     pub map: ShaderProgram<MapUniform, MapVertex>,
+    pub shape: ShaderProgram<ShapeUniform, ShapeVertex>,
+    pub tsunami: ShaderProgram<TsunamiUniform, TsunamiVertex>,
     pub text: ShaderProgram<TextUniform<'a>, TextVertex>,
     pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
 }
@@ -159,6 +177,22 @@ impl Shader<'_> {
         )
         .unwrap();
 
+        let shape = ShaderProgram::from_source(
+            facade,
+            include_str!("../../../assets/shader/shape.vsh"),
+            include_str!("../../../assets/shader/shape.fsh"),
+            None,
+        )
+        .unwrap();
+
+        let tsunami = ShaderProgram::from_source(
+            facade,
+            include_str!("../../../assets/shader/tsunami.vsh"),
+            include_str!("../../../assets/shader/tsunami.fsh"),
+            Some(include_str!("../../../assets/shader/tsunami.gsh"))
+        )
+        .unwrap();
+
         let text = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/text.vsh"),
@@ -180,6 +214,8 @@ impl Shader<'_> {
             epicenter,
             intensity_icon,
             map,
+            shape,
+            tsunami,
             text,
             textured,
         }

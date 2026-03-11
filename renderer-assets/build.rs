@@ -6,9 +6,12 @@ use const_gen::*;
 use ordered_float::NotNan;
 
 mod station_codes_parser;
-use asset_preprocessor::{parse_lake_shapefile, parse_shapefile};
+use asset_preprocessor::{parse_lake_shapefile, parse_shapefile, parse_tsunami_shapefile};
 
 fn main() {
+    let (tsunami_vertices, tsunami_indices, tsunami_area_code_to_internal_code) =
+        parse_tsunami_shapefile::read();
+
     let (lake_vertices, lake_indices) = parse_lake_shapefile::read();
 
     let s = std::fs::read_to_string("../assets/intensity_stations.json").unwrap();
@@ -22,8 +25,15 @@ fn main() {
     ) = station_codes_parser::read(&s);
 
     #[allow(non_snake_case)]
-    let (area_code__bbox, area_code__centers, vertices, indices, area_lines, pref_lines, scale_level_map) =
-        parse_shapefile::read(&area_code__pref_code);
+    let (
+        area_code__bbox,
+        area_code__centers,
+        vertices,
+        indices,
+        area_lines,
+        pref_lines,
+        scale_level_map,
+    ) = parse_shapefile::read(&area_code__pref_code);
 
     // <AreaCode, (StationIndex, (BBox))>
     let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = area_code__bbox
@@ -62,6 +72,9 @@ fn main() {
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
         const_declaration!(LAKE_VERTICES = lake_vertices),
         const_declaration!(LAKE_INDICES = lake_indices),
+        const_declaration!(TSUNAMI_VERTICES = tsunami_vertices),
+        const_declaration!(TSUNAMI_INDICES = tsunami_indices),
+        const_declaration!(TSUNAMI_AREA_CODE_TO_INTERNAL_CODE = tsunami_area_code_to_internal_code),
     ]
     .join("\n");
 
