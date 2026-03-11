@@ -8,6 +8,8 @@
 
 ## Compatibility
 
+Basically, this project supports GL_VERSION >= 4.5.
+
 The following environments are known to cause crashes due to errors:
 
 ```
