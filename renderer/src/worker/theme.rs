@@ -1,3 +1,4 @@
+#![allow(clippy::eq_op)]
 use crate::worker::vertex::TsunamiLineColors;
 
 pub struct Theme {
