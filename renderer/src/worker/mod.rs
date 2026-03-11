@@ -119,6 +119,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
     fn user_event(&mut self, _: &ActiveEventLoop, event: Message) {
         let Message::RenderingRequest((rendering_context, response_socket)) = event;
+
         let start_at = std::time::Instant::now();
 
         let display = self.display.as_ref().unwrap();
@@ -190,12 +191,13 @@ impl ApplicationHandler<Message> for App<'_> {
             RenderingContext::Tsunami(tsunami) => {
                 drawer_map::draw(&frame_context, false);
                 drawer_epicenter::draw(&frame_context, tsunami);
-                drawer_tsunami::draw(&frame_context, tsunami);
+                if let Err(e) = drawer_tsunami::draw(&frame_context, tsunami) {
+                    response_socket.send(Err(e)).unwrap();
+                    return;
+                }
                 drawer_overlay::draw(&frame_context, tsunami);
             }
         }
-
-
 
         let t_before_bufcpy = Instant::now();
 
@@ -222,7 +224,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
 async fn image_writeback(
     request_identity: &str,
-    response_socket: oneshot::Sender<Vec<u8>>,
+    response_socket: oneshot::Sender<Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>>,
     image: RGBAImageData,
 ) {
     use std::io::Cursor;
@@ -261,7 +263,7 @@ async fn image_writeback(
 
     let target: Vec<u8> = target.into_inner();
 
-    let 相手はもういらないかもしれない = response_socket.send(target);
+    let 相手はもういらないかもしれない = response_socket.send(Ok(target));
 
     if 相手はもういらないかもしれない.is_err() {
         tracing::debug!("えんこーどまでしたのにー…むきーっ！ ({request_identity})");

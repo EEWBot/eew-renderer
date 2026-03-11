@@ -6,7 +6,7 @@ pub enum Message {
     RenderingRequest(
         (
             crate::rendering_context::RenderingContext,
-            tokio::sync::oneshot::Sender<Vec<u8>>,
+            tokio::sync::oneshot::Sender<Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>>,
         ),
     ),
 }

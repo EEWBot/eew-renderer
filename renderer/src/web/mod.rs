@@ -138,7 +138,7 @@ async fn render_handler(
 
             app
                 .cache
-                .get_with(calculated_sha1.into(), async move {
+                .try_get_with::<_, Box<dyn std::error::Error + Send + Sync>>(calculated_sha1.into(), async move {
                     let rendering_context = crate::rendering_context::V0 {
                         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
                         epicenter: decoded.epicenter.map(
@@ -167,7 +167,7 @@ async fn render_handler(
                         .await
                         .unwrap();
 
-                    bytes::Bytes::from_owner(rx.await.unwrap())
+                    Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
                 })
                 .await
         }
@@ -176,9 +176,10 @@ async fn render_handler(
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
+
             app
                 .cache
-                .get_with(calculated_sha1.into(), async move {
+                .try_get_with(calculated_sha1.into(), async move {
                     let rendering_context = crate::rendering_context::Tsunami {
                         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
                         epicenter: decoded.epicenter.map(
@@ -202,7 +203,7 @@ async fn render_handler(
                         .await
                         .unwrap();
 
-                    bytes::Bytes::from_owner(rx.await.unwrap())
+                    Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
                 })
                 .await
         }
@@ -213,6 +214,13 @@ async fn render_handler(
             )
                 .into_response()
         }
+    };
+
+    let Ok(png) = png else {
+        return (
+            StatusCode::BAD_REQUEST,
+            format!("Failed to rendering"),
+        ).into_response()
     };
 
     let response_at = app
@@ -293,7 +301,7 @@ async fn demo_handler(
         .await
         .unwrap();
 
-    let bin = rx.await.unwrap();
+    let bin = rx.await.unwrap().unwrap();
 
     let response_at = app.response_limiter.schedule([0; 20], request_identity);
 
@@ -353,7 +361,7 @@ async fn tsunami_demo_handler(
         .await
         .unwrap();
 
-    let bin = rx.await.unwrap();
+    let bin = rx.await.unwrap().unwrap();
 
     let response_at = app.response_limiter.schedule([0; 20], request_identity);
 
