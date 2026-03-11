@@ -99,8 +99,6 @@ impl ApplicationHandler<Message> for App<'_> {
         }
 
         let display = create_gl_context(event_loop);
-        let resources = resources::Resources::load(&display);
-        let font_manager = FontManager::new(&display);
 
         let gl_vendor = display.get_opengl_vendor_string();
         let gl_renderer = display.get_opengl_renderer_string();
@@ -109,6 +107,9 @@ impl ApplicationHandler<Message> for App<'_> {
         tracing::info!("GL_VENDOR: {gl_vendor}");
         tracing::info!("GL_RENDERER: {gl_renderer}");
         tracing::info!("GL_VERSION: {gl_version}");
+
+        let resources = resources::Resources::load(&display);
+        let font_manager = FontManager::new(&display);
 
         self.display = Some(display);
         self.resources = Some(resources);
