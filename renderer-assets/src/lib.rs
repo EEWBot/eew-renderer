@@ -8,8 +8,9 @@ use renderer_types::*;
 pub struct QueryInterface;
 
 pub struct Geometries {
-    pub vertices: &'static [(f32, f32)],
+    pub map_vertices: &'static [(f32, f32, u16)],
     pub map_triangles: &'static [u32],
+    pub line_vertices: &'static [(f32, f32)],
     pub area_lines: &'static [&'static [u32]],
     pub pref_lines: &'static [&'static [u32]],
 }
@@ -27,8 +28,9 @@ pub struct TsunamiGeometries {
 impl QueryInterface {
     pub fn geometries() -> Geometries {
         Geometries {
-            vertices: VERTICES,
+            map_vertices: MAP_VERTICES,
             map_triangles: MAP_TRIANGLES,
+            line_vertices: LINE_VERTICES,
             area_lines: AREA_LINES,
             pref_lines: PREF_LINES,
         }
@@ -39,6 +41,14 @@ impl QueryInterface {
             vertices: LAKE_VERTICES,
             indices: LAKE_INDICES,
         }
+    }
+
+    pub fn area_code_to_internal_code(area_code: codes::Area) -> Option<u16> {
+        AREA_CODE_TO_INTERNAL_CODE.get(&area_code).copied()
+    }
+
+    pub fn area_code_count() -> usize {
+        AREA_CODE_TO_INTERNAL_CODE.len()
     }
 
     pub fn tsunami_geometries() -> TsunamiGeometries {
