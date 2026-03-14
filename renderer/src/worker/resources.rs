@@ -38,6 +38,7 @@ impl Resources<'_> {
 #[derive(Debug)]
 pub struct Buffer {
     pub map_vertex: VertexBuffer<MapVertex>,
+    pub line_vertex: VertexBuffer<MapVertex>,
     area_line: Vec<IndexBuffer<u32>>,
     pref_line: Vec<IndexBuffer<u32>>,
     pub map: IndexBuffer<u32>,
@@ -50,15 +51,24 @@ impl Buffer {
         let geom = renderer_assets::QueryInterface::geometries();
         let tsunami_geom = renderer_assets::QueryInterface::tsunami_geometries();
 
-        let vertices: Vec<_> = geom
-            .vertices
+        let map_vertices: Vec<_> = geom
+            .map_vertices
             .iter()
             .map(|v| MapVertex {
-                position: Vertex::<GeoDegree>::from(*v).to_slice(),
+                position: Vertex::<GeoDegree>::from((v.0, v.1)).to_slice(),
             })
             .collect();
 
-        let vertex = VertexBuffer::new(facade, &vertices).unwrap();
+        let map_vertex = VertexBuffer::new(facade, &map_vertices).unwrap();
+
+        let line_vertices: Vec<_> = geom
+            .line_vertices
+            .iter()
+            .map(|v| MapVertex {
+                position: Vertex::<GeoDegree>::from(*v).to_slice()
+            }).collect();
+
+        let line_vertex = VertexBuffer::new(facade, &line_vertices).unwrap();
 
         let map =
             IndexBuffer::new(facade, PrimitiveType::TrianglesList, geom.map_triangles).unwrap();
@@ -88,7 +98,8 @@ impl Buffer {
             IndexBuffer::immutable(facade, PrimitiveType::LineStrip, tsunami_geom.indices).unwrap();
 
         Buffer {
-            map_vertex: vertex,
+            map_vertex,
+            line_vertex,
             map,
             area_line,
             pref_line,

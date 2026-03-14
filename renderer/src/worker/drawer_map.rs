@@ -63,7 +63,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             .border_line
             .draw(
                 frame_context.surface.borrow_mut().deref_mut(),
-                &resources.buffer.map_vertex,
+                &resources.buffer.line_vertex,
                 resources.buffer.get_area_line_by_scale(scale).unwrap(),
                 &BorderLineUniform {
                     dimension,
@@ -82,7 +82,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         .border_line
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.map_vertex,
+            &resources.buffer.line_vertex,
             resources.buffer.get_pref_line_by_scale(scale).unwrap(),
             &BorderLineUniform {
                 dimension,
