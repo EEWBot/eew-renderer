@@ -1,11 +1,15 @@
-use super::vertex::{BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform, IntensityIconVertex, MapUniform, MapVertex, ShapeUniform, ShapeVertex, TextUniform, TextVertex, TexturedUniform, TexturedVertex, TsunamiUniform, TsunamiVertex};
+use super::vertex::{
+    BorderLineUniform, EpicenterUniform, EpicenterVertex, IntensityIconUniform,
+    IntensityIconVertex, MapUniform, MapVertex, ShapeUniform, ShapeVertex, TextUniform, TextVertex,
+    TexturedUniform, TexturedVertex, TsunamiUniform, TsunamiVertex,
+};
 use renderer_types::{GeoDegree, Vertex};
 
+use crate::worker::shader::ShaderProgram;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::{IndexBuffer, Texture2d, VertexBuffer};
-use crate::worker::shader::ShaderProgram;
 
 #[derive(Debug)]
 pub struct Resources<'a> {
@@ -50,7 +54,7 @@ impl Buffer {
             .vertices
             .iter()
             .map(|v| MapVertex {
-                position: Vertex::<GeoDegree>::from(*v).to_slice()
+                position: Vertex::<GeoDegree>::from(*v).to_slice(),
             })
             .collect();
 
@@ -80,7 +84,8 @@ impl Buffer {
             })
             .collect::<Vec<_>>();
         let tsunami_vertex = VertexBuffer::immutable(facade, &tsunami_vertex).unwrap();
-        let tsunami_indices = IndexBuffer::immutable(facade, PrimitiveType::LineStrip, tsunami_geom.indices).unwrap();
+        let tsunami_indices =
+            IndexBuffer::immutable(facade, PrimitiveType::LineStrip, tsunami_geom.indices).unwrap();
 
         Buffer {
             map_vertex: vertex,
@@ -117,17 +122,15 @@ impl Lake {
             .vertices
             .iter()
             .map(|v| MapVertex {
-                position: Vertex::<GeoDegree>::from(*v).to_slice()
+                position: Vertex::<GeoDegree>::from(*v).to_slice(),
             })
             .collect();
         let vertex = VertexBuffer::immutable(facade, &vertex).unwrap();
 
-        let index = IndexBuffer::immutable(facade, PrimitiveType::TrianglesList, geom.indices).unwrap();
+        let index =
+            IndexBuffer::immutable(facade, PrimitiveType::TrianglesList, geom.indices).unwrap();
 
-        Lake {
-            vertex,
-            index,
-        }
+        Lake { vertex, index }
     }
 }
 
@@ -168,7 +171,7 @@ impl Shader<'_> {
             Some(include_str!("../../../assets/shader/intensity_icon.gsh")),
         )
         .unwrap();
-        
+
         let map = ShaderProgram::from_source(
             facade,
             include_str!("../../../assets/shader/map.vsh"),
@@ -189,7 +192,7 @@ impl Shader<'_> {
             facade,
             include_str!("../../../assets/shader/tsunami.vsh"),
             include_str!("../../../assets/shader/tsunami.fsh"),
-            Some(include_str!("../../../assets/shader/tsunami.gsh"))
+            Some(include_str!("../../../assets/shader/tsunami.gsh")),
         )
         .unwrap();
 

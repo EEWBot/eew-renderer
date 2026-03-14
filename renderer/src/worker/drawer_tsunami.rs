@@ -1,17 +1,17 @@
+use crate::model::津波情報;
+use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::vertex::{ShapeUniform, ShapeVertex, TsunamiUniform};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
+use glium::index::{NoIndices, PrimitiveType};
 use glium::texture::{
     ClientFormat, MipmapsOption, RawImage1d, UncompressedUintFormat, UnsignedTexture1d,
 };
 use glium::{Surface, VertexBuffer};
 use renderer_assets::QueryInterface;
+use rusttype::Scale;
 use std::borrow::Cow;
 use std::ops::DerefMut;
-use glium::index::{NoIndices, PrimitiveType};
-use rusttype::Scale;
-use crate::model::津波情報;
-use crate::worker::fonts::{Font, Offset, Origin};
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
@@ -33,14 +33,18 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
 
     let mut levels = vec![0_u8; area_code_count];
 
-    let has_unknown_tsunami_area_code = rendering_context.forecast_levels.iter().any(|(_level, areas)| {
-        areas.iter().any(|area| {
-            QueryInterface::tsunami_area_code_to_internal_code(*area).is_none()
-        })
-    });
+    let has_unknown_tsunami_area_code =
+        rendering_context
+            .forecast_levels
+            .iter()
+            .any(|(_level, areas)| {
+                areas
+                    .iter()
+                    .any(|area| QueryInterface::tsunami_area_code_to_internal_code(*area).is_none())
+            });
 
     if has_unknown_tsunami_area_code {
-        return Err(anyhow::anyhow!("Unknown tsunami area code is coming"))?;
+        Err(anyhow::anyhow!("Unknown tsunami area code is coming"))?;
     }
 
     rendering_context
@@ -87,13 +91,15 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-    let mut forecast_levels = rendering_context
-        .forecast_levels
-        .iter()
-        .fold(Vec::<津波情報>::new(), |mut v, (level, entries)| {
-            if !entries.is_empty() { v.push(level) }
+    let mut forecast_levels = rendering_context.forecast_levels.iter().fold(
+        Vec::<津波情報>::new(),
+        |mut v, (level, entries)| {
+            if !entries.is_empty() {
+                v.push(level)
+            }
             v
-        });
+        },
+    );
     forecast_levels.sort();
 
     forecast_levels
@@ -119,9 +125,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                     frame_context.surface.borrow_mut().deref_mut(),
                     &shape,
                     NoIndices(PrimitiveType::TriangleStrip),
-                    &ShapeUniform {
-                        color,
-                    },
+                    &ShapeUniform { color },
                     draw_parameters,
                 )
                 .unwrap();
@@ -135,7 +139,12 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                     Font::BizUDPGothicBold,
                     theme.tsunami_legend_color,
                     Scale::uniform(22.0),
-                    Offset::new(Origin::RightDown, Origin::LeftUp, text_origin.0, text_origin.1),
+                    Offset::new(
+                        Origin::RightDown,
+                        Origin::LeftUp,
+                        text_origin.0,
+                        text_origin.1,
+                    ),
                     frame_context.dimension(),
                     resources,
                     facade,
@@ -163,10 +172,18 @@ fn calculate_legend_position(dimension: [f32; 2], index: usize) -> ([ShapeVertex
     let shape_bottom = y_origin - shape_shape_gap / 2.0 - shape_height;
 
     let shape = [
-        ShapeVertex { position: [shape_left, shape_bottom] },
-        ShapeVertex { position: [shape_right, shape_bottom] },
-        ShapeVertex { position: [shape_left, shape_top] },
-        ShapeVertex { position: [shape_right, shape_top] },
+        ShapeVertex {
+            position: [shape_left, shape_bottom],
+        },
+        ShapeVertex {
+            position: [shape_right, shape_bottom],
+        },
+        ShapeVertex {
+            position: [shape_left, shape_top],
+        },
+        ShapeVertex {
+            position: [shape_right, shape_top],
+        },
     ];
 
     // println!("y_origin: {y_origin}, shape: {:?}", shape);

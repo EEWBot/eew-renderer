@@ -36,7 +36,7 @@ impl Point {
 impl std::ops::Add for Point {
     type Output = Point;
 
-    fn add(self, other: Point) ->  Self::Output {
+    fn add(self, other: Point) -> Self::Output {
         Self::Output {
             latitude: self.latitude + other.latitude,
             longitude: self.longitude + other.longitude,
@@ -44,13 +44,11 @@ impl std::ops::Add for Point {
     }
 }
 
-
 impl From<&geo::Point> for Point {
     fn from(value: &geo::Point) -> Self {
         Self::new(Of32::from(value.x() as f32), Of32::from(value.y() as f32))
     }
 }
-
 
 impl From<shapefile::Point> for Point {
     fn from(value: shapefile::Point) -> Self {

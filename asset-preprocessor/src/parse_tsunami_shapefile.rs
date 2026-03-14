@@ -179,5 +179,9 @@ pub fn read() -> (
         }
     }
 
-    (vertex_buffer.into_buffer(), lines, tsunami_area_code_buffer.into_buffer())
+    (
+        vertex_buffer.into_buffer(),
+        lines,
+        tsunami_area_code_buffer.into_buffer(),
+    )
 }
