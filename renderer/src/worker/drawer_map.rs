@@ -4,7 +4,10 @@ use glium::backend::Facade;
 use glium::Surface;
 use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>, has_saibunkuiki: bool) {
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
+    frame_context: &FrameContext<F, S>,
+    has_saibunkuiki: bool,
+) {
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
     let resources = frame_context.resources;
@@ -44,7 +47,11 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContex
                 aspect_ratio,
                 offset,
                 zoom: scale,
-                color: [theme.clear_color[0], theme.clear_color[1], theme.clear_color[2]],
+                color: [
+                    theme.clear_color[0],
+                    theme.clear_color[1],
+                    theme.clear_color[2],
+                ],
             },
             params,
         )

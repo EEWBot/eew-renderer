@@ -1,10 +1,10 @@
-use std::ops::DerefMut;
+use crate::worker::vertex::{IntensityIconUniform, IntensityIconVertex};
+use crate::worker::FrameContext;
 use array_const_fn_init::array_const_fn_init;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::{Surface, VertexBuffer};
-use crate::worker::FrameContext;
-use crate::worker::vertex::{IntensityIconUniform, IntensityIconVertex};
+use std::ops::DerefMut;
 
 const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
     use const_soft_float::soft_f32::SoftF32;
@@ -25,14 +25,17 @@ const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
 
 const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_offset_fn; 9];
 
-pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameContext<F, S>, rendering_context: &crate::rendering_context::V0) {
+pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
+    frame_context: &FrameContext<F, S>,
+    rendering_context: &crate::rendering_context::V0,
+) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let aspect_ratio = frame_context.aspect_ratio();
     let offset = frame_context.offset;
     let scale = frame_context.scale;
     let draw_parameters = frame_context.draw_parameters;
-    
+
     let per_icon_data: Vec<_> = rendering_context
         .area_intensities
         .iter()
@@ -45,7 +48,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(frame_context: &FrameCo
 
                 Some(IntensityIconVertex {
                     position: nearest_station_coord.to_slice(),
-                    uv_offset: uv_offset.to_owned()
+                    uv_offset: uv_offset.to_owned(),
                 })
             })
         })

@@ -60,7 +60,7 @@ async fn render_handler(
         return (StatusCode::BAD_REQUEST, "Failed to UTF-8 parsing").into_response();
     };
 
-    let Some(first_char) = bin.chars().nth(0) else {
+    let Some(first_char) = bin.chars().next() else {
         return (
             StatusCode::BAD_REQUEST,
             "Failed to get first char for decoding",
@@ -89,7 +89,11 @@ async fn render_handler(
 
     let (version, provided_sha1, body) = if is_legacy_format {
         if bin.len() < 21 {
-            return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied (Base65536)").into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                "Minimum length is not satisfied (Base65536)",
+            )
+                .into_response();
         }
 
         let version = bin[0];
@@ -99,7 +103,11 @@ async fn render_handler(
         (version, provided_sha1, body)
     } else {
         if bin.len() < 22 {
-            return (StatusCode::BAD_REQUEST, "Minimum length is not satisfied (Base32768)").into_response();
+            return (
+                StatusCode::BAD_REQUEST,
+                "Minimum length is not satisfied (Base32768)",
+            )
+                .into_response();
         }
 
         let version = bin[0];
@@ -119,7 +127,7 @@ async fn render_handler(
     } else {
         let mut buffer = Vec::new();
         buffer.push(version);
-        buffer.extend_from_slice(&body);
+        buffer.extend_from_slice(body);
         buffer
     };
 
@@ -191,7 +199,6 @@ async fn render_handler(
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
-
             app
                 .cache
                 .try_get_with(calculated_sha1.into(), async move {
@@ -232,10 +239,7 @@ async fn render_handler(
     };
 
     let Ok(png) = png else {
-        return (
-            StatusCode::BAD_REQUEST,
-            format!("Failed to rendering"),
-        ).into_response()
+        return (StatusCode::BAD_REQUEST, "Failed to rendering".to_string()).into_response();
     };
 
     let response_at = app

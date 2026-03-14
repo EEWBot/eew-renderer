@@ -11,10 +11,7 @@ fn main() -> Result<()> {
     )?;
 
     prost_build::compile_protos(
-        &[
-            "src/quake_prefecture_v0.proto",
-            "src/tsunami_v0.proto"
-        ],
+        &["src/quake_prefecture_v0.proto", "src/tsunami_v0.proto"],
         &["src"],
     )?;
 

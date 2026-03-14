@@ -1,7 +1,9 @@
-use glium::uniforms::{AsUniformValue, ImageUnitAccess, ImageUnitBehavior, ImageUnitFormat, Sampler, UniformBlock, UniformBuffer, UniformValue, Uniforms};
+use glium::texture::UnsignedTexture1d;
+use glium::uniforms::{
+    AsUniformValue, ImageUnitAccess, ImageUnitBehavior, ImageUnitFormat, Sampler, UniformValue,
+    Uniforms,
+};
 use glium::{implement_uniform_block, implement_vertex, Texture2d};
-use glium::backend::Facade;
-use glium::texture::{Texture1d, UnsignedTexture1d};
 
 #[derive(Debug)]
 pub struct BorderLineUniform {
@@ -145,11 +147,17 @@ impl Uniforms for TsunamiUniform {
         visitor("forecast_color", self.colors.forecast.as_uniform_value());
         visitor("advisory_color", self.colors.advisory.as_uniform_value());
         visitor("warning_color", self.colors.warning.as_uniform_value());
-        visitor("major_warning_color", self.colors.major_warning.as_uniform_value());
+        visitor(
+            "major_warning_color",
+            self.colors.major_warning.as_uniform_value(),
+        );
         let mut behavior = ImageUnitBehavior::default();
         behavior.access = ImageUnitAccess::Read;
         behavior.format = ImageUnitFormat::R8UI;
-        visitor("levels", UniformValue::UnsignedImage1d(&self.levels, Some(behavior)));
+        visitor(
+            "levels",
+            UniformValue::UnsignedImage1d(&self.levels, Some(behavior)),
+        );
         visitor("line_width", self.line_width.as_uniform_value());
         // meow
     }
@@ -162,7 +170,13 @@ pub struct TsunamiLineColors {
     pub warning: [f32; 3],
     pub major_warning: [f32; 3],
 }
-implement_uniform_block!(TsunamiLineColors, forecast, advisory, warning, major_warning);
+implement_uniform_block!(
+    TsunamiLineColors,
+    forecast,
+    advisory,
+    warning,
+    major_warning
+);
 
 #[derive(Copy, Clone, Debug)]
 pub struct TextVertex {

@@ -43,8 +43,8 @@ impl QueryInterface {
 
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
-            vertices: &TSUNAMI_VERTICES,
-            indices: &TSUNAMI_INDICES,
+            vertices: TSUNAMI_VERTICES,
+            indices: TSUNAMI_INDICES,
         }
     }
 

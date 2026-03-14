@@ -4,12 +4,17 @@ use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
 use glium::backend::Facade;
 use glium::glutin::surface::{GlSurface, SwapInterval};
-use glium::{draw_parameters::{Blend, LinearBlendingFactor}, framebuffer::SimpleFrameBuffer, glutin::{
-    config::ConfigTemplateBuilder,
-    context::{ContextAttributesBuilder, NotCurrentGlContext},
-    display::{GetGlDisplay, GlDisplay},
-    surface::{SurfaceAttributesBuilder, WindowSurface},
-}, BlendingFunction, Display, DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
+use glium::{
+    draw_parameters::{Blend, LinearBlendingFactor},
+    framebuffer::SimpleFrameBuffer,
+    glutin::{
+        config::ConfigTemplateBuilder,
+        context::{ContextAttributesBuilder, NotCurrentGlContext},
+        display::{GetGlDisplay, GlDisplay},
+        surface::{SurfaceAttributesBuilder, WindowSurface},
+    },
+    BlendingFunction, Display, DrawParameters, Surface, Texture2d,
+};
 use glutin_winit::DisplayBuilder;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
@@ -17,29 +22,26 @@ use std::cell::RefCell;
 use std::error::Error;
 use std::marker::PhantomData;
 use std::num::NonZeroU32;
-use std::ops::DerefMut;
 use std::rc::Rc;
 use std::time::Instant;
-use glium::index::PrimitiveType;
 use tokio::sync::{mpsc, oneshot};
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
-use crate::worker::vertex::{BorderLineUniform, MapVertex};
 
+mod drawer_epicenter;
 mod drawer_intensity_icon;
 mod drawer_map;
 mod drawer_overlay;
+mod drawer_tsunami;
 mod fonts;
 mod image_buffer;
 mod resources;
 mod shader;
 mod theme;
 mod vertex;
-mod drawer_tsunami;
-mod drawer_epicenter;
 
 const DIMENSION: (u32, u32) = (1024, 768);
 const MAXIMUM_SCALE: f32 = 100.0;
@@ -216,7 +218,7 @@ impl ApplicationHandler<Message> for App<'_> {
         );
 
         tokio::spawn(async move {
-            image_writeback(&rendering_context.request_identity(), response_socket, image).await
+            image_writeback(rendering_context.request_identity(), response_socket, image).await
         });
     }
 
@@ -242,8 +244,7 @@ async fn image_writeback(
 
     let start_at = Instant::now();
 
-    let encoder =
-        PngEncoder::new_with_quality(&mut target, CompressionType::Fast, FilterType::Up);
+    let encoder = PngEncoder::new_with_quality(&mut target, CompressionType::Fast, FilterType::Up);
 
     let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
     let mut image = DynamicImage::ImageRgba8(image);
@@ -272,8 +273,8 @@ async fn image_writeback(
 }
 
 fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
-    let display_builder = DisplayBuilder::new()
-        .with_window_attributes(Some(WindowAttributes::default()));
+    let display_builder =
+        DisplayBuilder::new().with_window_attributes(Some(WindowAttributes::default()));
 
     let (window, gl_config) = display_builder
         .build(event_loop, ConfigTemplateBuilder::new(), |mut configs| {
@@ -326,7 +327,9 @@ pub fn calculate_bounding_box(ctx: &RenderingContext) -> BoundingBox<GeoDegree> 
                 .collect::<Vec<_>>();
             let bbox = areas
                 .iter()
-                .filter_map(|code| renderer_assets::QueryInterface::query_bounding_box_by_area(*code))
+                .filter_map(|code| {
+                    renderer_assets::QueryInterface::query_bounding_box_by_area(*code)
+                })
                 .fold(
                     BoundingBox {
                         min: Vertex {
@@ -349,7 +352,9 @@ pub fn calculate_bounding_box(ctx: &RenderingContext) -> BoundingBox<GeoDegree> 
                 bbox
             }
         }
-        RenderingContext::Tsunami(ctx) => BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5))
+        RenderingContext::Tsunami(_ctx) => {
+            BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5))
+        }
     }
 }
 

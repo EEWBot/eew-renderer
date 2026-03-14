@@ -7,10 +7,10 @@ pub mod tsunami {
 }
 
 mod model;
+mod namesgenerator;
 mod rendering_context;
 mod web;
 mod worker;
-mod namesgenerator;
 
 use std::error::Error;
 use std::net::SocketAddr;
@@ -57,7 +57,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!("Allow Demo: {}", cli.security_rules.allow_demo);
     tracing::info!("ClientIP from: {:?}", cli.client_ip_source);
     tracing::info!("Image Cache Capacity: {}", cli.image_cache_capacity);
-    tracing::info!("Minimum Response Interval: {}", cli.minimum_response_interval);
+    tracing::info!(
+        "Minimum Response Interval: {}",
+        cli.minimum_response_interval
+    );
 
     if cli.security_rules.bypass_hmac {
         tracing::warn!("[SECURITY NOTICE] BYPASS HMAC MODE!");

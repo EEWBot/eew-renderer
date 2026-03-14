@@ -1,12 +1,15 @@
-use std::ops::DerefMut;
+use crate::rendering_context::HasEpicenter;
+use crate::worker::vertex::{EpicenterUniform, EpicenterVertex};
+use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::{Surface, VertexBuffer};
-use crate::rendering_context::HasEpicenter;
-use crate::worker::FrameContext;
-use crate::worker::vertex::{EpicenterUniform, EpicenterVertex};
+use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(frame_context: &FrameContext<F, S>, rendering_context: &C) {
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
+    frame_context: &FrameContext<F, S>,
+    rendering_context: &C,
+) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let aspect_ratio = frame_context.aspect_ratio();
@@ -18,10 +21,10 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(frame_cont
         let epicenter_data = VertexBuffer::dynamic(
             facade,
             &[EpicenterVertex {
-                position: epicenter.to_slice()
+                position: epicenter.to_slice(),
             }],
         )
-            .unwrap();
+        .unwrap();
 
         resources
             .shader

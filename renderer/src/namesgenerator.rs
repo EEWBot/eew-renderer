@@ -1,4 +1,4 @@
-use rand::{Rng, seq::IndexedRandom};
+use rand::{seq::IndexedRandom, Rng};
 
 pub fn generate<R: Rng>(rng: &mut R) -> String {
     let left = justnames::LEFT.choose(rng).unwrap();

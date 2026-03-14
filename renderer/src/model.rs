@@ -1,6 +1,7 @@
-use std::fmt::{Display, Formatter, Write};
 use enum_map::Enum;
+use std::fmt::{Display, Formatter};
 
+#[allow(clippy::type_complexity)]
 #[derive(Debug)]
 pub enum Message {
     RenderingRequest(

@@ -7,7 +7,7 @@ use renderer_types::{GeoDegree, Vertex};
 #[derive(Debug)]
 pub enum RenderingContext {
     V0(V0),
-    Tsunami(Tsunami)
+    Tsunami(Tsunami),
 }
 
 impl RenderingContext {
@@ -35,7 +35,7 @@ impl HasTime for V0 {
 
 impl HasEpicenter for V0 {
     fn epicenter(&self) -> Option<Vertex<GeoDegree>> {
-        self.epicenter.clone()
+        self.epicenter
     }
 }
 
@@ -61,7 +61,7 @@ impl HasTime for Tsunami {
 
 impl HasEpicenter for Tsunami {
     fn epicenter(&self) -> Option<Vertex<GeoDegree>> {
-        self.epicenter.clone()
+        self.epicenter
     }
 }
 
