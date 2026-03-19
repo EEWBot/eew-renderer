@@ -155,7 +155,7 @@ async fn render_handler(
 
     let png = match version {
         0 => {
-            let Ok(decoded) = crate::quake_prefecture::QuakePrefectureData::decode(body) else {
+            let Ok(decoded) = crate::proto::QuakePrefectureV0::decode(body) else {
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
@@ -165,7 +165,7 @@ async fn render_handler(
                     let rendering_context = crate::rendering_context::V0 {
                         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
                         epicenter: decoded.epicenter.map(
-                            |crate::quake_prefecture::Epicenter { lat_x10, lon_x10 }| {
+                            |crate::proto::Epicenter { lat_x10, lon_x10 }| {
                                 renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
                             },
                         ),
@@ -195,7 +195,7 @@ async fn render_handler(
                 .await
         }
         1 => {
-            let Ok(decoded) = crate::tsunami::TsunamiForecastData::decode(body) else {
+            let Ok(decoded) = crate::proto::TsunamiForecastV0::decode(body) else {
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
@@ -204,9 +204,9 @@ async fn render_handler(
                 .try_get_with(calculated_sha1.into(), async move {
                     let rendering_context = crate::rendering_context::Tsunami {
                         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                        epicenter: decoded.epicenter.map(
-                            |crate::tsunami::Epicenter { lat_x10, lon_x10 }| {
-                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
+                        epicenter: decoded.epicenter.get(0).map(
+                            |crate::proto::Epicenter { lat_x10, lon_x10 }| {
+                                renderer_types::Vertex::new(*lon_x10 as f32 / 10.0, *lat_x10 as f32 / 10.0)
                             },
                         ),
                         forecast_levels: enum_map! {

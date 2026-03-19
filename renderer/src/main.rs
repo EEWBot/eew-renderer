@@ -1,9 +1,5 @@
-pub mod quake_prefecture {
-    include!(concat!(env!("OUT_DIR"), "/quake_prefecture_v0.rs"));
-}
-
-pub mod tsunami {
-    include!(concat!(env!("OUT_DIR"), "/tsunami_v0.rs"));
+pub mod proto {
+    include!(concat!(env!("OUT_DIR"), "/net.eewbot.rs"));
 }
 
 mod model;
