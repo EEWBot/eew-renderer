@@ -73,7 +73,7 @@ pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
     pub draw_parameters: &'a DrawParameters<'a>,
     pub scale: f32,
-    pub offset: Vertex<Screen>,
+    pub offset: Vertex<Mercator>,
 }
 
 impl<F: ?Sized + Facade, S: ?Sized + Surface> FrameContext<'_, '_, F, S> {
@@ -138,7 +138,7 @@ impl ApplicationHandler<Message> for App<'_> {
             &bounding_box
                 .gl_vertices()
                 .iter()
-                .map(|v| v.to_screen())
+                .map(|v| v.to_mercator())
                 .collect::<Vec<_>>(),
         );
         let offset = -rendering_bbox.center();
@@ -336,16 +336,8 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
                 })
                 .fold(
                     BoundingBox {
-                        min: Vertex {
-                            x: 180.0,
-                            y: 90.0,
-                            _type: PhantomData,
-                        },
-                        max: Vertex {
-                            x: -180.0,
-                            y: -90.0,
-                            _type: PhantomData,
-                        },
+                        min: Vertex::new(180.0, 90.0),
+                        max: Vertex::new(-180.0, -90.0),
                     },
                     |acc, e| acc.extends_with(&e),
                 );
@@ -367,7 +359,7 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
     }
 }
 
-fn calculate_map_scale(bounding_box: BoundingBox<Screen>, aspect_ratio: f32) -> f32 {
+fn calculate_map_scale(bounding_box: BoundingBox<Mercator>, aspect_ratio: f32) -> f32 {
     let x_scale = 1.0 / bounding_box.size().x;
     let y_scale = 1.0 / bounding_box.size().y * aspect_ratio;
 

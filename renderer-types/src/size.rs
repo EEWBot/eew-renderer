@@ -16,12 +16,12 @@ impl std::ops::Sub for Size {
 
 impl Size {
     #[must_use]
-    pub fn from_tuple((x, y): (f32, f32)) -> Self {
+    pub const fn from_tuple((x, y): (f32, f32)) -> Self {
         Self { x, y }
     }
 
     #[must_use]
-    pub fn to_i(&self) -> SizeU {
+    pub const fn to_i(&self) -> SizeU {
         SizeU {
             x: self.x as u32,
             y: self.y as u32,
@@ -29,7 +29,7 @@ impl Size {
     }
 
     #[must_use]
-    pub fn scale(&self, scaler: f32) -> Self {
+    pub const fn scale(&self, scaler: f32) -> Self {
         Self {
             x: self.x * scaler,
             y: self.y * scaler,
@@ -37,18 +37,18 @@ impl Size {
     }
 
     #[must_use]
-    pub fn fit_scale(&self, other: &Self) -> f32 {
+    pub const fn fit_scale(&self, other: &Self) -> f32 {
         f32::min(other.x / self.x, other.y / self.y)
     }
 
     #[must_use]
-    pub fn fit(&self, other: &Self) -> Self {
+    pub const fn fit(&self, other: &Self) -> Self {
         let scale = self.fit_scale(other);
         self.scale(scale)
     }
 
     #[must_use]
-    pub fn capped_fit(&self, other: &Self) -> Self {
+    pub const fn capped_fit(&self, other: &Self) -> Self {
         let scale = f32::min(self.fit_scale(other), 1.0);
         self.scale(scale)
     }
@@ -62,12 +62,12 @@ pub struct SizeU {
 
 impl SizeU {
     #[must_use]
-    pub fn from_tuple((x, y): (u32, u32)) -> Self {
+    pub const fn from_tuple((x, y): (u32, u32)) -> Self {
         Self { x, y }
     }
 
     #[must_use]
-    pub fn to_f(&self) -> Size {
+    pub const fn to_f(&self) -> Size {
         Size {
             x: self.x as f32,
             y: self.y as f32,
