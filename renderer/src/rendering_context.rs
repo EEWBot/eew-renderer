@@ -22,7 +22,7 @@ impl RenderingContext {
 #[derive(Debug)]
 pub struct V0 {
     pub time: DateTime<Utc>,
-    pub epicenter: Option<Vertex<GeoDegree>>,
+    pub epicenter: Vec<Vertex<GeoDegree>>,
     pub area_intensities: EnumMap<震度, Vec<Area>>,
     pub request_identity: String,
 }
@@ -38,8 +38,8 @@ impl HasTime for V0 {
 }
 
 impl HasEpicenter for V0 {
-    fn epicenter(&self) -> Option<Vertex<GeoDegree>> {
-        self.epicenter
+    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
+        &self.epicenter
     }
 }
 
@@ -52,7 +52,7 @@ impl HasRequestIdentity for V0 {
 #[derive(Debug)]
 pub struct Tsunami {
     pub time: DateTime<Utc>,
-    pub epicenter: Option<Vertex<GeoDegree>>,
+    pub epicenter: Vec<Vertex<GeoDegree>>,
     pub forecast_levels: EnumMap<津波情報, Vec<TsunamiArea>>,
     pub request_identity: String,
 }
@@ -68,8 +68,8 @@ impl HasTime for Tsunami {
 }
 
 impl HasEpicenter for Tsunami {
-    fn epicenter(&self) -> Option<Vertex<GeoDegree>> {
-        self.epicenter
+    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
+        &self.epicenter
     }
 }
 
@@ -86,7 +86,7 @@ pub trait HasTime {
 }
 
 pub trait HasEpicenter {
-    fn epicenter(&self) -> Option<Vertex<GeoDegree>>;
+    fn epicenter(&self) -> &[Vertex<GeoDegree>];
 }
 
 pub trait HasRequestIdentity {
