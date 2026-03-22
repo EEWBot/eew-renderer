@@ -346,7 +346,7 @@ pub fn calculate_bounding_box(ctx: &RenderingContext) -> BoundingBox<GeoDegree> 
                     |acc, e| acc.extends_with(&e),
                 );
 
-            ctx.epicenter.iter().fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(&epicenter))
+            ctx.epicenter.iter().fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter))
         }
         RenderingContext::Tsunami(_ctx) => {
             BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5))
