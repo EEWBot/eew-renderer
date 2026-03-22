@@ -47,3 +47,18 @@ impl Display for 津波情報 {
         }
     }
 }
+
+#[derive(Copy, Clone, Debug)]
+pub enum TimeKind {
+    発生,
+    発表,
+}
+
+impl Display for TimeKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TimeKind::発生 => f.write_str("発生"),
+            TimeKind::発表 => f.write_str("発表"),
+        }
+    }
+}
