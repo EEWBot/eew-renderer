@@ -81,11 +81,12 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
         )
         .unwrap();
 
-    let time_text = rendering_context
+    let mut time_text = rendering_context
         .time()
         .with_timezone(&Japan)
-        .format("%Y年%m月%d日 %H時%M分頃発生")
+        .format("%Y年%m月%d日 %H時%M分頃")
         .to_string();
+    time_text.push_str(&rendering_context.time_kind().to_string());
     frame_context
         .font_manager
         .borrow_mut()

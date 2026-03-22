@@ -1,4 +1,4 @@
-use crate::model::{津波情報, 震度};
+use crate::model::{TimeKind, 津波情報, 震度};
 use chrono::{DateTime, Utc};
 use enum_map::EnumMap;
 use renderer_types::codes::{Area, TsunamiArea};
@@ -31,6 +31,10 @@ impl HasTime for V0 {
     fn time(&self) -> DateTime<Utc> {
         self.time
     }
+
+    fn time_kind(&self) -> TimeKind {
+        TimeKind::発生
+    }
 }
 
 impl HasEpicenter for V0 {
@@ -57,6 +61,10 @@ impl HasTime for Tsunami {
     fn time(&self) -> DateTime<Utc> {
         self.time
     }
+
+    fn time_kind(&self) -> TimeKind {
+        TimeKind::発表
+    }
 }
 
 impl HasEpicenter for Tsunami {
@@ -73,6 +81,8 @@ impl HasRequestIdentity for Tsunami {
 
 pub trait HasTime {
     fn time(&self) -> DateTime<Utc>;
+
+    fn time_kind(&self) -> TimeKind;
 }
 
 pub trait HasEpicenter {
