@@ -164,11 +164,11 @@ async fn render_handler(
                 .try_get_with::<_, Box<dyn std::error::Error + Send + Sync>>(calculated_sha1.into(), async move {
                     let rendering_context = crate::rendering_context::V0 {
                         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                        epicenter: decoded.epicenter.map(
+                        epicenter: decoded.epicenter.into_iter().map(
                             |crate::proto::Epicenter { lat_x10, lon_x10 }| {
                                 renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
                             },
-                        ),
+                        ).collect(),
                         area_intensities: enum_map! {
                             震度::震度1 => decoded.one.clone().map(|v| v.codes).unwrap_or(vec![]),
                             震度::震度2 => decoded.two.clone().map(|v| v.codes).unwrap_or(vec![]),
@@ -204,11 +204,11 @@ async fn render_handler(
                 .try_get_with(calculated_sha1.into(), async move {
                     let rendering_context = crate::rendering_context::Tsunami {
                         time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                        epicenter: decoded.epicenter.get(0).map(
+                        epicenter: decoded.epicenter.into_iter().map(
                             |crate::proto::Epicenter { lat_x10, lon_x10 }| {
-                                renderer_types::Vertex::new(*lon_x10 as f32 / 10.0, *lat_x10 as f32 / 10.0)
+                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
                             },
-                        ),
+                        ).collect(),
                         forecast_levels: enum_map! {
                             津波情報::津波予報 => decoded.forecast.clone().map(|v| v.codes).unwrap_or(vec![]),
                             津波情報::津波注意報 => decoded.advisory.clone().map(|v| v.codes).unwrap_or(vec![]),
@@ -295,7 +295,7 @@ async fn demo_handler(
             .with_ymd_and_hms(2024, 1, 1, 16, 10, 0)
             .unwrap()
             .to_utc(),
-        epicenter: Some(Vertex::<GeoDegree>::new(137.2, 37.5)),
+        epicenter: vec![Vertex::<GeoDegree>::new(137.2, 37.5)],
         area_intensities: enum_map! {
             震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
             震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
@@ -360,7 +360,7 @@ async fn tsunami_demo_handler(
             .with_ymd_and_hms(2025, 12, 8, 23, 23, 0)
             .unwrap()
             .to_utc(),
-        epicenter: Some(Vertex::<GeoDegree>::new(142.3, 41.0)),
+        epicenter: vec![Vertex::<GeoDegree>::new(142.3, 41.0)],
         forecast_levels: enum_map! {
             津波情報::津波予報 => vec![111, 202, 300, 310, 311, 312, 320, 321, 330, 380, 400, 580, 610, 771, 772],
             津波情報::津波注意報 => vec![100, 102, 200, 220, 250],

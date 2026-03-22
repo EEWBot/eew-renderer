@@ -17,31 +17,34 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
     let scale = frame_context.scale;
     let draw_parameters = frame_context.draw_parameters;
 
-    if let Some(epicenter) = rendering_context.epicenter() {
-        let epicenter_data = VertexBuffer::dynamic(
-            facade,
-            &[EpicenterVertex {
-                position: epicenter.to_slice(),
-            }],
+    if rendering_context.epicenter().is_empty() {
+        return;
+    }
+
+    let vb = rendering_context
+        .epicenter()
+        .iter()
+        .map(|epicenter| EpicenterVertex {
+            position: epicenter.to_slice(),
+        })
+        .collect::<Vec<_>>();
+    let vb = VertexBuffer::dynamic(facade, &vb).unwrap();
+
+    resources
+        .shader
+        .epicenter
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            &vb,
+            NoIndices(PrimitiveType::Points),
+            &EpicenterUniform {
+                aspect_ratio,
+                offset: offset.to_slice(),
+                zoom: scale,
+                icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
+                texture_sampler: &resources.texture.epicenter,
+            },
+            draw_parameters,
         )
         .unwrap();
-
-        resources
-            .shader
-            .epicenter
-            .draw(
-                frame_context.surface.borrow_mut().deref_mut(),
-                &epicenter_data,
-                NoIndices(PrimitiveType::Points),
-                &EpicenterUniform {
-                    aspect_ratio,
-                    offset: offset.to_slice(),
-                    zoom: scale,
-                    icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
-                    texture_sampler: &resources.texture.epicenter,
-                },
-                draw_parameters,
-            )
-            .unwrap();
-    }
 }
