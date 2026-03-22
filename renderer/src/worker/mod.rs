@@ -132,7 +132,11 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
-        let bounding_box = calculate_bounding_box(&rendering_context);
+        let bounding_box = try_calculate_bounding_box(&rendering_context);
+        let Some(bounding_box) = bounding_box else {
+            response_socket.send(Err(Box::from(anyhow::anyhow!("Cannot calculate bounding box from this context")))).unwrap();
+            return;
+        };
 
         let rendering_bbox = BoundingBox::from_vertices(
             &bounding_box
@@ -316,7 +320,11 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
     Display::from_context_surface(current_context, surface).unwrap()
 }
 
-pub fn calculate_bounding_box(ctx: &RenderingContext) -> BoundingBox<GeoDegree> {
+/// マップの描画範囲を決定する。
+/// 地震の場合、震度情報または震央のいずれかまたは両方があればSomeを返す。
+/// どちらも存在しない場合は不正値であり範囲が計算できないのでNoneを返す。
+/// 津波の場合、発報範囲に関わらず固定値を返す。
+pub fn try_calculate_bounding_box(ctx: &RenderingContext) -> Option<BoundingBox<GeoDegree>> {
     match ctx {
         RenderingContext::V0(ctx) => {
             let areas = ctx
@@ -346,10 +354,16 @@ pub fn calculate_bounding_box(ctx: &RenderingContext) -> BoundingBox<GeoDegree> 
                     |acc, e| acc.extends_with(&e),
                 );
 
-            ctx.epicenter.iter().fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter))
+            let bbox = ctx.epicenter.iter().fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter));
+
+            if bbox.size().x < 0.0 {
+                None
+            } else {
+                Some(bbox)
+            }
         }
         RenderingContext::Tsunami(_ctx) => {
-            BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5))
+            Some(BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5)))
         }
     }
 }
