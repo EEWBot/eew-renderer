@@ -74,11 +74,11 @@ impl<Type: CoordType> BoundingBox<Type> {
         ]
     }
 
-    pub const fn size(&self) -> Size {
-        Size {
-            x: self.max.x() - self.min.x(),
-            y: self.max.y() - self.min.y(),
-        }
+    pub const fn size(&self) -> Size<f32> {
+        Size::from_tuple((
+            self.max.x() - self.min.x(),
+            self.max.y() - self.min.y(),
+        ))
     }
 
     /// まって、これ原点またいだとき、どうなるの？

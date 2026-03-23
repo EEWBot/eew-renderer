@@ -1,4 +1,4 @@
-use crate::{CoordType, GeoDegree, GeoRadian, Mercator, Pixel, Screen, SizeU};
+use crate::{CoordType, GeoDegree, GeoRadian, Mercator, Pixel, Screen, Size};
 use std::f32::consts::PI;
 use std::marker::PhantomData;
 
@@ -76,19 +76,19 @@ impl Vertex<Mercator> {
 }
 
 impl Vertex<Pixel> {
-    pub const fn to_screen(&self, dimension: SizeU) -> Vertex<Screen> {
-        let dimension = dimension.to_f();
-        let x = self.x / dimension.x;
-        let y = self.y / dimension.y;
+    pub fn to_screen(&self, dimension: Size<u32>) -> Vertex<Screen> {
+        let dimension = dimension.to_f32();
+        let x = self.x / dimension.x();
+        let y = self.y / dimension.y();
         Vertex::new(x, y)
     }
 }
 
 impl Vertex<Screen> {
-    pub const fn to_pixel(&self, dimension: SizeU) -> Vertex<Pixel> {
-        let dimension = dimension.to_f();
-        let x = (self.x * dimension.x).round_ties_even();
-        let y = (self.y * dimension.y).round_ties_even();
+    pub fn to_pixel(&self, dimension: Size<u32>) -> Vertex<Pixel> {
+        let dimension = dimension.to_f32();
+        let x = (self.x * dimension.x()).round_ties_even();
+        let y = (self.y * dimension.y()).round_ties_even();
         Vertex::new(x, y)
     }
 }

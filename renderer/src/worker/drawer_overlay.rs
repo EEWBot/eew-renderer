@@ -8,6 +8,7 @@ use glium::index::PrimitiveType;
 use glium::{IndexBuffer, Surface, VertexBuffer};
 use rusttype::Scale;
 use std::ops::DerefMut;
+use renderer_types::Size;
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
@@ -17,15 +18,13 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
     frame_context: &FrameContext<F, S>,
     rendering_context: &C,
 ) {
-    let dimension = frame_context.dimension();
-    let aspect_ratio = frame_context.aspect_ratio();
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let draw_parameters = frame_context.draw_parameters;
     let theme = frame_context.theme;
 
-    let rights_position = calculate_rights_notation_position(dimension, aspect_ratio);
-    let watermark_position = calculate_watermark_position(dimension, aspect_ratio);
+    let rights_position = calculate_rights_notation_position(frame_context.image_size);
+    let watermark_position = calculate_watermark_position(frame_context.image_size);
 
     let vertices = [
         TexturedVertex {
@@ -97,7 +96,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
             theme.occurrence_time_color,
             Scale::uniform(20.0), // TODO: calculate from dimension
             Offset::new(Origin::RightDown, Origin::RightDown, -20, -20),
-            frame_context.dimension(),
+            frame_context.image_size.to_tuple(),
             resources,
             facade,
             frame_context.surface.borrow_mut().deref_mut(),
@@ -105,13 +104,13 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
         );
 }
 
-fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [[f32; 2]; 4] {
-    let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
-    let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
+fn calculate_rights_notation_position(image_size: Size<u32>) -> [[f32; 2]; 4] {
+    let x_offset = (2.0 / image_size.x() as f32) * OVERLAY_OFFSET_PIXELS as f32;
+    let y_offset = (2.0 / image_size.y() as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
         [-1.0 + x_offset, -1.0 + y_offset],
         [
-            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
             -1.0 + y_offset,
         ],
         [
@@ -119,18 +118,18 @@ fn calculate_rights_notation_position(dimension: (u32, u32), aspect: f32) -> [[f
             -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
         ],
         [
-            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
             -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
         ],
     ]
 }
 
-fn calculate_watermark_position(dimension: (u32, u32), aspect: f32) -> [[f32; 2]; 4] {
-    let x_offset = (2.0 / dimension.0 as f32) * OVERLAY_OFFSET_PIXELS as f32;
-    let y_offset = (2.0 / dimension.1 as f32) * OVERLAY_OFFSET_PIXELS as f32;
+fn calculate_watermark_position(image_size: Size<u32>) -> [[f32; 2]; 4] {
+    let x_offset = (2.0 / image_size.x() as f32) * OVERLAY_OFFSET_PIXELS as f32;
+    let y_offset = (2.0 / image_size.y() as f32) * OVERLAY_OFFSET_PIXELS as f32;
     [
         [
-            1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
             1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset,
         ],
         [
@@ -138,7 +137,7 @@ fn calculate_watermark_position(dimension: (u32, u32), aspect: f32) -> [[f32; 2]
             1.0 - WATERMARK_RATIO_IN_Y_AXIS * 2.0 - y_offset,
         ],
         [
-            1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * aspect * 2.0 * 4.0,
+            1.0 - x_offset - WATERMARK_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
             1.0 - y_offset,
         ],
         [1.0 - x_offset, 1.0 - y_offset],

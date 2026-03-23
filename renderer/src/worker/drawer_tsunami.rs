@@ -12,6 +12,7 @@ use renderer_assets::QueryInterface;
 use rusttype::Scale;
 use std::borrow::Cow;
 use std::ops::DerefMut;
+use renderer_types::Size;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
@@ -21,10 +22,6 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let resources = frame_context.resources;
     let offset = frame_context.offset;
     let scale = frame_context.scale;
-    let dimension = {
-        let dimension = frame_context.dimension();
-        [dimension.0 as f32, dimension.1 as f32]
-    };
     let draw_parameters = frame_context.draw_parameters;
     let theme = frame_context.theme;
 
@@ -66,7 +63,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             &frame_context.resources.buffer.tsunami_vertex,
             &frame_context.resources.buffer.tsunami_indices,
             &TsunamiUniform {
-                dimension,
+                dimension: frame_context.image_size.to_f32().to_array(),
                 offset: offset.to_slice(),
                 zoom: scale,
                 colors: theme.tsunami_colors,
@@ -92,7 +89,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         .iter()
         .enumerate()
         .for_each(|(i, forecast_level)| {
-            let (shape, text_origin) = calculate_legend_position(dimension, i);
+            let (shape, text_origin) = calculate_legend_position(frame_context.image_size, i);
             let shape = VertexBuffer::dynamic(facade, &shape).unwrap();
 
             let color = match forecast_level {
@@ -131,7 +128,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                         text_origin.0,
                         text_origin.1,
                     ),
-                    frame_context.dimension(),
+                    frame_context.image_size.to_tuple(),
                     resources,
                     facade,
                     frame_context.surface.borrow_mut().deref_mut(),
@@ -142,15 +139,16 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     Ok(())
 }
 
-fn calculate_legend_position(dimension: [f32; 2], index: usize) -> ([ShapeVertex; 4], (i32, i32)) {
+fn calculate_legend_position(image_size: Size<u32>, index: usize) -> ([ShapeVertex; 4], (i32, i32)) {
+    let image_size = image_size.to_f32();
     let text_origin = (-300, -240 - 26 * index as i32);
 
-    let x_origin = 1.0 - 300.0 / (dimension[0] / 2.0);
-    let y_origin = -1.0 + (240.0 + 26.0 * index as f32) / (dimension[1] / 2.0);
-    let shape_text_gap = 15.0 / (dimension[0] / 2.0);
-    let shape_shape_gap = 10.4 / (dimension[1] / 2.0);
-    let shape_width = 46.8 / (dimension[0] / 2.0);
-    let shape_height = 15.6 / (dimension[1] / 2.0);
+    let x_origin = 1.0 - 300.0 / (image_size.x() / 2.0);
+    let y_origin = -1.0 + (240.0 + 26.0 * index as f32) / (image_size.y() / 2.0);
+    let shape_text_gap = 15.0 / (image_size.x() / 2.0);
+    let shape_shape_gap = 10.4 / (image_size.y() / 2.0);
+    let shape_width = 46.8 / (image_size.x() / 2.0);
+    let shape_height = 15.6 / (image_size.y() / 2.0);
 
     let shape_left = x_origin - shape_text_gap - shape_width;
     let shape_right = x_origin - shape_text_gap;
