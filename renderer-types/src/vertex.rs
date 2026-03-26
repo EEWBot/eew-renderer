@@ -78,18 +78,21 @@ impl Vertex<Mercator> {
 impl Vertex<Pixel> {
     pub fn to_screen(&self, dimension: Size<u32>) -> Vertex<Screen> {
         let dimension = dimension.to_f32();
-        let x = self.x / dimension.x();
-        let y = self.y / dimension.y();
-        Vertex::new(x, y)
+        Vertex::new(
+            f32::mul_add((self.x + 0.5) / dimension.x(), 2.0, -1.0),
+            f32::mul_add((self.y + 0.5) / dimension.y(), 2.0, -1.0),
+        )
     }
 }
 
 impl Vertex<Screen> {
     pub fn to_pixel(&self, dimension: Size<u32>) -> Vertex<Pixel> {
-        let dimension = dimension.to_f32();
-        let x = (self.x * dimension.x()).round_ties_even();
-        let y = (self.y * dimension.y()).round_ties_even();
-        Vertex::new(x, y)
+        let half_dim = dimension.to_f32();
+        let half_dim = (half_dim.x() * 0.5, half_dim.y() * 0.5);
+        Vertex::new(
+            f32::mul_add(self.x, half_dim.0, half_dim.0).floor(),
+            f32::mul_add(self.y, half_dim.1, half_dim.1).floor(),
+        )
     }
 }
 

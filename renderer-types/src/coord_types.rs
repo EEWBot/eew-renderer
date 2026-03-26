@@ -22,7 +22,8 @@ impl CoordType for Mercator {}
 pub struct Pixel;
 impl CoordType for Pixel {}
 
-/// 左下原点のスクリーン空間
+/// 中央原点のスクリーン空間
+/// 標示範囲は-1.0 <= x,y <= 1.0
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub struct Screen;
 impl CoordType for Screen {}
