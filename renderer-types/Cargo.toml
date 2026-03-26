@@ -9,6 +9,10 @@ edition = "2021"
 shapefile = { default-features = false, version = "0.8", optional = true }
 num-traits = "0.2.19"
 
+[dev-dependencies]
+rstest = "0.26.1"
+rstest_reuse = "0.7.0"
+
 [features]
 default = []
 

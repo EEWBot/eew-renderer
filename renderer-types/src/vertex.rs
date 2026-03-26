@@ -185,3 +185,34 @@ impl From<shapefile::Point> for Vertex<GeoDegree> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rstest::rstest;
+    use rstest_reuse::{apply, template};
+    use crate::{Pixel, Screen, Size, Vertex};
+
+    #[template]
+    #[rstest]
+    #[case(Vertex::new(-1.0, -1.0), Vertex::new(-1.0 - 1.0 / 128.0, -1.0 - 1.0 / 256.0))]
+    #[case(Vertex::new(0.0, 0.0), Vertex::new(-1.0 + 1.0 / 128.0, -1.0 + 1.0 / 256.0))]
+    #[case(Vertex::new(63.0, 127.0), Vertex::new(0.0 - 1.0 / 128.0, 0.0 - 1.0 / 256.0))]
+    #[case(Vertex::new(64.0, 128.0), Vertex::new(0.0 + 1.0 / 128.0, 0.0 + 1.0 / 256.0))]
+    #[case(Vertex::new(127.0, 255.0), Vertex::new(1.0 - 1.0 / 128.0, 1.0 - 1.0 / 256.0))]
+    #[case(Vertex::new(128.0, 256.0), Vertex::new(1.0 + 1.0 / 128.0, 1.0 + 1.0 / 256.0))]
+    fn pixel_screen_cases(
+        #[values(Size::from_tuple((128, 256)))] dimension: Size<u32>,
+        #[case] pixel: Vertex<Pixel>,
+        #[case] screen: Vertex<Screen>,
+    ) {}
+
+    #[apply(pixel_screen_cases)]
+    fn pixel_to_screen(dimension: Size<u32>, pixel: Vertex<Pixel>, screen: Vertex<Screen>) {
+        assert_eq!(pixel.to_screen(dimension), screen);
+    }
+
+    #[apply(pixel_screen_cases)]
+    fn screen_to_pixel(dimension: Size<u32>, pixel: Vertex<Pixel>, screen: Vertex<Screen>) {
+        assert_eq!(screen.to_pixel(dimension), pixel);
+    }
+}
