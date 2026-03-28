@@ -229,6 +229,41 @@ async fn render_handler(
                 })
                 .await
         }
+        2 => {
+            let Ok(decoded) = crate::proto::TsunamiForecastV1::decode(body) else {
+                return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
+            };
+
+            app
+                .cache
+                .try_get_with(calculated_sha1.into(), async move {
+                    let rendering_context = crate::rendering_context::Tsunami {
+                        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
+                        epicenter: decoded.epicenter.into_iter().map(
+                            |crate::proto::Epicenter { lat_x10, lon_x10 }| {
+                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
+                            },
+                        ).collect(),
+                        forecast_levels: enum_map! {
+                            津波情報::津波予報 => decoded.forecast.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            津波情報::津波注意報 => decoded.advisory.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            津波情報::津波警報 => decoded.warning.clone().map(|v| v.codes).unwrap_or(vec![]),
+                            津波情報::大津波警報 => decoded.major_warning.clone().map(|v| v.codes).unwrap_or(vec![]),
+                        },
+                        request_identity: request_identity.to_string(),
+                    };
+
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+
+                    app.request_channel
+                        .send(crate::Message::RenderingRequest((RenderingContext::Tsunami(rendering_context), tx)))
+                        .await
+                        .unwrap();
+
+                    Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
+                })
+                .await
+        }
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
