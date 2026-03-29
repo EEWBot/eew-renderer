@@ -1,42 +1,42 @@
 use crate::{CoordType, GeoDegree, GeoRadian, Mercator, Pixel, Screen, Size};
 use std::f32::consts::PI;
-use std::marker::PhantomData;
+use num_traits::AsPrimitive;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Vertex<Type: CoordType> {
-    x: f32,
-    y: f32,
-    _type: PhantomData<Type>,
+    x: Type::InnerType,
+    y: Type::InnerType,
 }
 
 impl<Type: CoordType> Vertex<Type> {
-    pub const fn new(x: f32, y: f32) -> Self {
-        Self {
-            x,
-            y,
-            _type: PhantomData,
-        }
+    pub const fn new(x: Type::InnerType, y: Type::InnerType) -> Self {
+        Self { x, y }
     }
 
-    pub fn euclidean_distance<T: Into<Self>>(&self, other: T) -> f32 {
-        let other: Self = other.into();
-        let distance = *self - other;
-        f32::sqrt((distance.x * distance.x) + (distance.y * distance.y))
+    pub fn euclidean_distance(&self, other: &Self) -> f32
+    where
+        Type::InnerType: AsPrimitive<f32>,
+    {
+        let distance = *self - *other;
+        f32::sqrt(
+            (distance.x * distance.x).as_() +
+                (distance.y * distance.y).as_()
+        )
     }
 
-    pub const fn x(&self) -> f32 {
+    pub const fn x(&self) -> Type::InnerType {
         self.x
     }
 
-    pub const fn y(&self) -> f32 {
+    pub const fn y(&self) -> Type::InnerType {
         self.y
     }
 
-    pub const fn to_tuple(&self) -> (f32, f32) {
+    pub const fn to_tuple(&self) -> (Type::InnerType, Type::InnerType) {
         (self.x, self.y)
     }
 
-    pub const fn to_slice(&self) -> [f32; 2] {
+    pub const fn to_slice(&self) -> [Type::InnerType; 2] {
         [self.x, self.y]
     }
 }
@@ -79,8 +79,8 @@ impl Vertex<Pixel> {
     pub fn to_screen(&self, dimension: Size<u32>) -> Vertex<Screen> {
         let dimension = dimension.to_f32();
         Vertex::new(
-            f32::mul_add((self.x + 0.5) / dimension.x(), 2.0, -1.0),
-            f32::mul_add((self.y + 0.5) / dimension.y(), 2.0, -1.0),
+            f32::mul_add((self.x as f32 + 0.5) / dimension.x(), 2.0, -1.0),
+            f32::mul_add((self.y as f32 + 0.5) / dimension.y(), 2.0, -1.0),
         )
     }
 }
@@ -90,8 +90,8 @@ impl Vertex<Screen> {
         let half_dim = dimension.to_f32();
         let half_dim = (half_dim.x() * 0.5, half_dim.y() * 0.5);
         Vertex::new(
-            f32::mul_add(self.x, half_dim.0, half_dim.0).floor(),
-            f32::mul_add(self.y, half_dim.1, half_dim.1).floor(),
+            f32::mul_add(self.x, half_dim.0, half_dim.0).floor() as i32,
+            f32::mul_add(self.y, half_dim.1, half_dim.1).floor() as i32,
         )
     }
 }
@@ -103,7 +103,6 @@ impl<Type: CoordType> std::ops::Add for Vertex<Type> {
         Vertex {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
-            _type: PhantomData,
         }
     }
 }
@@ -115,62 +114,58 @@ impl<Type: CoordType> std::ops::Sub for Vertex<Type> {
         Vertex {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
-            _type: PhantomData,
         }
     }
 }
 
-impl<Type: CoordType> std::ops::Mul<f32> for Vertex<Type> {
+impl<Type: CoordType> std::ops::Mul<f32> for Vertex<Type>
+where
+    Type::InnerType: AsPrimitive<f32>,
+    f32: AsPrimitive<Type::InnerType>,
+{
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
         Vertex {
-            x: self.x * rhs,
-            y: self.y * rhs,
-            _type: PhantomData,
+            x: (self.x.as_() * rhs).as_(),
+            y: (self.y.as_() * rhs).as_(),
         }
     }
 }
 
-impl<Type: CoordType> std::ops::Div<f32> for Vertex<Type> {
+impl<Type: CoordType> std::ops::Div<f32> for Vertex<Type>
+where
+    Type::InnerType: AsPrimitive<f32>,
+    f32: AsPrimitive<Type::InnerType>
+{
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
         Vertex {
-            x: self.x / rhs,
-            y: self.y / rhs,
-            _type: PhantomData,
+            x: (self.x.as_() / rhs).as_(),
+            y: (self.y.as_() / rhs).as_(),
         }
     }
 }
 
-impl<Type: CoordType> std::ops::Neg for Vertex<Type> {
+impl<Type: CoordType> std::ops::Neg for Vertex<Type>
+where
+    Type::InnerType: std::ops::Neg<Output = Type::InnerType>,
+{
     type Output = Self;
     fn neg(self) -> Self::Output {
         Vertex {
             x: -self.x,
             y: -self.y,
-            _type: PhantomData,
         }
     }
 }
 
-impl<Type: CoordType> From<(f64, f64)> for Vertex<Type> {
-    fn from(value: (f64, f64)) -> Vertex<Type> {
-        Self {
-            x: value.0 as f32,
-            y: value.1 as f32,
-            _type: PhantomData,
-        }
-    }
-}
-
-impl<Type: CoordType> From<(f32, f32)> for Vertex<Type> {
-    fn from(value: (f32, f32)) -> Vertex<Type> {
+impl<Type: CoordType> From<(Type::InnerType, Type::InnerType)> for Vertex<Type> {
+    fn from(value: (Type::InnerType, Type::InnerType)) -> Vertex<Type> {
         Self {
             x: value.0,
             y: value.1,
-            _type: PhantomData,
         }
     }
 }
@@ -181,7 +176,6 @@ impl From<shapefile::Point> for Vertex<GeoDegree> {
         Self {
             x: value.x as f32,
             y: value.y as f32,
-            _type: PhantomData,
         }
     }
 }
@@ -194,12 +188,12 @@ mod tests {
 
     #[template]
     #[rstest]
-    #[case(Vertex::new(-1.0, -1.0), Vertex::new(-1.0 - 1.0 / 128.0, -1.0 - 1.0 / 256.0))]
-    #[case(Vertex::new(0.0, 0.0), Vertex::new(-1.0 + 1.0 / 128.0, -1.0 + 1.0 / 256.0))]
-    #[case(Vertex::new(63.0, 127.0), Vertex::new(0.0 - 1.0 / 128.0, 0.0 - 1.0 / 256.0))]
-    #[case(Vertex::new(64.0, 128.0), Vertex::new(0.0 + 1.0 / 128.0, 0.0 + 1.0 / 256.0))]
-    #[case(Vertex::new(127.0, 255.0), Vertex::new(1.0 - 1.0 / 128.0, 1.0 - 1.0 / 256.0))]
-    #[case(Vertex::new(128.0, 256.0), Vertex::new(1.0 + 1.0 / 128.0, 1.0 + 1.0 / 256.0))]
+    #[case(Vertex::new(-1, -1), Vertex::new(-1.0 - 1.0 / 128.0, -1.0 - 1.0 / 256.0))]
+    #[case(Vertex::new(0, 0), Vertex::new(-1.0 + 1.0 / 128.0, -1.0 + 1.0 / 256.0))]
+    #[case(Vertex::new(63, 127), Vertex::new(0.0 - 1.0 / 128.0, 0.0 - 1.0 / 256.0))]
+    #[case(Vertex::new(64, 128), Vertex::new(0.0 + 1.0 / 128.0, 0.0 + 1.0 / 256.0))]
+    #[case(Vertex::new(127, 255), Vertex::new(1.0 - 1.0 / 128.0, 1.0 - 1.0 / 256.0))]
+    #[case(Vertex::new(128, 256), Vertex::new(1.0 + 1.0 / 128.0, 1.0 + 1.0 / 256.0))]
     fn pixel_screen_cases(
         #[values(Size::from_tuple((128, 256)))] dimension: Size<u32>,
         #[case] pixel: Vertex<Pixel>,

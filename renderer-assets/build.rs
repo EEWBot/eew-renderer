@@ -7,6 +7,7 @@ use ordered_float::NotNan;
 
 mod station_codes_parser;
 use asset_preprocessor::{parse_lake_shapefile, parse_shapefile, parse_tsunami_shapefile};
+use renderer_types::{GeoDegree, Vertex};
 
 fn main() {
     let (tsunami_vertices, tsunami_indices, tsunami_area_code_to_internal_code) =
@@ -51,7 +52,8 @@ fn main() {
                 .iter()
                 .enumerate()
                 .min_by_key(|(_i, &station)| {
-                    NotNan::new(area_center.euclidean_distance(station))
+                    let station = Vertex::<GeoDegree>::new(station.0, station.1);
+                    NotNan::new(area_center.euclidean_distance(&station))
                         .expect("なぁん…観測点距離が何故かNaN")
                 })
                 .map(|(offset, _station)| area.start_i + offset)

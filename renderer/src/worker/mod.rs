@@ -124,7 +124,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let bounding_box = calculate_bounding_box(&rendering_context.payload);
 
-        let rendering_bbox = BoundingBox::from_vertices(
+        let rendering_bbox = BoundingBox::from_vertices_float(
             &bounding_box
                 .gl_vertices()
                 .iter()
@@ -330,13 +330,13 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
                         min: Vertex::new(180.0, 90.0),
                         max: Vertex::new(-180.0, -90.0),
                     },
-                    |acc, e| acc.extends_with(&e),
+                    |acc, e| acc.extends_with_float(&e),
                 );
 
             let bbox = payload
                 .epicenter
                 .iter()
-                .fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter));
+                .fold(bbox, |bbox, epicenter| bbox.extends_by_vertex_float(epicenter));
 
             if bbox.size().x() < 0.0 {
                 panic!("Failed to determinate bounding_box");
