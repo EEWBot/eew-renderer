@@ -2,7 +2,7 @@ use std::ops::Div;
 use num_traits::{Bounded, Float, Zero};
 use crate::{CoordType, Size, Vertex};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct BoundingBox<Type: CoordType> {
     pub min: Vertex<Type>,
     pub max: Vertex<Type>,
@@ -176,6 +176,8 @@ impl<Type: CoordType> BoundingBox<Type> {
         }
     }
 }
+
+impl<Type: CoordType> Eq for BoundingBox<Type> where Vertex<Type>: Eq {}
 
 impl<Type: CoordType> From<(Vertex<Type>, Vertex<Type>)> for BoundingBox<Type> {
     fn from((min, max): (Vertex<Type>, Vertex<Type>)) -> Self {

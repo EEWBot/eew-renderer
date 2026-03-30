@@ -154,6 +154,8 @@ where
     }
 }
 
+impl<Type: CoordType> Eq for Vertex<Type> where Type::InnerType: Eq {}
+
 impl<Type: CoordType> From<(Type::InnerType, Type::InnerType)> for Vertex<Type> {
     fn from((x, y): (Type::InnerType, Type::InnerType)) -> Vertex<Type> {
         Self { x, y }
