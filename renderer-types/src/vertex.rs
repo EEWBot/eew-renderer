@@ -1,5 +1,6 @@
 use crate::{CoordType, GeoDegree, GeoRadian, Mercator, Pixel, Screen, Size};
 use std::f32::consts::PI;
+use std::fmt::Debug;
 use num_traits::AsPrimitive;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -30,14 +31,6 @@ impl<Type: CoordType> Vertex<Type> {
 
     pub const fn y(&self) -> Type::InnerType {
         self.y
-    }
-
-    pub const fn to_tuple(&self) -> (Type::InnerType, Type::InnerType) {
-        (self.x, self.y)
-    }
-
-    pub const fn to_slice(&self) -> [Type::InnerType; 2] {
-        [self.x, self.y]
     }
 }
 
@@ -162,11 +155,26 @@ where
 }
 
 impl<Type: CoordType> From<(Type::InnerType, Type::InnerType)> for Vertex<Type> {
-    fn from(value: (Type::InnerType, Type::InnerType)) -> Vertex<Type> {
-        Self {
-            x: value.0,
-            y: value.1,
-        }
+    fn from((x, y): (Type::InnerType, Type::InnerType)) -> Vertex<Type> {
+        Self { x, y }
+    }
+}
+
+impl<Type: CoordType> From<[Type::InnerType; 2]> for Vertex<Type> {
+    fn from([x, y]: [Type::InnerType; 2]) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<Type: CoordType> From<Vertex<Type>> for (Type::InnerType, Type::InnerType) {
+    fn from(value: Vertex<Type>) -> Self {
+        (value.x, value.y)
+    }
+}
+
+impl<Type: CoordType> From<Vertex<Type>> for [Type::InnerType; 2] {
+    fn from(value: Vertex<Type>) -> Self {
+        [value.x, value.y]
     }
 }
 

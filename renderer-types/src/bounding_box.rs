@@ -9,6 +9,10 @@ pub struct BoundingBox<Type: CoordType> {
 }
 
 impl<Type: CoordType> BoundingBox<Type> {
+    pub const fn new(min: Vertex<Type>, max: Vertex<Type>) -> Self {
+        Self { min, max }
+    }
+
     pub const fn value_top_left(&self) -> Vertex<Type> {
         Vertex::new(self.min.x(), self.min.y())
     }
@@ -115,10 +119,10 @@ impl<Type: CoordType> BoundingBox<Type> {
     }
 
     pub fn size(&self) -> Size<Type::InnerType> {
-        Size::from_tuple((
+        Size::new(
             self.max.x() - self.min.x(),
             self.max.y() - self.min.y(),
-        ))
+        )
     }
 
     /// まって、これ原点またいだとき、どうなるの？
@@ -130,17 +134,6 @@ impl<Type: CoordType> BoundingBox<Type> {
             (self.min.x() + self.max.x()) / 2.0,
             (self.min.y() + self.max.y()) / 2.0,
         )
-    }
-
-    pub const fn to_tuple(&self) -> (Type::InnerType, Type::InnerType, Type::InnerType, Type::InnerType) {
-        (self.min.x(), self.min.y(), self.max.x(), self.max.y())
-    }
-
-    pub const fn from_tuple<T>(v: (Type::InnerType, Type::InnerType, Type::InnerType, Type::InnerType)) -> BoundingBox<Type> {
-        Self {
-            min: Vertex::new(v.0, v.1),
-            max: Vertex::new(v.2, v.3),
-        }
     }
 
     pub fn from_vertices(vertices: &[Vertex<Type>]) -> BoundingBox<Type>
@@ -181,6 +174,18 @@ impl<Type: CoordType> BoundingBox<Type> {
                 |acc, vertex| acc.extends_by_vertex_float(vertex),
             )
         }
+    }
+}
+
+impl<Type: CoordType> From<(Vertex<Type>, Vertex<Type>)> for BoundingBox<Type> {
+    fn from((min, max): (Vertex<Type>, Vertex<Type>)) -> Self {
+        Self { min, max }
+    }
+}
+
+impl<Type: CoordType> From<[Vertex<Type>; 2]> for BoundingBox<Type> {
+    fn from([min, max]: [Vertex<Type>; 2]) -> Self {
+        Self { min, max }
     }
 }
 

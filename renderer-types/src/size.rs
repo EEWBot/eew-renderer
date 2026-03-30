@@ -8,27 +8,8 @@ pub struct Size<Type: PartialEq + Copy + Clone + Debug> {
 }
 
 impl<Type: PartialEq + Copy + Clone + Debug> Size<Type> {
-    #[must_use]
-    pub const fn from_tuple((x, y): (Type, Type)) -> Self {
+    pub const fn new(x: Type, y: Type) -> Self {
         Self { x, y }
-    }
-
-    #[must_use]
-    pub const fn from_array(input: [Type; 2]) -> Self {
-        Self {
-            x: input[0],
-            y: input[1],
-        }
-    }
-
-    #[must_use]
-    pub const fn to_tuple(&self) -> (Type, Type) {
-        (self.x, self.y)
-    }
-
-    #[must_use]
-    pub const fn to_array(&self) -> [Type; 2] {
-        [self.x, self.y]
     }
 
     #[must_use]
@@ -168,3 +149,27 @@ impl<Type: PartialEq + Copy + Clone + Debug + std::ops::Sub<Type, Output = Type>
 }
 
 impl<Type: Eq + PartialEq + Copy + Clone + Debug> Eq for Size<Type> {}
+
+impl<Type: PartialEq + Copy + Clone + Debug> From<(Type, Type)> for Size<Type> {
+    fn from((x, y): (Type, Type)) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<Type: PartialEq + Copy + Clone + Debug> From<[Type; 2]> for Size<Type> {
+    fn from([x, y]: [Type; 2]) -> Self {
+        Self { x, y }
+    }
+}
+
+impl<Type: PartialEq + Copy + Clone + Debug> From<Size<Type>> for (Type, Type) {
+    fn from(value: Size<Type>) -> Self {
+        (value.x, value.y)
+    }
+}
+
+impl<Type: PartialEq + Copy + Clone + Debug> From<Size<Type>> for [Type; 2] {
+    fn from(value: Size<Type>) -> Self {
+        [value.x, value.y]
+    }
+}

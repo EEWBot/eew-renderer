@@ -96,7 +96,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
             theme.occurrence_time_color,
             Scale::uniform(20.0), // TODO: calculate from dimension
             Offset::new(Origin::RightDown, Origin::RightDown, -20, -20),
-            frame_context.image_size.to_tuple(),
+            frame_context.image_size.into(),
             resources,
             facade,
             frame_context.surface.borrow_mut().deref_mut(),

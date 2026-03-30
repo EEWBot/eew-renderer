@@ -65,9 +65,10 @@ impl QueryInterface {
     }
 
     pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
-        Some(BoundingBox::from_tuple::<GeoDegree>(
-            AREAS.get(&area_code)?.1,
-        ))
+        let tuple = AREAS.get(&area_code)?.1;
+        let min = Vertex::new(tuple.0, tuple.1);
+        let max = Vertex::new(tuple.2, tuple.3);
+        Some(BoundingBox::new(min, max))
     }
 
     pub fn query_rendering_center_by_area(area_code: codes::Area) -> Option<Vertex<GeoDegree>> {

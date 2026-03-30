@@ -47,7 +47,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
                     renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
                 Some(IntensityIconVertex {
-                    position: nearest_station_coord.to_slice(),
+                    position: nearest_station_coord.into(),
                     uv_offset: uv_offset.to_owned(),
                 })
             })
@@ -65,7 +65,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
             NoIndices(PrimitiveType::Points),
             &IntensityIconUniform {
                 aspect_ratio,
-                offset: offset.to_slice(),
+                offset: offset.into(),
                 zoom: scale,
                 icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
                 texture_sampler: &resources.texture.intensity,

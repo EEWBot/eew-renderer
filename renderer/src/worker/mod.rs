@@ -20,7 +20,6 @@ use image_buffer::RGBAImageData;
 use renderer_types::*;
 use std::cell::RefCell;
 use std::error::Error;
-use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::time::Instant;
@@ -120,7 +119,7 @@ impl ApplicationHandler<Message> for App<'_> {
         let font_manager = self.font_manager.as_mut().unwrap();
         let font_manager = Rc::new(RefCell::new(font_manager));
 
-        let image_size = Size::from_tuple(DIMENSION);
+        let image_size = Size::from(DIMENSION);
 
         let bounding_box = calculate_bounding_box(&rendering_context.payload);
 
@@ -344,9 +343,10 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
 
             bbox
         }
-        RenderingPayload::Tsunami(_payload) => BoundingBox::from_tuple::<GeoDegree>((
-            122.9, 24.0, 148.9, 45.5,
-        )),
+        RenderingPayload::Tsunami(_payload) => BoundingBox::new(
+            Vertex::new(122.9, 24.0),
+            Vertex::new(148.9, 45.5),
+        ),
     }
 }
 

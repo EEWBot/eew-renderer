@@ -7,7 +7,7 @@ use ordered_float::NotNan;
 
 mod station_codes_parser;
 use asset_preprocessor::{parse_lake_shapefile, parse_shapefile, parse_tsunami_shapefile};
-use renderer_types::{GeoDegree, Vertex};
+use renderer_types::{BoundingBox, GeoDegree, Vertex};
 
 fn main() {
     let (tsunami_vertices, tsunami_indices, tsunami_area_code_to_internal_code) =
@@ -59,7 +59,7 @@ fn main() {
                 .map(|(offset, _station)| area.start_i + offset)
                 .expect("エリア内に一つも観測点がない");
 
-            (*code, (nearest_intensity_station_index, bbox.to_tuple()))
+            (*code, (nearest_intensity_station_index, bbox_to_tuple(bbox)))
         })
         .collect();
 
@@ -85,4 +85,8 @@ fn main() {
         const_declarations,
     )
     .unwrap();
+}
+
+fn bbox_to_tuple(bb: &BoundingBox<GeoDegree>) -> (f32, f32, f32, f32) {
+    (bb.min.x(), bb.min.y(), bb.max.x(), bb.max.y())
 }

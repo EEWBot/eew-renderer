@@ -3,7 +3,6 @@ use super::vertex::{
     IntensityIconVertex, MapUniform, MapVertex, ShapeUniform, ShapeVertex, TextUniform, TextVertex,
     TexturedUniform, TexturedVertex, TsunamiUniform, TsunamiVertex,
 };
-use renderer_types::{GeoDegree, Vertex};
 
 use crate::worker::shader::ShaderProgram;
 use glium::backend::Facade;
@@ -54,7 +53,7 @@ impl Buffer {
             .vertices
             .iter()
             .map(|v| MapVertex {
-                position: Vertex::<GeoDegree>::from(*v).to_slice(),
+                position: [v.0, v.1],
             })
             .collect();
 
@@ -122,7 +121,7 @@ impl Lake {
             .vertices
             .iter()
             .map(|v| MapVertex {
-                position: Vertex::<GeoDegree>::from(*v).to_slice(),
+                position: [v.0, v.1],
             })
             .collect();
         let vertex = VertexBuffer::immutable(facade, &vertex).unwrap();
