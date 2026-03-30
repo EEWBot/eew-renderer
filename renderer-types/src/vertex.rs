@@ -205,7 +205,7 @@ mod tests {
     #[case(Vertex::new(127, 255), Vertex::new(1.0 - 1.0 / 128.0, 1.0 - 1.0 / 256.0))]
     #[case(Vertex::new(128, 256), Vertex::new(1.0 + 1.0 / 128.0, 1.0 + 1.0 / 256.0))]
     fn pixel_screen_cases(
-        #[values(Size::from_tuple((128, 256)))] dimension: Size<u32>,
+        #[values(Size::new(128, 256))] dimension: Size<u32>,
         #[case] pixel: Vertex<Pixel>,
         #[case] screen: Vertex<Screen>,
     ) {}
