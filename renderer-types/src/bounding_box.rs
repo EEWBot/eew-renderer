@@ -13,36 +13,31 @@ impl<Type: CoordType> BoundingBox<Type> {
         Self { min, max }
     }
 
-    pub const fn value_top_left(&self) -> Vertex<Type> {
-        Vertex::new(self.min.x(), self.min.y())
+    pub const fn first_quadrant(&self) -> Vertex<Type> {
+        self.max
     }
 
-    pub const fn value_top_right(&self) -> Vertex<Type> {
-        Vertex::new(self.max.x(), self.min.y())
-    }
-
-    pub const fn value_bottom_left(&self) -> Vertex<Type> {
+    pub const fn second_quadrant(&self) -> Vertex<Type> {
         Vertex::new(self.min.x(), self.max.y())
     }
 
-    pub const fn value_bottom_right(&self) -> Vertex<Type> {
-        Vertex::new(self.max.x(), self.max.y())
+    pub const fn third_quadrant(&self) -> Vertex<Type> {
+        self.min
     }
 
-    pub const fn gl_top_left(&self) -> Vertex<Type> {
+    pub const fn fourth_quadrant(&self) -> Vertex<Type> {
         Vertex::new(self.max.x(), self.min.y())
     }
 
-    pub const fn gl_top_right(&self) -> Vertex<Type> {
-        Vertex::new(self.max.x(), self.max.y())
-    }
-
-    pub const fn gl_bottom_left(&self) -> Vertex<Type> {
-        Vertex::new(self.min.x(), self.min.y())
-    }
-
-    pub const fn gl_bottom_right(&self) -> Vertex<Type> {
-        Vertex::new(self.min.x(), self.max.y())
+    /// まって、これ原点またいだとき、どうなるの？
+    pub fn center(&self) -> Vertex<Type>
+    where
+        Type::InnerType: Div<f32, Output = Type::InnerType>
+    {
+        Vertex::new(
+            (self.min.x() + self.max.x()) / 2.0,
+            (self.min.y() + self.max.y()) / 2.0,
+        )
     }
 
     pub fn merge(&self, other: &Self) -> Self
@@ -111,10 +106,10 @@ impl<Type: CoordType> BoundingBox<Type> {
 
     pub const fn gl_vertices(&self) -> [Vertex<Type>; 4] {
         [
-            self.gl_bottom_left(),
-            self.gl_bottom_right(),
-            self.gl_top_right(),
-            self.gl_top_left(),
+            self.third_quadrant(),
+            self.fourth_quadrant(),
+            self.second_quadrant(),
+            self.first_quadrant(),
         ]
     }
 
@@ -122,17 +117,6 @@ impl<Type: CoordType> BoundingBox<Type> {
         Size::new(
             self.max.x() - self.min.x(),
             self.max.y() - self.min.y(),
-        )
-    }
-
-    /// まって、これ原点またいだとき、どうなるの？
-    pub fn center(&self) -> Vertex<Type>
-    where
-        Type::InnerType: Div<f32, Output = Type::InnerType>
-    {
-        Vertex::new(
-            (self.min.x() + self.max.x()) / 2.0,
-            (self.min.y() + self.max.y()) / 2.0,
         )
     }
 
