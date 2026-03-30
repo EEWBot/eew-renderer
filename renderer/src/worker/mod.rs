@@ -329,13 +329,13 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
                         min: Vertex::new(180.0, 90.0),
                         max: Vertex::new(-180.0, -90.0),
                     },
-                    |acc, e| acc.extends_with_float(&e),
+                    |acc, e| acc.merge_float(&e),
                 );
 
             let bbox = payload
                 .epicenter
                 .iter()
-                .fold(bbox, |bbox, epicenter| bbox.extends_by_vertex_float(epicenter));
+                .fold(bbox, |bbox, epicenter| bbox.encapsulate_float(epicenter));
 
             if bbox.size().x() < 0.0 {
                 panic!("Failed to determinate bounding_box");

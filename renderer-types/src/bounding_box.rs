@@ -45,7 +45,7 @@ impl<Type: CoordType> BoundingBox<Type> {
         Vertex::new(self.min.x(), self.max.y())
     }
 
-    pub fn extends_with(&self, other: &Self) -> Self
+    pub fn merge(&self, other: &Self) -> Self
     where
         Type::InnerType: Ord
     {
@@ -61,7 +61,7 @@ impl<Type: CoordType> BoundingBox<Type> {
         }
     }
 
-    pub fn extends_with_float(&self, other: &Self) -> Self
+    pub fn merge_float(&self, other: &Self) -> Self
     where
         Type::InnerType: Float
     {
@@ -77,7 +77,7 @@ impl<Type: CoordType> BoundingBox<Type> {
         }
     }
 
-    pub fn extends_by_vertex(&self, vertex: &Vertex<Type>) -> Self
+    pub fn encapsulate(&self, vertex: &Vertex<Type>) -> Self
     where
         Type::InnerType: Ord
     {
@@ -93,7 +93,7 @@ impl<Type: CoordType> BoundingBox<Type> {
         }
     }
 
-    pub fn extends_by_vertex_float(&self, vertex: &Vertex<Type>) -> Self
+    pub fn encapsulate_float(&self, vertex: &Vertex<Type>) -> Self
     where
         Type::InnerType: Float
     {
@@ -151,7 +151,7 @@ impl<Type: CoordType> BoundingBox<Type> {
                     min: Vertex::new(Type::InnerType::max_value(), Type::InnerType::max_value()),
                     max: Vertex::new(Type::InnerType::min_value(), Type::InnerType::min_value()),
                 },
-                |acc, vertex| acc.extends_by_vertex(vertex),
+                |acc, vertex| acc.encapsulate(vertex),
             )
         }
     }
@@ -171,7 +171,7 @@ impl<Type: CoordType> BoundingBox<Type> {
                     min: Vertex::new(Type::InnerType::max_value(), Type::InnerType::max_value()),
                     max: Vertex::new(Type::InnerType::min_value(), Type::InnerType::min_value()),
                 },
-                |acc, vertex| acc.extends_by_vertex_float(vertex),
+                |acc, vertex| acc.encapsulate_float(vertex),
             )
         }
     }
