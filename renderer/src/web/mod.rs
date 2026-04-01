@@ -15,7 +15,7 @@ use axum_extra::TypedHeader;
 use chrono::{DateTime, TimeZone};
 use enum_map::enum_map;
 use headers::UserAgent;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, Mac, KeyInit};
 use prost::Message;
 
 use crate::model::*;
