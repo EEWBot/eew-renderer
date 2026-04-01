@@ -1,5 +1,5 @@
-use crate::model::Message;
-use crate::rendering_context::RenderingContext;
+use crate::model::{Message, RenderingError};
+use crate::rendering_context::RenderingPayload;
 use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
 use glium::backend::Facade;
@@ -132,11 +132,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
 
-        let bounding_box = try_calculate_bounding_box(&rendering_context);
-        let Some(bounding_box) = bounding_box else {
-            response_socket.send(Err(Box::from(anyhow::anyhow!("Cannot calculate bounding box from this context")))).unwrap();
-            return;
-        };
+        let bounding_box = calculate_bounding_box(&rendering_context.payload);
 
         let rendering_bbox = BoundingBox::from_vertices(
             &bounding_box
@@ -188,14 +184,14 @@ impl ApplicationHandler<Message> for App<'_> {
             clear_color[3],
         );
 
-        match &rendering_context {
-            RenderingContext::V0(v0) => {
+        match &rendering_context.payload {
+            RenderingPayload::Earthquake(earthquake) => {
                 drawer_map::draw(&frame_context, true);
-                drawer_intensity_icon::draw_all(&frame_context, v0);
-                drawer_epicenter::draw(&frame_context, v0);
-                drawer_overlay::draw(&frame_context, v0);
+                drawer_intensity_icon::draw_all(&frame_context, earthquake);
+                drawer_epicenter::draw(&frame_context, earthquake);
+                drawer_overlay::draw(&frame_context, earthquake);
             }
-            RenderingContext::Tsunami(tsunami) => {
+            RenderingPayload::Tsunami(tsunami) => {
                 drawer_map::draw(&frame_context, false);
                 drawer_epicenter::draw(&frame_context, tsunami);
                 if let Err(e) = drawer_tsunami::draw(&frame_context, tsunami) {
@@ -218,11 +214,11 @@ impl ApplicationHandler<Message> for App<'_> {
             t_before_render - t_before_alloc,
             t_before_bufcpy - t_before_render,
             t_done - t_before_bufcpy,
-            rendering_context.request_identity(),
+            rendering_context.request_identity,
         );
 
         tokio::spawn(async move {
-            image_writeback(rendering_context.request_identity(), response_socket, image).await
+            image_writeback(&rendering_context.request_identity, response_socket, image).await
         });
     }
 
@@ -231,7 +227,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
 async fn image_writeback(
     request_identity: &str,
-    response_socket: oneshot::Sender<Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>>,
+    response_socket: oneshot::Sender<Result<Vec<u8>, RenderingError>>,
     image: RGBAImageData,
 ) {
     use std::io::Cursor;
@@ -324,10 +320,10 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
 /// 地震の場合、震度情報または震央のいずれかまたは両方があればSomeを返す。
 /// どちらも存在しない場合は不正値であり範囲が計算できないのでNoneを返す。
 /// 津波の場合、発報範囲に関わらず固定値を返す。
-pub fn try_calculate_bounding_box(ctx: &RenderingContext) -> Option<BoundingBox<GeoDegree>> {
-    match ctx {
-        RenderingContext::V0(ctx) => {
-            let areas = ctx
+pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegree> {
+    match payload {
+        RenderingPayload::Earthquake(payload) => {
+            let areas = payload
                 .area_intensities
                 .values()
                 .flatten()
@@ -354,17 +350,20 @@ pub fn try_calculate_bounding_box(ctx: &RenderingContext) -> Option<BoundingBox<
                     |acc, e| acc.extends_with(&e),
                 );
 
-            let bbox = ctx.epicenter.iter().fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter));
+            let bbox = payload
+                .epicenter
+                .iter()
+                .fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter));
 
             if bbox.size().x < 0.0 {
-                None
-            } else {
-                Some(bbox)
+                panic!("Failed to determinate bounding_box");
             }
+
+            bbox
         }
-        RenderingContext::Tsunami(_ctx) => {
-            Some(BoundingBox::from_tuple::<GeoDegree>((122.9, 24.0, 148.9, 45.5)))
-        }
+        RenderingPayload::Tsunami(_payload) => BoundingBox::from_tuple::<GeoDegree>((
+            122.9, 24.0, 148.9, 45.5,
+        )),
     }
 }
 

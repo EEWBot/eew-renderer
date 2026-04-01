@@ -1,5 +1,11 @@
-use enum_map::Enum;
 use std::fmt::{Display, Formatter};
+
+use enum_map::Enum;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum RenderingError {
+}
 
 #[allow(clippy::type_complexity)]
 #[derive(Debug)]
@@ -7,7 +13,7 @@ pub enum Message {
     RenderingRequest(
         (
             crate::rendering_context::RenderingContext,
-            tokio::sync::oneshot::Sender<Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>>>,
+            tokio::sync::oneshot::Sender<Result<Vec<u8>, RenderingError>>,
         ),
     ),
 }

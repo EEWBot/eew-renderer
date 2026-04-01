@@ -27,7 +27,7 @@ const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_off
 
 pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
-    rendering_context: &crate::rendering_context::V0,
+    earthquake_payload: &crate::rendering_context::EarthquakePayload,
 ) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
@@ -36,7 +36,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     let scale = frame_context.scale;
     let draw_parameters = frame_context.draw_parameters;
 
-    let per_icon_data: Vec<_> = rendering_context
+    let per_icon_data: Vec<_> = earthquake_payload
         .area_intensities
         .iter()
         .flat_map(|(震度, area_codes)| {

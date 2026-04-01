@@ -48,6 +48,14 @@ impl QueryInterface {
         }
     }
 
+    pub fn is_valid_earthquake_area_code(area_code: codes::Area) -> bool {
+        AREAS.contains_key(&area_code)
+    }
+
+    pub fn is_valid_tsunami_area_code(area_code: codes::Area) -> bool {
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.contains_key(&area_code)
+    }
+
     pub fn tsunami_area_code_to_internal_code(area_code: codes::TsunamiArea) -> Option<u16> {
         TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.get(&area_code).copied()
     }

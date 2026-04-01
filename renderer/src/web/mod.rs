@@ -12,16 +12,18 @@ use axum::{
 };
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_extra::TypedHeader;
-use chrono::{DateTime, TimeZone};
+use chrono::TimeZone;
 use enum_map::enum_map;
 use headers::UserAgent;
-use hmac::{Hmac, Mac, KeyInit};
+use hmac::{Hmac, KeyInit, Mac};
 use prost::Message;
 
 use crate::model::*;
 
 mod rate_limiter;
-use crate::rendering_context::RenderingContext;
+use crate::rendering_context::{
+    EarthquakePayload, RenderingContext, RenderingPayload, TsunamiPayload,
+};
 use rate_limiter::ResponseRateLimiter;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
@@ -153,116 +155,27 @@ async fn render_handler(
 
     tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
-    let png = match version {
+    let maybe_rendering_payload = match version {
         0 => {
             let Ok(decoded) = crate::proto::QuakePrefectureV0::decode(body) else {
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
-            app
-                .cache
-                .try_get_with::<_, Box<dyn std::error::Error + Send + Sync>>(calculated_sha1.into(), async move {
-                    let rendering_context = crate::rendering_context::V0 {
-                        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                        epicenter: decoded.epicenter.into_iter().map(
-                            |crate::proto::Epicenter { lat_x10, lon_x10 }| {
-                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-                            },
-                        ).collect(),
-                        area_intensities: enum_map! {
-                            震度::震度1 => decoded.one.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度2 => decoded.two.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度3 => decoded.three.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度4 => decoded.four.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度5弱 => decoded.five_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度5強 => decoded.five_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度6弱 => decoded.six_minus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度6強 => decoded.six_plus.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            震度::震度7 => decoded.seven.clone().map(|v| v.codes).unwrap_or(vec![]),
-                        },
-                        request_identity: request_identity.to_string(),
-                    };
-
-                    let (tx, rx) = tokio::sync::oneshot::channel();
-
-                    app.request_channel
-                        .send(crate::Message::RenderingRequest((RenderingContext::V0(rendering_context), tx)))
-                        .await
-                        .unwrap();
-
-                    Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
-                })
-                .await
+            RenderingPayload::try_from(decoded)
         }
         1 => {
             let Ok(decoded) = crate::proto::TsunamiForecastV0::decode(body) else {
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
-            app
-                .cache
-                .try_get_with(calculated_sha1.into(), async move {
-                    let rendering_context = crate::rendering_context::Tsunami {
-                        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                        epicenter: decoded.epicenter.into_iter().map(
-                            |crate::proto::Epicenter { lat_x10, lon_x10 }| {
-                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-                            },
-                        ).collect(),
-                        forecast_levels: enum_map! {
-                            津波情報::津波予報 => decoded.forecast.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            津波情報::津波注意報 => decoded.advisory.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            津波情報::津波警報 => decoded.warning.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            津波情報::大津波警報 => decoded.major_warning.clone().map(|v| v.codes).unwrap_or(vec![]),
-                        },
-                        request_identity: request_identity.to_string(),
-                    };
-
-                    let (tx, rx) = tokio::sync::oneshot::channel();
-
-                    app.request_channel
-                        .send(crate::Message::RenderingRequest((RenderingContext::Tsunami(rendering_context), tx)))
-                        .await
-                        .unwrap();
-
-                    Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
-                })
-                .await
+            RenderingPayload::try_from(decoded)
         }
         2 => {
             let Ok(decoded) = crate::proto::TsunamiForecastV1::decode(body) else {
                 return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
             };
 
-            app
-                .cache
-                .try_get_with(calculated_sha1.into(), async move {
-                    let rendering_context = crate::rendering_context::Tsunami {
-                        time: DateTime::from_timestamp(decoded.time as i64, 0).unwrap(),
-                        epicenter: decoded.epicenter.into_iter().map(
-                            |crate::proto::Epicenter { lat_x10, lon_x10 }| {
-                                renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-                            },
-                        ).collect(),
-                        forecast_levels: enum_map! {
-                            津波情報::津波予報 => decoded.forecast.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            津波情報::津波注意報 => decoded.advisory.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            津波情報::津波警報 => decoded.warning.clone().map(|v| v.codes).unwrap_or(vec![]),
-                            津波情報::大津波警報 => decoded.major_warning.clone().map(|v| v.codes).unwrap_or(vec![]),
-                        },
-                        request_identity: request_identity.to_string(),
-                    };
-
-                    let (tx, rx) = tokio::sync::oneshot::channel();
-
-                    app.request_channel
-                        .send(crate::Message::RenderingRequest((RenderingContext::Tsunami(rendering_context), tx)))
-                        .await
-                        .unwrap();
-
-                    Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
-                })
-                .await
+            RenderingPayload::try_from(decoded)
         }
         _ => {
             return (
@@ -273,8 +186,40 @@ async fn render_handler(
         }
     };
 
-    let Ok(png) = png else {
-        return (StatusCode::BAD_REQUEST, "Failed to rendering".to_string()).into_response();
+    let rendering_payload = match maybe_rendering_payload {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!("Failed to instantiate RenderingPayload: {e}");
+            return (StatusCode::BAD_REQUEST, e.to_string()).into_response();
+        }
+    };
+
+    let png = app
+        .cache
+        .try_get_with::<_, RenderingError>(calculated_sha1.into(), async move {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+
+            app.request_channel
+                .send(crate::Message::RenderingRequest((
+                    RenderingContext {
+                        payload: rendering_payload,
+                        request_identity: request_identity.clone(),
+                    },
+                    tx,
+                )))
+                .await
+                .unwrap();
+
+            Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
+        })
+        .await;
+
+    let png = match png {
+        Ok(png) => png,
+        Err(e) => {
+            tracing::error!("Request {short_hash} is errored. Code: {e}");
+            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+        }
     };
 
     let response_at = app
@@ -325,7 +270,7 @@ async fn demo_handler(
     let request_identity = &format!("demo#{request_id}");
     tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
 
-    let rendering_context = crate::rendering_context::V0 {
+    let rendering_payload = RenderingPayload::Earthquake(EarthquakePayload {
         time: chrono_tz::Japan
             .with_ymd_and_hms(2024, 1, 1, 16, 10, 0)
             .unwrap()
@@ -342,14 +287,16 @@ async fn demo_handler(
             震度::震度6強 => vec![],
             震度::震度7 => vec![390],
         },
-        request_identity: request_identity.to_string(),
-    };
+    });
 
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
         .send(crate::Message::RenderingRequest((
-            RenderingContext::V0(rendering_context),
+            RenderingContext {
+                payload: rendering_payload,
+                request_identity: request_identity.clone(),
+            },
             tx,
         )))
         .await
@@ -390,7 +337,7 @@ async fn tsunami_demo_handler(
     let request_identity = &format!("demo#{request_id}");
     tracing::info!("TsunamiRequest: {request_identity} [{client_ip}] - {user_agent}");
 
-    let rendering_context = crate::rendering_context::Tsunami {
+    let tsunami_payload = RenderingPayload::Tsunami(TsunamiPayload {
         time: chrono_tz::Japan
             .with_ymd_and_hms(2025, 12, 8, 23, 23, 0)
             .unwrap()
@@ -402,14 +349,16 @@ async fn tsunami_demo_handler(
             津波情報::津波警報 => vec![101, 201, 210],
             _ => vec![],
         },
-        request_identity: request_identity.to_string(),
-    };
+    });
 
     let (tx, rx) = tokio::sync::oneshot::channel();
 
     app.request_channel
         .send(crate::Message::RenderingRequest((
-            RenderingContext::Tsunami(rendering_context),
+            RenderingContext {
+                payload: tsunami_payload,
+                request_identity: request_identity.clone(),
+            },
             tx,
         )))
         .await
