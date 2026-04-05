@@ -1,4 +1,4 @@
-use crate::model::津波情報;
+use crate::model::{津波情報, RenderingError};
 use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::vertex::{ShapeUniform, ShapeVertex, TsunamiUniform};
 use crate::worker::FrameContext;
@@ -15,8 +15,8 @@ use std::ops::DerefMut;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
-    rendering_context: &crate::rendering_context::Tsunami,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    tsunami_payload: &crate::rendering_context::TsunamiPayload,
+) -> Result<(), RenderingError> {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let offset = frame_context.offset;
@@ -33,21 +33,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
 
     let mut levels = vec![0_u8; area_code_count];
 
-    let has_unknown_tsunami_area_code =
-        rendering_context
-            .forecast_levels
-            .iter()
-            .any(|(_level, areas)| {
-                areas
-                    .iter()
-                    .any(|area| QueryInterface::tsunami_area_code_to_internal_code(*area).is_none())
-            });
-
-    if has_unknown_tsunami_area_code {
-        Err(anyhow::anyhow!("Unknown tsunami area code is coming"))?;
-    }
-
-    rendering_context
+    tsunami_payload
         .forecast_levels
         .iter()
         .for_each(|(level, areas)| {
@@ -91,7 +77,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-    let mut forecast_levels = rendering_context.forecast_levels.iter().fold(
+    let mut forecast_levels = tsunami_payload.forecast_levels.iter().fold(
         Vec::<津波情報>::new(),
         |mut v, (level, entries)| {
             if !entries.is_empty() {

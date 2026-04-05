@@ -2660,6 +2660,7 @@ dependencies = [
  "rusttype",
  "sha1 0.11.0",
  "strum",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
  "tracing-subscriber",
