@@ -1,0 +1,156 @@
+name: Rendering
+
+on:
+  pull_request:
+    paths:
+      - '*/src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rendering.yml'
+
+jobs:
+  rendering:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6.0.2
+        with:
+          submodules: true
+
+      - name: prepare dependencies
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y xvfb protobuf-compiler libxkbcommon-x11-dev
+
+      - run: |
+          sudo curl "https://dl.min.io/client/mc/release/linux-amd64/mc" -o /bin/mc
+          sudo chmod +x /bin/mc
+          mc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
+          pushd assets/shapefile/
+          mc get yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
+          unzip -o ./shapefiles_v1.zip
+          popd
+
+      - name: Get Rust toolchain
+        id: toolchain
+        run: |
+          awk -F'[ ="]+' '$1 == "channel" { print "toolchain=" $2 }' rust-toolchain >> "$GITHUB_OUTPUT"
+
+      - name: cache dependencies
+        uses: Swatinem/rust-cache@v2.9.1
+
+      - name: prepare eew-renderer-url
+        run: |
+          cargo install --git https://github.com/EEWBot/eew-renderer-url
+
+      - name: build
+        run: |
+          cargo build --release
+
+      - name: rendering
+        run: |
+          Xvfb :0 -listen tcp -ac -screen 0 1024x768x24 &
+          DISPLAY=:0 cargo run --release &
+          sleep 3;
+          mkdir images
+
+          DEMO_QUAKE_PREFECTURE_V0_BASE65536_URL=$(\
+            eew-renderer-url \
+              encode \
+                --prefix http://localhost:3000/ \
+                base65536 quake-prefecture-v0 \
+                  --time "2024-01-01T07:10:00Z" \
+                  --epicenter 37.5,137.2 \
+                  --one 211 --one 355 --one 357 --one 203 --one 590 --one 622 --one 632 --one 741 --one 101 --one 106 --one 107 --one 161 --one 700 --one 703 --one 704 --one 711 --one 713 \
+                  --two 332 --two 440 --two 532 --two 210 --two 213 --two 351 --two 352 --two 354 --two 356 --two 551 --two 571 --two 601 --two 611 --two 200 --two 201 --two 202 --two 591 --two 592 --two 620 --two 621 --two 630 --two 631 --two 721 --two 740 --two 751 --two 763 --two 770 \
+                  --three 241 --three 251 --three 301 --three 311 --three 321 --three 331 --three 441 --three 442 --three 450 --three 461 --three 462 --three 510 --three 521 --three 531 --three 535 --three 562 --three 563 --three 212 --three 220 --three 221 --three 222 --three 230 --three 231 --three 232 --three 233 --three 340 --three 341 --three 342 --three 350 --three 360 --three 361 --three 411 --three 412 --three 550 --three 570 --three 575 --three 580 --three 581 --three 600 --three 610 \
+                  --four 401 --four 421 --four 422 --four 431 --four 432 --four 240 --four 242 --four 243 --four 250 --four 252 --four 300 --four 310 --four 320 --four 330 --four 443 --four 451 --four 460 --four 500 --four 501 --four 511 --four 520 --four 530 --four 540 --four 560 \
+                  --five-minus 420 --five-minus 430 \
+                  --five-plus 391 --five-plus 370 --five-plus 372 --five-plus 375 --five-plus 380 --five-plus 381 --five-plus 400 \
+                  --six-minus 371 \
+                  --seven 390 \
+          )
+          curl "$DEMO_QUAKE_PREFECTURE_V0_BASE65536_URL" > images/demo_quake_prefecture_v0_base65536.png
+
+          DEMO_QUAKE_PREFECTURE_V0_BASE32768_URL=$(\
+            eew-renderer-url \
+              encode \
+                --prefix http://localhost:3000/ \
+                base32768 quake-prefecture-v0 \
+                  --time "2024-01-01T07:10:00Z" \
+                  --epicenter 37.5,137.2 \
+                  --one 211 --one 355 --one 357 --one 203 --one 590 --one 622 --one 632 --one 741 --one 101 --one 106 --one 107 --one 161 --one 700 --one 703 --one 704 --one 711 --one 713 \
+                  --two 332 --two 440 --two 532 --two 210 --two 213 --two 351 --two 352 --two 354 --two 356 --two 551 --two 571 --two 601 --two 611 --two 200 --two 201 --two 202 --two 591 --two 592 --two 620 --two 621 --two 630 --two 631 --two 721 --two 740 --two 751 --two 763 --two 770 \
+                  --three 241 --three 251 --three 301 --three 311 --three 321 --three 331 --three 441 --three 442 --three 450 --three 461 --three 462 --three 510 --three 521 --three 531 --three 535 --three 562 --three 563 --three 212 --three 220 --three 221 --three 222 --three 230 --three 231 --three 232 --three 233 --three 340 --three 341 --three 342 --three 350 --three 360 --three 361 --three 411 --three 412 --three 550 --three 570 --three 575 --three 580 --three 581 --three 600 --three 610 \
+                  --four 401 --four 421 --four 422 --four 431 --four 432 --four 240 --four 242 --four 243 --four 250 --four 252 --four 300 --four 310 --four 320 --four 330 --four 443 --four 451 --four 460 --four 500 --four 501 --four 511 --four 520 --four 530 --four 540 --four 560 \
+                  --five-minus 420 --five-minus 430 \
+                  --five-plus 391 --five-plus 370 --five-plus 372 --five-plus 375 --five-plus 380 --five-plus 381 --five-plus 400 \
+                  --six-minus 371 \
+                  --seven 390 \
+          )
+          curl "$DEMO_QUAKE_PREFECTURE_V0_BASE32768_URL" > images/demo_quake_prefecture_v0_base32768.png
+
+          DEMO_TSUNAMI_FORECAST_V0_BASE32768_URL=$(\
+            eew-renderer-url \
+              encode \
+                --prefix http://localhost:3000/ \
+                base32768 tsunami-forecast-v0 \
+                  --time "2025-12-08T14:23:00Z" \
+                  --epicenter 41.0,142.3 \
+                  --warning 101 --warning 201 --warning 210 \
+                  --advisory 100 --advisory 102 --advisory 200 --advisory 220 --advisory 250 \
+                  --forecast 111 --forecast 202 --forecast 300 --forecast 310 --forecast 311 --forecast 312 --forecast 320 --forecast 321 --forecast 330 --forecast 380 --forecast 400 --forecast 580 --forecast 610 --forecast 771 --forecast 772
+          )
+          curl "$DEMO_TSUNAMI_FORECAST_V0_BASE32768_URL" > images/demo_tsunami_forecast_v0_base32768.png
+
+          DEMO_TSUNAMI_FORECAST_V1_BASE32768_URL=$(\
+            eew-renderer-url \
+              encode \
+                --prefix http://localhost:3000/ \
+                base32768 tsunami-forecast-v1 \
+                  --time "2025-12-08T14:23:00Z" \
+                  --epicenter 41.0,142.3 \
+                  --warning 101 --warning 201 --warning 210 \
+                  --advisory 100 --advisory 102 --advisory 200 --advisory 220 --advisory 250 \
+                  --forecast 111 --forecast 202 --forecast 300 --forecast 310 --forecast 311 --forecast 312 --forecast 320 --forecast 321 --forecast 330 --forecast 380 --forecast 400 --forecast 580 --forecast 610 --forecast 771 --forecast 772
+          )
+          curl "$DEMO_TSUNAMI_FORECAST_V1_BASE32768_URL" > images/demo_tsunami_forecast_v1_base32768.png
+
+      - name: Upload images to object storage
+        run: |
+          BRANCH_NAME="actions-review-test/images/$(uuidgen)"
+          cd images
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git init
+          git checkout --orphan "$BRANCH_NAME"
+          git add -A .
+          git commit -m "Add $BRANCH_NAME"
+          git remote add origin https://EEWBot:${{ secrets.EEWBOT_OBJECT_STORAGE_WRITER_SECRET }}@github.com/EEWBot/object-storage
+          git push -u origin "$BRANCH_NAME"
+          echo "IMAGES_BASE=https://raw.githubusercontent.com/EEWBot/object-storage/refs/heads/$BRANCH_NAME" >> $GITHUB_ENV
+          cd ../
+
+      - name: Comment with image
+        uses: actions/github-script@v8.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            let body = "";
+            for (const filename of [
+              "demo_quake_prefecture_v0_base65536.png",
+              "demo_quake_prefecture_v0_base32768.png",
+              "demo_tsunami_forecast_v0_base32768.png",
+              "demo_tsunami_forecast_v1_base32768.png",
+            ]) {
+              body += `# ${filename}\n`;
+              body += `<img src="${process.env.IMAGES_BASE}/${filename}" width="50%">\n\n`;
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            })
