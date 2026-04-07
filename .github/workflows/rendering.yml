@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload images to object storage
         run: |
-          BRANCH_NAME="actions-review-test/images/$(uuidgen)"
+          BRANCH_NAME="eew-renderer/images/$(uuidgen)"
           cd images
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
