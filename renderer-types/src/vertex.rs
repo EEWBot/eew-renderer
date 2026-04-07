@@ -1,7 +1,7 @@
 use crate::{CoordType, GeoDegree, GeoRadian, Mercator, Pixel, Screen, Size};
+use num_traits::AsPrimitive;
 use std::f32::consts::PI;
 use std::fmt::Debug;
-use num_traits::AsPrimitive;
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct Vertex<Type: CoordType> {
@@ -19,10 +19,7 @@ impl<Type: CoordType> Vertex<Type> {
         Type::InnerType: AsPrimitive<f32>,
     {
         let distance = *self - *other;
-        f32::sqrt(
-            (distance.x * distance.x).as_() +
-                (distance.y * distance.y).as_()
-        )
+        f32::sqrt((distance.x * distance.x).as_() + (distance.y * distance.y).as_())
     }
 
     pub const fn x(&self) -> Type::InnerType {
@@ -129,7 +126,7 @@ where
 impl<Type: CoordType> std::ops::Div<f32> for Vertex<Type>
 where
     Type::InnerType: AsPrimitive<f32>,
-    f32: AsPrimitive<Type::InnerType>
+    f32: AsPrimitive<Type::InnerType>,
 {
     type Output = Self;
 
@@ -192,9 +189,9 @@ impl From<shapefile::Point> for Vertex<GeoDegree> {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Pixel, Screen, Size, Vertex};
     use rstest::rstest;
     use rstest_reuse::{apply, template};
-    use crate::{Pixel, Screen, Size, Vertex};
 
     #[template]
     #[rstest]
@@ -208,7 +205,8 @@ mod tests {
         #[values(Size::new(128, 256))] dimension: Size<u32>,
         #[case] pixel: Vertex<Pixel>,
         #[case] screen: Vertex<Screen>,
-    ) {}
+    ) {
+    }
 
     #[apply(pixel_screen_cases)]
     fn pixel_to_screen(dimension: Size<u32>, pixel: Vertex<Pixel>, screen: Vertex<Screen>) {

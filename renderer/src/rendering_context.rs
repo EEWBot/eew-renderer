@@ -91,11 +91,13 @@ impl TryFrom<proto::TsunamiForecastV0> for RenderingPayload {
 
         Ok(Self::Tsunami(TsunamiPayload {
             time: DateTime::from_timestamp(data.time as i64, 0).unwrap(),
-            epicenter: data.epicenter.into_iter().map(
-                |crate::proto::Epicenter { lat_x10, lon_x10 }| {
+            epicenter: data
+                .epicenter
+                .into_iter()
+                .map(|crate::proto::Epicenter { lat_x10, lon_x10 }| {
                     renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-                },
-            ).collect(),
+                })
+                .collect(),
             forecast_levels,
         }))
     }
@@ -122,11 +124,13 @@ impl TryFrom<proto::TsunamiForecastV1> for RenderingPayload {
 
         Ok(Self::Tsunami(TsunamiPayload {
             time: DateTime::from_timestamp(data.time as i64, 0).unwrap(),
-            epicenter: data.epicenter.into_iter().map(
-                |crate::proto::Epicenter { lat_x10, lon_x10 }| {
+            epicenter: data
+                .epicenter
+                .into_iter()
+                .map(|crate::proto::Epicenter { lat_x10, lon_x10 }| {
                     renderer_types::Vertex::new(lon_x10 as f32 / 10.0, lat_x10 as f32 / 10.0)
-                },
-            ).collect(),
+                })
+                .collect(),
             forecast_levels,
         }))
     }

@@ -343,10 +343,9 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
 
             bbox
         }
-        RenderingPayload::Tsunami(_payload) => BoundingBox::new(
-            Vertex::new(122.9, 24.0),
-            Vertex::new(148.9, 45.5),
-        ),
+        RenderingPayload::Tsunami(_payload) => {
+            BoundingBox::new(Vertex::new(122.9, 24.0), Vertex::new(148.9, 45.5))
+        }
     }
 }
 

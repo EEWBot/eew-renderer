@@ -1,4 +1,4 @@
-use crate::model::{津波情報, RenderingError};
+use crate::model::{RenderingError, 津波情報};
 use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::vertex::{ShapeUniform, ShapeVertex, TsunamiUniform};
 use crate::worker::FrameContext;
@@ -9,10 +9,10 @@ use glium::texture::{
 };
 use glium::{Surface, VertexBuffer};
 use renderer_assets::QueryInterface;
+use renderer_types::Size;
 use rusttype::Scale;
 use std::borrow::Cow;
 use std::ops::DerefMut;
-use renderer_types::Size;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
@@ -139,7 +139,10 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     Ok(())
 }
 
-fn calculate_legend_position(image_size: Size<u32>, index: usize) -> ([ShapeVertex; 4], (i32, i32)) {
+fn calculate_legend_position(
+    image_size: Size<u32>,
+    index: usize,
+) -> ([ShapeVertex; 4], (i32, i32)) {
     let image_size = image_size.to_f32();
     let text_origin = (-300, -240 - 26 * index as i32);
 

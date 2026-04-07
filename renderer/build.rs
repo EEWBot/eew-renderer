@@ -6,10 +6,7 @@ fn main() -> Result<()> {
         "src/net.eewbot.proto",
     )?;
 
-    prost_build::compile_protos(
-        &["src/net.eewbot.proto"],
-        &["src"],
-    )?;
+    prost_build::compile_protos(&["src/net.eewbot.proto"], &["src"])?;
 
     Ok(())
 }
