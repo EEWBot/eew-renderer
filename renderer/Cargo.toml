@@ -42,6 +42,7 @@ winit = "0.30.9"
 justnames = { git = "https://github.com/EEWBot/justnames", tag = "v0.1.0" }
 base32768 = { git = "https://github.com/EEWBot/base32768-rs", rev = "67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524" }
 axum-client-ip = "1.0.0"
+strum_macros = "0.28.0"
 
 [build-dependencies]
 prost-build = "0.14.0"

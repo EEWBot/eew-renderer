@@ -19,12 +19,15 @@ use hmac::{Hmac, KeyInit, Mac};
 use prost::Message;
 
 use crate::model::*;
-
-mod rate_limiter;
 use crate::rendering_context::{
     EarthquakePayload, RenderingContext, RenderingPayload, TsunamiPayload,
 };
+
+mod rate_limiter;
 use rate_limiter::ResponseRateLimiter;
+
+mod versioned_type_id;
+use versioned_type_id::VersionedTypeId;
 
 type HmacSha1 = Hmac<sha1::Sha1>;
 pub(in crate::web) type Sha1Bytes = [u8; 20];
@@ -89,7 +92,7 @@ async fn render_handler(
 
     let is_legacy_format = first_char as u16 & 0xff == 0;
 
-    let (version, provided_sha1, body) = if is_legacy_format {
+    let (raw_type_id, provided_sha1, body) = if is_legacy_format {
         if bin.len() < 21 {
             return (
                 StatusCode::BAD_REQUEST,
@@ -98,11 +101,11 @@ async fn render_handler(
                 .into_response();
         }
 
-        let version = bin[0];
+        let raw_type_id = bin[0];
         let provided_sha1 = GenericArray::<_, U20>::from_slice(&bin[1..21]);
         let body = &bin[21..];
 
-        (version, provided_sha1, body)
+        (raw_type_id, provided_sha1, body)
     } else {
         if bin.len() < 22 {
             return (
@@ -112,15 +115,22 @@ async fn render_handler(
                 .into_response();
         }
 
-        let version = bin[0];
+        let raw_type_id = bin[0];
         let _non_base65536_marker = bin[1];
         let provided_sha1 = GenericArray::<_, U20>::from_slice(&bin[2..22]);
         let body = &bin[22..];
 
-        (version, provided_sha1, body)
+        (raw_type_id, provided_sha1, body)
     };
 
-    if is_legacy_format && version != 0 {
+    let type_id = match VersionedTypeId::try_from(raw_type_id) {
+        Ok(type_id) => type_id,
+        Err(e) => {
+            return (StatusCode::BAD_REQUEST, e.to_string()).into_response();
+        }
+    };
+
+    if is_legacy_format && !type_id.is_legacy_format_allowed() {
         return (StatusCode::BAD_REQUEST, "Unused pair detected").into_response();
     }
 
@@ -128,7 +138,7 @@ async fn render_handler(
         body.to_vec()
     } else {
         let mut buffer = Vec::new();
-        buffer.push(version);
+        buffer.push(raw_type_id);
         buffer.extend_from_slice(body);
         buffer
     };
@@ -153,43 +163,42 @@ async fn render_handler(
 
     let request_identity = &format!("{short_hash}#{request_id}");
 
-    tracing::info!("Request: {request_identity} [{client_ip}] - {user_agent}");
+    let is_legacy = if is_legacy_format { "/legacy" } else { "" };
+    tracing::info!(
+        "Request({type_id}{is_legacy}): {request_identity} [{client_ip}] - {user_agent}"
+    );
 
-    let maybe_rendering_payload = match version {
-        0 => {
+    let maybe_rendering_payload = match type_id {
+        VersionedTypeId::QuakePrefectureV0 => {
             let Ok(decoded) = crate::proto::QuakePrefectureV0::decode(body) else {
-                return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
+                return (StatusCode::BAD_REQUEST, "Failed to deserialize {type_id}")
+                    .into_response();
             };
 
             RenderingPayload::try_from(decoded)
         }
-        1 => {
+        VersionedTypeId::TsunamiForecastV0 => {
             let Ok(decoded) = crate::proto::TsunamiForecastV0::decode(body) else {
-                return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
+                return (StatusCode::BAD_REQUEST, "Failed to deserialize {type_id}")
+                    .into_response();
             };
 
             RenderingPayload::try_from(decoded)
         }
-        2 => {
+        VersionedTypeId::TsunamiForecastV1 => {
             let Ok(decoded) = crate::proto::TsunamiForecastV1::decode(body) else {
-                return (StatusCode::BAD_REQUEST, "Failed to deserialize data").into_response();
+                return (StatusCode::BAD_REQUEST, "Failed to deserialize {type_id}")
+                    .into_response();
             };
 
             RenderingPayload::try_from(decoded)
-        }
-        _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                format!("Unknown protocol v{version}"),
-            )
-                .into_response()
         }
     };
 
     let rendering_payload = match maybe_rendering_payload {
         Ok(v) => v,
         Err(e) => {
-            tracing::error!("Failed to instantiate RenderingPayload: {e}");
+            tracing::error!("{e} ({request_identity})");
             return (StatusCode::BAD_REQUEST, e.to_string()).into_response();
         }
     };
