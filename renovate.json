@@ -3,5 +3,13 @@
   "extends": [
     "config:recommended",
     "https://github.com/arkedge/renovate-config/raw/main/rust-toolchain.json5"
+  ],
+  "regexManagers": [
+    {
+      "fileMatch": ["rendering.yml"],
+      "matchStrings": ["depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""],
+      "versioningTemplate": "docker",
+      "datasourceTemplate": "github-releases"
+    }
   ]
 }
