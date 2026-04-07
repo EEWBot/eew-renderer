@@ -57,6 +57,7 @@ jobs:
       - name: rendering
         run: |
           Xvfb :0 -listen tcp -ac -screen 0 1024x768x24 &
+          sleep 1;
           DISPLAY=:0 cargo run --release &
           sleep 3;
           mkdir images
