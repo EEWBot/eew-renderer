@@ -171,7 +171,10 @@ async fn render_handler(
     let maybe_rendering_payload = match type_id {
         VersionedTypeId::QuakePrefectureV0 => {
             let Ok(decoded) = crate::proto::QuakePrefectureV0::decode(body) else {
-                return (StatusCode::BAD_REQUEST, "Failed to deserialize {type_id}")
+                return (
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to deserialize {type_id}"),
+                )
                     .into_response();
             };
 
@@ -179,7 +182,10 @@ async fn render_handler(
         }
         VersionedTypeId::TsunamiForecastV0 => {
             let Ok(decoded) = crate::proto::TsunamiForecastV0::decode(body) else {
-                return (StatusCode::BAD_REQUEST, "Failed to deserialize {type_id}")
+                return (
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to deserialize {type_id}"),
+                )
                     .into_response();
             };
 
@@ -187,7 +193,10 @@ async fn render_handler(
         }
         VersionedTypeId::TsunamiForecastV1 => {
             let Ok(decoded) = crate::proto::TsunamiForecastV1::decode(body) else {
-                return (StatusCode::BAD_REQUEST, "Failed to deserialize {type_id}")
+                return (
+                    StatusCode::BAD_REQUEST,
+                    format!("Failed to deserialize {type_id}"),
+                )
                     .into_response();
             };
 
