@@ -44,7 +44,7 @@ jobs:
       - name: install eew-renderer-url
         run: |
           # depName=EEWBot/eew-renderer-url
-          EEW_RENDERER_URL_VERSION=v0.1.0
+          EEW_RENDERER_URL_VERSION="v0.1.0"
           TAR_NAME="eew-renderer-url-linux-x86_64-$EEW_RENDERER_URL_VERSION.tar.gz"
           wget "https://github.com/EEWBot/eew-renderer-url/releases/download/$EEW_RENDERER_URL_VERSION/$TAR_NAME"
           tar xf $TAR_NAME
