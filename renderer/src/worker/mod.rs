@@ -20,7 +20,6 @@ use image_buffer::RGBAImageData;
 use renderer_types::*;
 use std::cell::RefCell;
 use std::error::Error;
-use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::time::Instant;
@@ -68,23 +67,13 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
 pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
+    pub image_size: Size<u32>, // TODO: Themeに移動する
     pub theme: &'a Theme,
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
     pub draw_parameters: &'a DrawParameters<'a>,
     pub scale: f32,
-    pub offset: Vertex<Screen>,
-}
-
-impl<F: ?Sized + Facade, S: ?Sized + Surface> FrameContext<'_, '_, F, S> {
-    pub fn dimension(&self) -> (u32, u32) {
-        self.surface.borrow().get_dimensions()
-    }
-
-    pub fn aspect_ratio(&self) -> f32 {
-        let dimension = self.dimension();
-        dimension.1 as f32 / dimension.0 as f32
-    }
+    pub offset: Vertex<Mercator>,
 }
 
 #[derive(Default)]
@@ -130,19 +119,19 @@ impl ApplicationHandler<Message> for App<'_> {
         let font_manager = self.font_manager.as_mut().unwrap();
         let font_manager = Rc::new(RefCell::new(font_manager));
 
-        let aspect_ratio = DIMENSION.1 as f32 / DIMENSION.0 as f32;
+        let image_size = Size::from(DIMENSION);
 
         let bounding_box = calculate_bounding_box(&rendering_context.payload);
 
-        let rendering_bbox = BoundingBox::from_vertices(
+        let rendering_bbox = BoundingBox::from_vertices_float(
             &bounding_box
                 .gl_vertices()
                 .iter()
-                .map(|v| v.to_screen())
+                .map(|v| v.to_mercator())
                 .collect::<Vec<_>>(),
         );
         let offset = -rendering_bbox.center();
-        let scale = calculate_map_scale(rendering_bbox, aspect_ratio);
+        let scale = calculate_map_scale(rendering_bbox, image_size);
 
         let draw_parameters = DrawParameters {
             multisampling: false,
@@ -159,7 +148,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let t_before_alloc = Instant::now();
 
-        let texture = Texture2d::empty(display, DIMENSION.0, DIMENSION.1).unwrap();
+        let texture = Texture2d::empty(display, image_size.x(), image_size.y()).unwrap();
         let frame_buffer = SimpleFrameBuffer::new(display, &texture).unwrap();
         let frame_buffer = Rc::new(RefCell::new(frame_buffer));
 
@@ -168,6 +157,7 @@ impl ApplicationHandler<Message> for App<'_> {
         let frame_context = FrameContext {
             facade: display,
             surface: frame_buffer.clone(),
+            image_size,
             theme: &theme::DEFAULT,
             resources,
             font_manager,
@@ -336,40 +326,33 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
                 })
                 .fold(
                     BoundingBox {
-                        min: Vertex {
-                            x: 180.0,
-                            y: 90.0,
-                            _type: PhantomData,
-                        },
-                        max: Vertex {
-                            x: -180.0,
-                            y: -90.0,
-                            _type: PhantomData,
-                        },
+                        min: Vertex::new(180.0, 90.0),
+                        max: Vertex::new(-180.0, -90.0),
                     },
-                    |acc, e| acc.extends_with(&e),
+                    |acc, e| acc.merge_float(&e),
                 );
 
             let bbox = payload
                 .epicenter
                 .iter()
-                .fold(bbox, |bbox, epicenter| bbox.extends_by_vertex(epicenter));
+                .fold(bbox, |bbox, epicenter| bbox.encapsulate_float(epicenter));
 
-            if bbox.size().x < 0.0 {
+            if bbox.size().x() < 0.0 {
                 panic!("Failed to determinate bounding_box");
             }
 
             bbox
         }
-        RenderingPayload::Tsunami(_payload) => BoundingBox::from_tuple::<GeoDegree>((
-            122.9, 24.0, 148.9, 45.5,
-        )),
+        RenderingPayload::Tsunami(_payload) => BoundingBox::new(
+            Vertex::new(122.9, 24.0),
+            Vertex::new(148.9, 45.5),
+        ),
     }
 }
 
-fn calculate_map_scale(bounding_box: BoundingBox<Screen>, aspect_ratio: f32) -> f32 {
-    let x_scale = 1.0 / bounding_box.size().x;
-    let y_scale = 1.0 / bounding_box.size().y * aspect_ratio;
+fn calculate_map_scale(bounding_box: BoundingBox<Mercator>, image_size: Size<u32>) -> f32 {
+    let x_scale = 1.0 / bounding_box.size().x();
+    let y_scale = 1.0 / bounding_box.size().y() * image_size.aspect_ratio();
 
     f32::min(f32::min(x_scale, y_scale) * 2.0, MAXIMUM_SCALE) / SCALE_FACTOR
 }

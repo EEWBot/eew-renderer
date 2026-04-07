@@ -12,12 +12,9 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let params = frame_context.draw_parameters;
     let resources = frame_context.resources;
     let scale = frame_context.scale;
-    let aspect_ratio = frame_context.aspect_ratio();
-    let offset = frame_context.offset.to_slice();
-    let dimension = {
-        let dimension = frame_context.dimension();
-        [dimension.0 as f32, dimension.1 as f32]
-    };
+    let aspect_ratio = frame_context.image_size.aspect_ratio();
+    let offset = frame_context.offset.into();
+    let image_size: [f32; 2] = frame_context.image_size.to_f32().into();
 
     resources
         .shader
@@ -66,7 +63,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                 &resources.buffer.map_vertex,
                 resources.buffer.get_area_line_by_scale(scale).unwrap(),
                 &BorderLineUniform {
-                    dimension,
+                    dimension: image_size,
                     offset,
                     zoom: scale,
                     line_width: theme.area_border_width,
@@ -85,7 +82,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             &resources.buffer.map_vertex,
             resources.buffer.get_pref_line_by_scale(scale).unwrap(),
             &BorderLineUniform {
-                dimension,
+                dimension: image_size,
                 offset,
                 zoom: scale,
                 line_width: theme.prefectural_border_width,

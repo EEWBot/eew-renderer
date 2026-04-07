@@ -58,7 +58,7 @@ impl From<shapefile::Point> for Point {
 
 impl From<Vertex<GeoDegree>> for Point {
     fn from(value: Vertex<GeoDegree>) -> Self {
-        Self::new(Of32::from(value.y), Of32::from(value.x))
+        Self::new(Of32::from(value.y()), Of32::from(value.x()))
     }
 }
 

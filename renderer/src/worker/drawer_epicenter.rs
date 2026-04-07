@@ -12,7 +12,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
 ) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
-    let aspect_ratio = frame_context.aspect_ratio();
+    let aspect_ratio = frame_context.image_size.aspect_ratio();
     let offset = frame_context.offset;
     let scale = frame_context.scale;
     let draw_parameters = frame_context.draw_parameters;
@@ -25,7 +25,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
         .epicenter()
         .iter()
         .map(|epicenter| EpicenterVertex {
-            position: epicenter.to_slice(),
+            position: (*epicenter).into(),
         })
         .collect::<Vec<_>>();
     let vb = VertexBuffer::dynamic(facade, &vb).unwrap();
@@ -39,7 +39,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
             NoIndices(PrimitiveType::Points),
             &EpicenterUniform {
                 aspect_ratio,
-                offset: offset.to_slice(),
+                offset: offset.into(),
                 zoom: scale,
                 icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
                 texture_sampler: &resources.texture.epicenter,
