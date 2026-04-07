@@ -324,7 +324,7 @@ dependencies = [
 [[package]]
 name = "base32768"
 version = "0.1.0"
-source = "git+https://github.com/EEWBot/base32768-rs#67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524"
+source = "git+https://github.com/EEWBot/base32768-rs?rev=67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524#67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524"
 dependencies = [
  "base32768-table",
  "itertools 0.14.0",
@@ -335,7 +335,7 @@ dependencies = [
 [[package]]
 name = "base32768-table"
 version = "0.1.0"
-source = "git+https://github.com/EEWBot/base32768-rs#67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524"
+source = "git+https://github.com/EEWBot/base32768-rs?rev=67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524#67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524"
 dependencies = [
  "const-gen",
  "phf 0.13.1",
