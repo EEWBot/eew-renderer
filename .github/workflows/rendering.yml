@@ -48,7 +48,7 @@ jobs:
           TAR_NAME="eew-renderer-url-linux-x86_64-$EEW_RENDERER_URL_VERSION.tar.gz"
           wget "https://github.com/EEWBot/eew-renderer-url/releases/download/$EEW_RENDERER_URL_VERSION/$TAR_NAME"
           tar xf $TAR_NAME
-          cp ./eew-renderer-url-linux-x86_64-*/eew-renderer-url /bin/
+          sudo cp ./eew-renderer-url-linux-x86_64-*/eew-renderer-url /bin/
 
       - name: build
         run: |
