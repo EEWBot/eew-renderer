@@ -125,13 +125,13 @@ async fn composite_image(
 
             let first_frame = frames.first().unwrap();
             let mut encoder = webp::AnimEncoder::new(
-                first_frame.width() as u32,
-                first_frame.height() as u32,
+                first_frame.width(),
+                first_frame.height(),
                 &config,
             );
 
             for (n, frame) in frames.iter().enumerate() {
-                encoder.add_frame(webp::AnimFrame::from_image(&frame, (n * 500) as i32).unwrap());
+                encoder.add_frame(webp::AnimFrame::from_image(frame, (n * 500) as i32).unwrap());
             }
 
             let bin = encoder.encode().to_vec();
