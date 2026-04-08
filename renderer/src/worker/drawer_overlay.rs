@@ -6,9 +6,9 @@ use chrono_tz::Tz::Japan;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::{IndexBuffer, Surface, VertexBuffer};
+use renderer_types::Size;
 use rusttype::Scale;
 use std::ops::DerefMut;
-use renderer_types::Size;
 
 const OVERLAY_OFFSET_PIXELS: u16 = 10;
 const RIGHTS_NOTATION_RATIO_IN_Y_AXIS: f32 = 0.16;
@@ -110,7 +110,8 @@ fn calculate_rights_notation_position(image_size: Size<u32>) -> [[f32; 2]; 4] {
     [
         [-1.0 + x_offset, -1.0 + y_offset],
         [
-            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
+            -1.0 + x_offset
+                + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
             -1.0 + y_offset,
         ],
         [
@@ -118,7 +119,8 @@ fn calculate_rights_notation_position(image_size: Size<u32>) -> [[f32; 2]; 4] {
             -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
         ],
         [
-            -1.0 + x_offset + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
+            -1.0 + x_offset
+                + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * image_size.aspect_ratio() * 2.0 * 4.0,
             -1.0 + RIGHTS_NOTATION_RATIO_IN_Y_AXIS * 2.0 + y_offset,
         ],
     ]

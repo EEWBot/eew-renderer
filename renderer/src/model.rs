@@ -4,8 +4,7 @@ use enum_map::Enum;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum RenderingError {
-}
+pub enum RenderingError {}
 
 #[allow(clippy::type_complexity)]
 #[derive(Debug)]

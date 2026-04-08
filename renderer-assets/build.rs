@@ -59,7 +59,10 @@ fn main() {
                 .map(|(offset, _station)| area.start_i + offset)
                 .expect("エリア内に一つも観測点がない");
 
-            (*code, (nearest_intensity_station_index, bbox_to_tuple(bbox)))
+            (
+                *code,
+                (nearest_intensity_station_index, bbox_to_tuple(bbox)),
+            )
         })
         .collect();
 

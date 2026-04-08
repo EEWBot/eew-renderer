@@ -1,6 +1,6 @@
-use std::ops::Div;
-use num_traits::{Bounded, Float, Zero};
 use crate::{CoordType, Size, Vertex};
+use num_traits::{Bounded, Float, Zero};
+use std::ops::Div;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct BoundingBox<Type: CoordType> {
@@ -32,7 +32,7 @@ impl<Type: CoordType> BoundingBox<Type> {
     /// まって、これ原点またいだとき、どうなるの？
     pub fn center(&self) -> Vertex<Type>
     where
-        Type::InnerType: Div<f32, Output = Type::InnerType>
+        Type::InnerType: Div<f32, Output = Type::InnerType>,
     {
         Vertex::new(
             (self.min.x() + self.max.x()) / 2.0,
@@ -42,7 +42,7 @@ impl<Type: CoordType> BoundingBox<Type> {
 
     pub fn merge(&self, other: &Self) -> Self
     where
-        Type::InnerType: Ord
+        Type::InnerType: Ord,
     {
         Self {
             min: Vertex::new(
@@ -58,7 +58,7 @@ impl<Type: CoordType> BoundingBox<Type> {
 
     pub fn merge_float(&self, other: &Self) -> Self
     where
-        Type::InnerType: Float
+        Type::InnerType: Float,
     {
         Self {
             min: Vertex::new(
@@ -68,13 +68,13 @@ impl<Type: CoordType> BoundingBox<Type> {
             max: Vertex::new(
                 Float::max(self.max.x(), other.max.x()),
                 Float::max(self.max.y(), other.max.y()),
-            )
+            ),
         }
     }
 
     pub fn encapsulate(&self, vertex: &Vertex<Type>) -> Self
     where
-        Type::InnerType: Ord
+        Type::InnerType: Ord,
     {
         Self {
             min: Vertex::new(
@@ -90,7 +90,7 @@ impl<Type: CoordType> BoundingBox<Type> {
 
     pub fn encapsulate_float(&self, vertex: &Vertex<Type>) -> Self
     where
-        Type::InnerType: Float
+        Type::InnerType: Float,
     {
         Self {
             min: Vertex::new(
@@ -114,15 +114,12 @@ impl<Type: CoordType> BoundingBox<Type> {
     }
 
     pub fn size(&self) -> Size<Type::InnerType> {
-        Size::new(
-            self.max.x() - self.min.x(),
-            self.max.y() - self.min.y(),
-        )
+        Size::new(self.max.x() - self.min.x(), self.max.y() - self.min.y())
     }
 
     pub fn from_vertices(vertices: &[Vertex<Type>]) -> BoundingBox<Type>
     where
-        Type::InnerType: Ord + Zero + Bounded
+        Type::InnerType: Ord + Zero + Bounded,
     {
         if vertices.is_empty() {
             Self {
@@ -142,7 +139,7 @@ impl<Type: CoordType> BoundingBox<Type> {
 
     pub fn from_vertices_float(vertices: &[Vertex<Type>]) -> BoundingBox<Type>
     where
-        Type::InnerType: Float
+        Type::InnerType: Float,
     {
         if vertices.is_empty() {
             Self {
