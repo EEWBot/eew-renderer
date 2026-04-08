@@ -1,4 +1,4 @@
-use crate::model::{TimeKind, 津波情報, 震度};
+use crate::model::{津波情報, 震度};
 use crate::proto;
 use chrono::{DateTime, Utc};
 use enum_map::enum_map;
@@ -6,6 +6,50 @@ use enum_map::EnumMap;
 use renderer_assets::QueryInterface;
 use renderer_types::codes;
 use renderer_types::{GeoDegree, Vertex};
+
+#[derive(Debug)]
+pub struct EarthquakePayload {
+    pub time: DateTime<Utc>,
+    pub epicenter: Vec<Vertex<GeoDegree>>,
+    pub area_intensities: EnumMap<震度, Vec<codes::地震情報細分区域>>,
+}
+
+impl EarthquakePayload {
+    pub fn into_frame_payload(self) -> crate::frame_context::FramePayload {
+        crate::frame_context::FramePayload::Earthquake(crate::frame_context::EarthquakePayload {
+            time: self.time,
+            epicenter: self.epicenter,
+            area_intensities: self.area_intensities,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct TsunamiPayload {
+    pub time: DateTime<Utc>,
+    pub epicenter: Vec<Vertex<GeoDegree>>,
+    pub forecast_levels: EnumMap<津波情報, Vec<codes::津波予報区>>,
+}
+
+impl TsunamiPayload {
+    pub fn into_frame_payloads(self) -> [crate::frame_context::FramePayload; 2] {
+        [
+            crate::frame_context::FramePayload::TsunamiFirst(
+                crate::frame_context::TsunamiFirstPayload {
+                    time: self.time,
+                    forecast_levels: self.forecast_levels.clone(),
+                },
+            ),
+            crate::frame_context::FramePayload::TsunamiSecond(
+                crate::frame_context::TsunamiSecondPayload {
+                    time: self.time,
+                    forecast_levels: self.forecast_levels,
+                    epicenter: self.epicenter,
+                },
+            ),
+        ]
+    }
+}
 
 #[derive(Debug)]
 pub enum RenderingPayload {
@@ -134,60 +178,4 @@ impl TryFrom<proto::TsunamiForecastV1> for RenderingPayload {
             forecast_levels,
         }))
     }
-}
-
-#[derive(Debug)]
-pub struct EarthquakePayload {
-    pub time: DateTime<Utc>,
-    pub epicenter: Vec<Vertex<GeoDegree>>,
-    pub area_intensities: EnumMap<震度, Vec<codes::地震情報細分区域>>,
-}
-
-impl HasTime for EarthquakePayload {
-    fn time(&self) -> DateTime<Utc> {
-        self.time
-    }
-
-    fn time_kind(&self) -> TimeKind {
-        TimeKind::発生
-    }
-}
-
-impl HasEpicenter for EarthquakePayload {
-    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
-        &self.epicenter
-    }
-}
-
-#[derive(Debug)]
-pub struct TsunamiPayload {
-    pub time: DateTime<Utc>,
-    pub epicenter: Vec<Vertex<GeoDegree>>,
-    pub forecast_levels: EnumMap<津波情報, Vec<codes::津波予報区>>,
-}
-
-impl HasTime for TsunamiPayload {
-    fn time(&self) -> DateTime<Utc> {
-        self.time
-    }
-
-    fn time_kind(&self) -> TimeKind {
-        TimeKind::発表
-    }
-}
-
-impl HasEpicenter for TsunamiPayload {
-    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
-        &self.epicenter
-    }
-}
-
-pub trait HasTime {
-    fn time(&self) -> DateTime<Utc>;
-
-    fn time_kind(&self) -> TimeKind;
-}
-
-pub trait HasEpicenter {
-    fn epicenter(&self) -> &[Vertex<GeoDegree>];
 }

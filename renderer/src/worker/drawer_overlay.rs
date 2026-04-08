@@ -1,5 +1,5 @@
 use super::vertex::{TexturedUniform, TexturedVertex};
-use crate::rendering_context::HasTime;
+use crate::frame_context::HasTime;
 use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::FrameContext;
 use chrono_tz::Tz::Japan;

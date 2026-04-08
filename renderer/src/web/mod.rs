@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use axum::{
@@ -17,6 +17,8 @@ use enum_map::enum_map;
 use headers::UserAgent;
 use hmac::{Hmac, KeyInit, Mac};
 use prost::Message;
+
+use image::{DynamicImage, RgbaImage};
 
 use crate::model::*;
 use crate::rendering_context::{
@@ -49,6 +51,98 @@ pub struct AppState {
     response_limiter: ResponseRateLimiter,
     security_rules: SecurityRules,
     cache: moka::future::Cache<Sha1Bytes, bytes::Bytes>,
+}
+
+async fn composite_image(
+    rendering_context: RenderingContext,
+    request_channel: &tokio::sync::mpsc::Sender<crate::model::Message>,
+) -> Result<bytes::Bytes, RenderingError> {
+    let request_identity = &rendering_context.request_identity;
+
+    match rendering_context.payload {
+        RenderingPayload::Earthquake(rendering_payload) => {
+            let payload = rendering_payload.into_frame_payload();
+            let (tx, rx) = tokio::sync::oneshot::channel();
+
+            request_channel
+                .send(crate::Message::FrameRequest((
+                    crate::frame_context::FrameContext {
+                        payload,
+                        request_identity: request_identity.to_string(),
+                    },
+                    tx,
+                )))
+                .await
+                .unwrap();
+
+            let image = rx.await.unwrap()?;
+
+            let start_at = Instant::now();
+            let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
+
+            let mut image = DynamicImage::ImageRgba8(image);
+            image.apply_orientation(image::metadata::Orientation::FlipVertical);
+
+            let encoder = webp::Encoder::from_image(&image).unwrap();
+            let bin = encoder.encode(90f32).to_vec();
+
+            let encode_time = Instant::now() - start_at;
+
+            tracing::info!("Encode: {:?} ({request_identity})", encode_time);
+
+            Ok(bytes::Bytes::from_owner(bin))
+        }
+        RenderingPayload::Tsunami(rendering_payload) => {
+            let payloads = rendering_payload.into_frame_payloads();
+
+            let mut frames = vec![];
+            for payload in payloads {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+
+                request_channel
+                    .send(crate::Message::FrameRequest((
+                        crate::frame_context::FrameContext {
+                            payload,
+                            request_identity: request_identity.to_string(),
+                        },
+                        tx,
+                    )))
+                    .await
+                    .unwrap();
+
+                let image = rx.await.unwrap()?;
+
+                let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
+                let mut image = DynamicImage::ImageRgba8(image);
+                image.apply_orientation(image::metadata::Orientation::FlipVertical);
+
+                frames.push(image);
+            }
+
+            let start_at = Instant::now();
+            let mut config = webp::WebPConfig::new().unwrap();
+            config.quality = 90f32;
+
+            let first_frame = frames.first().unwrap();
+            let mut encoder = webp::AnimEncoder::new(
+                first_frame.width() as u32,
+                first_frame.height() as u32,
+                &config,
+            );
+
+            for (n, frame) in frames.iter().enumerate() {
+                encoder.add_frame(webp::AnimFrame::from_image(&frame, (n * 500) as i32).unwrap());
+            }
+
+            let bin = encoder.encode().to_vec();
+
+            let encode_time = Instant::now() - start_at;
+
+            tracing::info!("AnimEncode: {:?} ({request_identity})", encode_time);
+
+            Ok(bytes::Bytes::from_owner(bin))
+        }
+    }
 }
 
 async fn render_handler(
@@ -212,28 +306,20 @@ async fn render_handler(
         }
     };
 
-    let png = app
+    let rendering_context = RenderingContext {
+        payload: rendering_payload,
+        request_identity: request_identity.clone(),
+    };
+
+    let image_binary = app
         .cache
         .try_get_with::<_, RenderingError>(calculated_sha1.into(), async move {
-            let (tx, rx) = tokio::sync::oneshot::channel();
-
-            app.request_channel
-                .send(crate::Message::RenderingRequest((
-                    RenderingContext {
-                        payload: rendering_payload,
-                        request_identity: request_identity.clone(),
-                    },
-                    tx,
-                )))
-                .await
-                .unwrap();
-
-            Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
+            composite_image(rendering_context, &app.request_channel).await
         })
         .await;
 
-    let png = match png {
-        Ok(png) => png,
+    let image_binary = match image_binary {
+        Ok(image_binary) => image_binary,
         Err(e) => {
             tracing::error!("Request {short_hash} is errored. Code: {e}");
             return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
@@ -248,13 +334,13 @@ async fn render_handler(
 
     (
         [
-            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (CONTENT_TYPE, HeaderValue::from_str("image/webp").unwrap()),
             (
                 HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        png,
+        image_binary,
     )
         .into_response()
 }
@@ -307,20 +393,15 @@ async fn demo_handler(
         },
     });
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    app.request_channel
-        .send(crate::Message::RenderingRequest((
-            RenderingContext {
-                payload: rendering_payload,
-                request_identity: request_identity.clone(),
-            },
-            tx,
-        )))
-        .await
-        .unwrap();
-
-    let bin = rx.await.unwrap().unwrap();
+    let bin = composite_image(
+        RenderingContext {
+            payload: rendering_payload,
+            request_identity: request_identity.clone(),
+        },
+        &app.request_channel,
+    )
+    .await
+    .unwrap();
 
     let response_at = app.response_limiter.schedule([0; 20], request_identity);
 
@@ -369,20 +450,15 @@ async fn tsunami_demo_handler(
         },
     });
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    app.request_channel
-        .send(crate::Message::RenderingRequest((
-            RenderingContext {
-                payload: tsunami_payload,
-                request_identity: request_identity.clone(),
-            },
-            tx,
-        )))
-        .await
-        .unwrap();
-
-    let bin = rx.await.unwrap().unwrap();
+    let bin = composite_image(
+        RenderingContext {
+            payload: tsunami_payload,
+            request_identity: request_identity.clone(),
+        },
+        &app.request_channel,
+    )
+    .await
+    .unwrap();
 
     let response_at = app.response_limiter.schedule([0; 20], request_identity);
 

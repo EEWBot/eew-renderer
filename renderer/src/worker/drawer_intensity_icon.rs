@@ -27,7 +27,7 @@ const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_off
 
 pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
-    earthquake_payload: &crate::rendering_context::EarthquakePayload,
+    earthquake_payload: &crate::frame_context::EarthquakePayload,
 ) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;

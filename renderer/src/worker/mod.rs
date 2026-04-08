@@ -1,5 +1,5 @@
-use crate::model::{Message, RenderingError};
-use crate::rendering_context::RenderingPayload;
+use crate::frame_context::FramePayload;
+use crate::model::Message;
 use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
 use glium::backend::Facade;
@@ -23,7 +23,7 @@ use std::error::Error;
 use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::time::Instant;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -34,9 +34,10 @@ mod drawer_epicenter;
 mod drawer_intensity_icon;
 mod drawer_map;
 mod drawer_overlay;
-mod drawer_tsunami;
+mod drawer_tsunami_legends;
+mod drawer_tsunami_line;
 mod fonts;
-mod image_buffer;
+pub mod image_buffer;
 mod resources;
 mod shader;
 mod theme;
@@ -110,7 +111,7 @@ impl ApplicationHandler<Message> for App<'_> {
     fn resumed(&mut self, _: &ActiveEventLoop) {}
 
     fn user_event(&mut self, _: &ActiveEventLoop, event: Message) {
-        let Message::RenderingRequest((rendering_context, response_socket)) = event;
+        let Message::FrameRequest((request_frame_context, response_socket)) = event;
 
         let start_at = std::time::Instant::now();
 
@@ -121,7 +122,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let image_size = Size::from(DIMENSION);
 
-        let bounding_box = calculate_bounding_box(&rendering_context.payload);
+        let bounding_box = calculate_bounding_box(&request_frame_context.payload);
 
         let rendering_bbox = BoundingBox::from_vertices_float(
             &bounding_box
@@ -174,20 +175,23 @@ impl ApplicationHandler<Message> for App<'_> {
             clear_color[3],
         );
 
-        match &rendering_context.payload {
-            RenderingPayload::Earthquake(earthquake) => {
+        match &request_frame_context.payload {
+            FramePayload::Earthquake(earthquake) => {
                 drawer_map::draw(&frame_context, true);
                 drawer_intensity_icon::draw_all(&frame_context, earthquake);
                 drawer_epicenter::draw(&frame_context, earthquake);
                 drawer_overlay::draw(&frame_context, earthquake);
             }
-            RenderingPayload::Tsunami(tsunami) => {
+            FramePayload::TsunamiFirst(tsunami) => {
                 drawer_map::draw(&frame_context, false);
+                drawer_tsunami_line::draw(&frame_context, tsunami);
+                drawer_tsunami_legends::draw(&frame_context, tsunami);
+                drawer_overlay::draw(&frame_context, tsunami);
+            }
+            FramePayload::TsunamiSecond(tsunami) => {
+                drawer_map::draw(&frame_context, false);
+                drawer_tsunami_legends::draw(&frame_context, tsunami);
                 drawer_epicenter::draw(&frame_context, tsunami);
-                if let Err(e) = drawer_tsunami::draw(&frame_context, tsunami) {
-                    response_socket.send(Err(e)).unwrap();
-                    return;
-                }
                 drawer_overlay::draw(&frame_context, tsunami);
             }
         }
@@ -204,62 +208,13 @@ impl ApplicationHandler<Message> for App<'_> {
             t_before_render - t_before_alloc,
             t_before_bufcpy - t_before_render,
             t_done - t_before_bufcpy,
-            rendering_context.request_identity,
+            request_frame_context.request_identity,
         );
 
-        tokio::spawn(async move {
-            image_writeback(&rendering_context.request_identity, response_socket, image).await
-        });
+        let _ = response_socket.send(Ok(image));
     }
 
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, _: WindowEvent) {}
-}
-
-async fn image_writeback(
-    request_identity: &str,
-    response_socket: oneshot::Sender<Result<Vec<u8>, RenderingError>>,
-    image: RGBAImageData,
-) {
-    use std::io::Cursor;
-
-    use image::codecs::png::*;
-    use image::{DynamicImage, ImageEncoder, RgbaImage};
-
-    if response_socket.is_closed() {
-        tracing::debug!("もういらないっていわれちゃった…… ({request_identity})");
-        return;
-    }
-
-    let mut target = Cursor::new(Vec::new());
-
-    let start_at = Instant::now();
-
-    let encoder = PngEncoder::new_with_quality(&mut target, CompressionType::Fast, FilterType::Up);
-
-    let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
-    let mut image = DynamicImage::ImageRgba8(image);
-    image.apply_orientation(image::metadata::Orientation::FlipVertical);
-
-    encoder
-        .write_image(
-            image.as_bytes(),
-            image.width(),
-            image.height(),
-            image::ExtendedColorType::Rgba8,
-        )
-        .unwrap();
-
-    let encode_time = Instant::now() - start_at;
-
-    tracing::info!("Encode: {:?} ({request_identity})", encode_time);
-
-    let target: Vec<u8> = target.into_inner();
-
-    let 相手はもういらないかもしれない = response_socket.send(Ok(target));
-
-    if 相手はもういらないかもしれない.is_err() {
-        tracing::debug!("えんこーどまでしたのにー…むきーっ！ ({request_identity})");
-    }
 }
 
 fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
@@ -310,9 +265,9 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
 /// 地震の場合、震度情報または震央のいずれかまたは両方があればSomeを返す。
 /// どちらも存在しない場合は不正値であり範囲が計算できないのでNoneを返す。
 /// 津波の場合、発報範囲に関わらず固定値を返す。
-pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegree> {
+pub fn calculate_bounding_box(payload: &FramePayload) -> BoundingBox<GeoDegree> {
     match payload {
-        RenderingPayload::Earthquake(payload) => {
+        FramePayload::Earthquake(payload) => {
             let areas = payload
                 .area_intensities
                 .values()
@@ -322,7 +277,9 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
             let bbox = areas
                 .iter()
                 .filter_map(|code| {
-                    renderer_assets::QueryInterface::query_bounding_box_by_地震情報細分区域(*code)
+                    renderer_assets::QueryInterface::query_bounding_box_by_地震情報細分区域(
+                        *code,
+                    )
                 })
                 .fold(
                     BoundingBox {
@@ -343,7 +300,7 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
 
             bbox
         }
-        RenderingPayload::Tsunami(_payload) => {
+        FramePayload::TsunamiFirst(_) | FramePayload::TsunamiSecond(_) => {
             BoundingBox::new(Vertex::new(122.9, 24.0), Vertex::new(148.9, 45.5))
         }
     }
