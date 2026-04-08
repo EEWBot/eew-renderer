@@ -44,7 +44,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
 
             area_codes.iter().filter_map(|code| {
                 let nearest_station_coord =
-                    renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
+                    renderer_assets::QueryInterface::query_intensity_icon_center_by_地震情報細分区域(*code)?;
 
                 Some(IntensityIconVertex {
                     position: nearest_station_coord.into(),
