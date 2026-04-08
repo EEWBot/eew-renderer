@@ -78,7 +78,7 @@ jobs:
                   --six-minus 371 \
                   --seven 390 \
           )
-          curl "$DEMO_QUAKE_PREFECTURE_V0_BASE65536_URL" > images/demo_quake_prefecture_v0_base65536.png
+          curl "$DEMO_QUAKE_PREFECTURE_V0_BASE65536_URL" > images/demo_quake_prefecture_v0_base65536.webp
 
           DEMO_QUAKE_PREFECTURE_V0_BASE32768_URL=$(\
             eew-renderer-url \
@@ -96,7 +96,7 @@ jobs:
                   --six-minus 371 \
                   --seven 390 \
           )
-          curl "$DEMO_QUAKE_PREFECTURE_V0_BASE32768_URL" > images/demo_quake_prefecture_v0_base32768.png
+          curl "$DEMO_QUAKE_PREFECTURE_V0_BASE32768_URL" > images/demo_quake_prefecture_v0_base32768.webp
 
           DEMO_TSUNAMI_FORECAST_V0_BASE32768_URL=$(\
             eew-renderer-url \
@@ -109,7 +109,7 @@ jobs:
                   --advisory 100 --advisory 102 --advisory 200 --advisory 220 --advisory 250 \
                   --forecast 111 --forecast 202 --forecast 300 --forecast 310 --forecast 311 --forecast 312 --forecast 320 --forecast 321 --forecast 330 --forecast 380 --forecast 400 --forecast 580 --forecast 610 --forecast 771 --forecast 772
           )
-          curl "$DEMO_TSUNAMI_FORECAST_V0_BASE32768_URL" > images/demo_tsunami_forecast_v0_base32768.png
+          curl "$DEMO_TSUNAMI_FORECAST_V0_BASE32768_URL" > images/demo_tsunami_forecast_v0_base32768.webp
 
           DEMO_TSUNAMI_FORECAST_V1_BASE32768_URL=$(\
             eew-renderer-url \
@@ -122,7 +122,7 @@ jobs:
                   --advisory 100 --advisory 102 --advisory 200 --advisory 220 --advisory 250 \
                   --forecast 111 --forecast 202 --forecast 300 --forecast 310 --forecast 311 --forecast 312 --forecast 320 --forecast 321 --forecast 330 --forecast 380 --forecast 400 --forecast 580 --forecast 610 --forecast 771 --forecast 772
           )
-          curl "$DEMO_TSUNAMI_FORECAST_V1_BASE32768_URL" > images/demo_tsunami_forecast_v1_base32768.png
+          curl "$DEMO_TSUNAMI_FORECAST_V1_BASE32768_URL" > images/demo_tsunami_forecast_v1_base32768.webp
 
       - name: Upload images to object storage
         run: |
@@ -147,10 +147,10 @@ jobs:
             let body = "<details><summary>Rendering Results</summary>\n\n"
 
             for (const filename of [
-              "demo_quake_prefecture_v0_base65536.png",
-              "demo_quake_prefecture_v0_base32768.png",
-              "demo_tsunami_forecast_v0_base32768.png",
-              "demo_tsunami_forecast_v1_base32768.png",
+              "demo_quake_prefecture_v0_base65536.webp",
+              "demo_quake_prefecture_v0_base32768.webp",
+              "demo_tsunami_forecast_v0_base32768.webp",
+              "demo_tsunami_forecast_v1_base32768.webp",
             ]) {
               body += `## ${filename}\n`;
               body += `<img src="${process.env.IMAGES_BASE}/${filename}" width="50%">\n\n`;
