@@ -29,9 +29,6 @@ impl TryFrom<u8> for VersionedTypeId {
 
 impl VersionedTypeId {
     pub fn is_legacy_format_allowed(&self) -> bool {
-        match self {
-            VersionedTypeId::QuakePrefectureV0 => true,
-            _ => false,
-        }
+        matches!(self, VersionedTypeId::QuakePrefectureV0)
     }
 }
