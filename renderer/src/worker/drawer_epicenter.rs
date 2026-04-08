@@ -1,4 +1,4 @@
-use crate::rendering_context::HasEpicenter;
+use crate::frame_context::HasEpicenter;
 use crate::worker::vertex::{EpicenterUniform, EpicenterVertex};
 use crate::worker::FrameContext;
 use glium::backend::Facade;

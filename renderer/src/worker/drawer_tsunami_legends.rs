@@ -1,6 +1,6 @@
-use crate::model::{RenderingError, 津波情報};
+use crate::model::{津波情報, RenderingError};
 use crate::worker::fonts::{Font, Offset, Origin};
-use crate::worker::vertex::{ShapeUniform, ShapeVertex, TsunamiUniform};
+use crate::worker::vertex::{TsunamiUniform, ShapeUniform, ShapeVertex};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
@@ -14,10 +14,13 @@ use rusttype::Scale;
 use std::borrow::Cow;
 use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, T>(
     frame_context: &FrameContext<F, S>,
-    tsunami_payload: &crate::rendering_context::TsunamiPayload,
-) -> Result<(), RenderingError> {
+    tsunami_payload: &T,
+) -> Result<(), RenderingError>
+where
+    T: crate::frame_context::HasTsunamiForecastLevels,
+{
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let offset = frame_context.offset;
@@ -31,7 +34,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let mut levels = vec![0_u8; area_code_count];
 
     tsunami_payload
-        .forecast_levels
+        .forecast_levels()
         .iter()
         .for_each(|(level, areas)| {
             areas.iter().for_each(|area| {
@@ -74,7 +77,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-    let mut forecast_levels = tsunami_payload.forecast_levels.iter().fold(
+    let mut forecast_levels = tsunami_payload.forecast_levels().iter().fold(
         Vec::<津波情報>::new(),
         |mut v, (level, entries)| {
             if !entries.is_empty() {
@@ -172,8 +175,6 @@ fn calculate_legend_position(
             position: [shape_right, shape_top],
         },
     ];
-
-    // println!("y_origin: {y_origin}, shape: {:?}", shape);
 
     (shape, text_origin)
 }

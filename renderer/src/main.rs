@@ -5,6 +5,7 @@ pub mod proto {
 mod model;
 mod namesgenerator;
 mod rendering_context;
+mod frame_context;
 mod web;
 mod worker;
 

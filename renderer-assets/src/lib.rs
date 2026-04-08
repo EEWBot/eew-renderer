@@ -48,37 +48,37 @@ impl QueryInterface {
         }
     }
 
-    pub fn is_valid_earthquake_area_code(area_code: codes::Area) -> bool {
-        AREAS.contains_key(&area_code)
+    pub fn is_valid_earthquake_area_code(area_code: codes::地震情報細分区域) -> bool {
+        AREAS.contains_key(&area_code.0)
     }
 
-    pub fn is_valid_tsunami_area_code(area_code: codes::Area) -> bool {
-        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.contains_key(&area_code)
+    pub fn is_valid_tsunami_area_code(area_code: codes::津波予報区) -> bool {
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.contains_key(&area_code.0)
     }
 
-    pub fn tsunami_area_code_to_internal_code(area_code: codes::TsunamiArea) -> Option<u16> {
-        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.get(&area_code).copied()
+    pub fn tsunami_area_code_to_internal_code(area_code: codes::津波予報区) -> Option<u16> {
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.get(&area_code.0).copied()
     }
 
     pub fn tsunami_area_code_count() -> usize {
         TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len()
     }
 
-    pub fn query_bounding_box_by_area(area_code: codes::Area) -> Option<BoundingBox<GeoDegree>> {
-        let tuple = AREAS.get(&area_code)?.1;
+    pub fn query_bounding_box_by_area(area_code: codes::地震情報細分区域) -> Option<BoundingBox<GeoDegree>> {
+        let tuple = AREAS.get(&area_code.0)?.1;
         let min = Vertex::new(tuple.0, tuple.1);
         let max = Vertex::new(tuple.2, tuple.3);
         Some(BoundingBox::new(min, max))
     }
 
-    pub fn query_rendering_center_by_area(area_code: codes::Area) -> Option<Vertex<GeoDegree>> {
-        Some(INTENSITY_STATION_POSITIONS[AREAS.get(&area_code)?.0].into())
+    pub fn query_rendering_center_by_area(area_code: codes::地震情報細分区域) -> Option<Vertex<GeoDegree>> {
+        Some(INTENSITY_STATION_POSITIONS[AREAS.get(&area_code.0)?.0].into())
     }
 
     pub fn query_position_by_station_code(
-        intensity_station_code: codes::IntensityStation,
+        intensity_station_code: codes::震度観測点,
     ) -> Option<Vertex<GeoDegree>> {
-        Some(INTENSITY_STATION_POSITIONS[*STATION_CODES.get(&intensity_station_code)?].into())
+        Some(INTENSITY_STATION_POSITIONS[*STATION_CODES.get(&intensity_station_code.0)?].into())
     }
 
     pub fn query_lod_level_by_scale(scale: f32) -> Option<usize> {
