@@ -60,6 +60,12 @@ impl HasTime for TsunamiFirstPayload {
     }
 }
 
+impl HasEpicenter for TsunamiFirstPayload {
+    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
+        &self.epicenter
+    }
+}
+
 impl HasTsunamiForecastLevels for TsunamiFirstPayload {
     fn forecast_levels(&self) -> &EnumMap<津波情報, Vec<codes::津波予報区>> {
         &self.forecast_levels
