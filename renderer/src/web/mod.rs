@@ -129,13 +129,9 @@ async fn composite_image(
             ).unwrap();
 
             for (n, frame) in frames.iter().enumerate() {
-                encoder.add_frame_with_config(
+                encoder.add_frame(
                     frame.as_bytes(),
                     (n * 2250) as i32,
-                    &webp_animation::EncodingConfig {
-                        encoding_type: webp_animation::EncodingType::Lossless,
-                        ..Default::default()
-                    },
                 ).unwrap();
             }
 
