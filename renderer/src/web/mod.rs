@@ -409,7 +409,7 @@ async fn demo_handler(
 
     (
         [
-            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (CONTENT_TYPE, HeaderValue::from_str("image/webp").unwrap()),
             (
                 HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
                 HeaderValue::from_str(&app.instance_name).unwrap(),
@@ -466,7 +466,7 @@ async fn tsunami_demo_handler(
 
     (
         [
-            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (CONTENT_TYPE, HeaderValue::from_str("image/webp").unwrap()),
             (
                 HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
                 HeaderValue::from_str(&app.instance_name).unwrap(),
