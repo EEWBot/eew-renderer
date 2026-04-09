@@ -84,7 +84,7 @@ async fn composite_image(
             image.apply_orientation(image::metadata::Orientation::FlipVertical);
 
             let encoder = webp::Encoder::from_image(&image).unwrap();
-            let bin = encoder.encode(90f32).to_vec();
+            let bin = encoder.encode_lossless().to_vec();
 
             let encode_time = Instant::now() - start_at;
 
@@ -120,21 +120,26 @@ async fn composite_image(
             }
 
             let start_at = Instant::now();
-            let mut config = webp::WebPConfig::new().unwrap();
-            config.quality = 90f32;
 
             let first_frame = frames.first().unwrap();
-            let mut encoder = webp::AnimEncoder::new(
-                first_frame.width(),
-                first_frame.height(),
-                &config,
-            );
+
+            let mut encoder = webp_animation::Encoder::new_with_options(
+                (first_frame.width(), first_frame.height()),
+                Default::default()
+            ).unwrap();
 
             for (n, frame) in frames.iter().enumerate() {
-                encoder.add_frame(webp::AnimFrame::from_image(frame, (n * 500) as i32).unwrap());
+                encoder.add_frame_with_config(
+                    frame.as_bytes(),
+                    (n * 2250) as i32,
+                    &webp_animation::EncodingConfig {
+                        encoding_type: webp_animation::EncodingType::Lossless,
+                        ..Default::default()
+                    },
+                ).unwrap();
             }
 
-            let bin = encoder.encode().to_vec();
+            let bin = encoder.finalize(frames.len() as i32 * 2250 + 750).unwrap();
 
             let encode_time = Instant::now() - start_at;
 

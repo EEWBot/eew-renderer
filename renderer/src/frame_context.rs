@@ -46,6 +46,7 @@ impl HasEpicenter for EarthquakePayload {
 #[derive(Debug)]
 pub struct TsunamiFirstPayload {
     pub time: DateTime<Utc>,
+    pub epicenter: Vec<Vertex<GeoDegree>>,
     pub forecast_levels: EnumMap<津波情報, Vec<codes::津波予報区>>,
 }
 
@@ -56,6 +57,12 @@ impl HasTime for TsunamiFirstPayload {
 
     fn time_kind(&self) -> TimeKind {
         TimeKind::発表
+    }
+}
+
+impl HasEpicenter for TsunamiFirstPayload {
+    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
+        &self.epicenter
     }
 }
 

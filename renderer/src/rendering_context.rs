@@ -38,6 +38,7 @@ impl TsunamiPayload {
                 crate::frame_context::TsunamiFirstPayload {
                     time: self.time,
                     forecast_levels: self.forecast_levels.clone(),
+                    epicenter: self.epicenter.clone(),
                 },
             ),
             crate::frame_context::FramePayload::TsunamiSecond(

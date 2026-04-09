@@ -186,6 +186,7 @@ impl ApplicationHandler<Message> for App<'_> {
                 drawer_map::draw(&frame_context, false);
                 drawer_tsunami_line::draw(&frame_context, tsunami);
                 drawer_tsunami_legends::draw(&frame_context, tsunami);
+                drawer_epicenter::draw(&frame_context, tsunami);
                 drawer_overlay::draw(&frame_context, tsunami);
             }
             FramePayload::TsunamiSecond(tsunami) => {

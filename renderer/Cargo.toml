@@ -25,6 +25,7 @@ hmac = "0.13.0"
 humantime = "2.2.0"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 webp = "0.3.1"
+webp-animation = "0.10.0"
 moka = { version = "0.12.10", features = ["future", "sync"] }
 prost = "0.14.0"
 rand = "0.10.0"
