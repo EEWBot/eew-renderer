@@ -35,16 +35,21 @@ jobs:
       - name: Install Toolchains
         run: |
           winget install --id=Google.Protobuf -l C:\protobuf --exact --accept-package-agreements --accept-source-agreements
-          winget install --id=MinIO.Client --exact --accept-package-agreements --accept-source-agreements
-          echo $Env:APPDATA\..\Local\Microsoft\WinGet\Links | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           echo C:\protobuf\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          # depName=rustfs/cli
+          $env:RUSTFS_CLI_VERSION="v0.1.12"
+          $env:RUSTFS_CLI_ZIP_NAME="rustfs-cli-windows-amd64-$env:RUSTFS_CLI_VERSION.zip"
+          Invoke-WebRequest "https://github.com/rustfs/cli/releases/download/$env:RUSTFS_CLI_VERSION/$env:RUSTFS_CLI_ZIP_NAME" -OutFile "$env:RUSTFS_CLI_ZIP_NAME"
+          Expand-Archive -Path "$env:RUSTFS_CLI_ZIP_NAME" -DestinationPath C:\Windows\
+          Remove-Item -Path "$env:RUSTFS_CLI_ZIP_NAME"
 
       - name: Prepare Map
         shell: C:\shells\gitbash.exe {0}
         run: |
-          mc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
+          rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          mc get yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
           7z x ./shapefiles_v1.zip -y
           popd
 
@@ -107,11 +112,11 @@ jobs:
       matrix:
         include:
           - ghimage: ubuntu-24.04
-            mcarch: amd64
+            rustfscliarch: amd64
             arch_s: x86_64
 
           - ghimage: ubuntu-24.04-arm
-            mcarch: arm64
+            rustfscliarch: arm64
             arch_s: aarch64
 
     permissions:
@@ -125,11 +130,17 @@ jobs:
           submodules: true
 
       - run: |
-          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
-          sudo chmod +x /bin/mc
-          mc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
+          # depName=rustfs/cli
+          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
+          wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
+          tar xf "$RUSTFS_CLI_TAR_NAME"
+          rm "$RUSTFS_CLI_TAR_NAME"
+          sudo mv rc /bin/
+
+          rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          mc get yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
           unzip -o ./shapefiles_v1.zip
           popd
           sudo apt-get update -y
@@ -193,11 +204,11 @@ jobs:
         include:
           - ghimage: ubuntu-24.04
             dockerarch: linux/amd64
-            mcarch: amd64
+            rustfscliarch: amd64
 
           - ghimage: ubuntu-24.04-arm
             dockerarch: linux/arm64
-            mcarch: arm64
+            rustfscliarch: arm64
 
     permissions:
       packages: write
@@ -213,11 +224,17 @@ jobs:
           submodules: true
 
       - run: |
-          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
-          sudo chmod +x /bin/mc
-          mc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
+          # depName=rustfs/cli
+          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
+          wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
+          tar xf "$RUSTFS_CLI_TAR_NAME"
+          rm "$RUSTFS_CLI_TAR_NAME"
+          sudo mv rc /bin/
+
+          rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          mc get yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
           unzip -o ./shapefiles_v1.zip
           popd
           sudo apt-get update -y
@@ -256,11 +273,13 @@ jobs:
         include:
           - ghimage: ubuntu-24.04
             dockerarch: linux/amd64
-            mcarch: amd64
+            rustfscliarch: amd64
+            arch_short: amd64
 
           - ghimage: ubuntu-24.04-arm
             dockerarch: linux/arm64
-            mcarch: arm64
+            rustfscliarch: arm64
+            arch_short: arm64
 
     permissions:
       packages: write
@@ -276,11 +295,17 @@ jobs:
           submodules: true
 
       - run: |
-          sudo curl "https://dl.min.io/client/mc/release/linux-${{ matrix.mcarch }}/mc" -o /bin/mc
-          sudo chmod +x /bin/mc
-          mc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
+          # depName=rustfs/cli
+          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
+          wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
+          tar xf "$RUSTFS_CLI_TAR_NAME"
+          rm "$RUSTFS_CLI_TAR_NAME"
+          sudo mv rc /bin/
+
+          rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          mc get yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
           unzip -o ./shapefiles_v1.zip
           popd
           sudo apt-get update -y
@@ -328,7 +353,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         if: ${{ github.event_name != 'pull_request' }}
         with:
-          name: digests-${{ matrix.mcarch }}
+          name: digests-${{ matrix.arch_short }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
