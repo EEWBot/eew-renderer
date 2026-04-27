@@ -6,7 +6,7 @@
   ],
   "regexManagers": [
     {
-      "fileMatch": ["rendering.yml"],
+      "fileMatch": [".*\\.yml"],
       "matchStrings": ["depName=(?<depName>.*?)?\\s.*?_VERSION=\"(?<currentValue>.*?)\""],
       "versioningTemplate": "docker",
       "datasourceTemplate": "github-releases"
