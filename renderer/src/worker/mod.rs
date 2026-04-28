@@ -322,7 +322,7 @@ pub fn calculate_bounding_box(payload: &RenderingPayload) -> BoundingBox<GeoDegr
             let bbox = areas
                 .iter()
                 .filter_map(|code| {
-                    renderer_assets::QueryInterface::query_bounding_box_by_area(*code)
+                    renderer_assets::QueryInterface::query_bounding_box_by_地震情報細分区域(*code)
                 })
                 .fold(
                     BoundingBox {

@@ -30,9 +30,9 @@ enum Lon {
 
 #[derive(Debug)]
 pub struct IntensityStationInternal {
-    pub area_code: codes::Area,
-    pub station_code: codes::IntensityStation,
-    pub pref_code: codes::Pref,
+    pub 地震情報細分区域: codes::地震情報細分区域,
+    pub 震度観測点: codes::震度観測点,
+    pub 地震情報都道府県等: codes::地震情報都道府県等,
     pub position: (f32, f32),
 }
 
@@ -46,9 +46,9 @@ pub fn read(
     s: &str,
 ) -> (
     Vec<(f32, f32)>,
-    HashMap<codes::Area, IntensityStationRange>,
-    HashMap<codes::IntensityStation, usize>,
-    HashMap<codes::Area, codes::Pref>,
+    HashMap<codes::地震情報細分区域, IntensityStationRange>,
+    HashMap<u32, usize>,
+    HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>,
 ) {
     let stations: Vec<JsonEntry> = serde_json::from_str(s).unwrap();
 
@@ -63,19 +63,19 @@ pub fn read(
             };
 
             IntensityStationInternal {
-                area_code: v.area_code.parse().unwrap(),
-                station_code: v.station_code.parse().unwrap(),
-                pref_code: v.pref.parse().unwrap(),
+                地震情報細分区域: codes::地震情報細分区域(v.area_code.parse().unwrap()),
+                震度観測点: codes::震度観測点(v.station_code.parse().unwrap()),
+                地震情報都道府県等: codes::地震情報都道府県等(v.pref.parse().unwrap()),
                 position: (lon, lat),
             }
         })
-        .sorted_by_key(|v| v.area_code)
+        .sorted_by_key(|v| v.地震情報細分区域)
         .collect();
 
     #[allow(non_snake_case)]
     let area_code__intensity_station_range: HashMap<_, _> = intensity_station_internal
         .iter()
-        .map(|v| v.area_code)
+        .map(|v| v.地震情報細分区域)
         .dedup_with_count()
         .sorted_by_key(|(_len, area_code)| *area_code)
         .scan(0, |offset, (len, area_code)| {
@@ -93,14 +93,14 @@ pub fn read(
     #[allow(non_snake_case)]
     let area_code__pref_code: HashMap<_, _> = intensity_station_internal
         .iter()
-        .map(|v| (v.area_code, v.pref_code))
+        .map(|v| (v.地震情報細分区域, v.地震情報都道府県等))
         .collect();
 
     #[allow(non_snake_case)]
     let station_code__index: HashMap<_, _> = intensity_station_internal
         .iter()
         .enumerate()
-        .map(|(i, v)| (v.station_code, i))
+        .map(|(i, v)| (v.震度観測点.0, i))
         .collect();
 
     let intensity_station_positions: Vec<_> = intensity_station_internal

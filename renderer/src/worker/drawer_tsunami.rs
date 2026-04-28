@@ -25,7 +25,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let draw_parameters = frame_context.draw_parameters;
     let theme = frame_context.theme;
 
-    let area_code_count = QueryInterface::tsunami_area_code_count();
+    let area_code_count = QueryInterface::internal_tsunami_area_code_count();
     // println!("AreaCodeCount: {area_code_count}");
 
     let mut levels = vec![0_u8; area_code_count];
@@ -36,7 +36,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         .for_each(|(level, areas)| {
             areas.iter().for_each(|area| {
                 levels
-                    [QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap() as usize] =
+                    [QueryInterface::津波予報区_to_internal_tsunami_area_code(*area).unwrap().0 as usize] =
                     level as u8
             })
         });
