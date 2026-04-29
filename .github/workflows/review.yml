@@ -39,7 +39,7 @@ jobs:
 
       - run: |
           # depName=rustfs/cli
-          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_VERSION="v0.1.13"
           RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
           wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
           tar xf "$RUSTFS_CLI_TAR_NAME"
