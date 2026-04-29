@@ -38,7 +38,7 @@ jobs:
           echo C:\protobuf\bin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
           # depName=rustfs/cli
-          $env:RUSTFS_CLI_VERSION="v0.1.12"
+          $env:RUSTFS_CLI_VERSION="v0.1.13"
           $env:RUSTFS_CLI_ZIP_NAME="rustfs-cli-windows-amd64-$env:RUSTFS_CLI_VERSION.zip"
           Invoke-WebRequest "https://github.com/rustfs/cli/releases/download/$env:RUSTFS_CLI_VERSION/$env:RUSTFS_CLI_ZIP_NAME" -OutFile "$env:RUSTFS_CLI_ZIP_NAME"
           Expand-Archive -Path "$env:RUSTFS_CLI_ZIP_NAME" -DestinationPath C:\Windows\
@@ -131,7 +131,7 @@ jobs:
 
       - run: |
           # depName=rustfs/cli
-          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_VERSION="v0.1.13"
           RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
           wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
           tar xf "$RUSTFS_CLI_TAR_NAME"
@@ -225,7 +225,7 @@ jobs:
 
       - run: |
           # depName=rustfs/cli
-          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_VERSION="v0.1.13"
           RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
           wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
           tar xf "$RUSTFS_CLI_TAR_NAME"
@@ -296,7 +296,7 @@ jobs:
 
       - run: |
           # depName=rustfs/cli
-          RUSTFS_CLI_VERSION="v0.1.12"
+          RUSTFS_CLI_VERSION="v0.1.13"
           RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
           wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
           tar xf "$RUSTFS_CLI_TAR_NAME"
