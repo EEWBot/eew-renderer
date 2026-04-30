@@ -60,7 +60,7 @@ fn main() {
                 .expect("エリア内に一つも観測点がない");
 
             (
-                *code,
+                code.0,
                 (nearest_intensity_station_index, bbox_to_tuple(bbox)),
             )
         })

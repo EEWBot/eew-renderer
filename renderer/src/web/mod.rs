@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use axum::{
@@ -17,6 +17,8 @@ use enum_map::enum_map;
 use headers::UserAgent;
 use hmac::{Hmac, KeyInit, Mac};
 use prost::Message;
+
+use image::{DynamicImage, RgbaImage};
 
 use crate::model::*;
 use crate::rendering_context::{
@@ -49,6 +51,99 @@ pub struct AppState {
     response_limiter: ResponseRateLimiter,
     security_rules: SecurityRules,
     cache: moka::future::Cache<Sha1Bytes, bytes::Bytes>,
+}
+
+async fn composite_image(
+    rendering_context: RenderingContext,
+    request_channel: &tokio::sync::mpsc::Sender<crate::model::Message>,
+) -> Result<bytes::Bytes, RenderingError> {
+    let request_identity = &rendering_context.request_identity;
+
+    match rendering_context.payload {
+        RenderingPayload::Earthquake(rendering_payload) => {
+            let payload = rendering_payload.into_frame_payload();
+            let (tx, rx) = tokio::sync::oneshot::channel();
+
+            request_channel
+                .send(crate::Message::FrameRequest((
+                    crate::frame_context::FrameContext {
+                        payload,
+                        request_identity: request_identity.to_string(),
+                    },
+                    tx,
+                )))
+                .await
+                .unwrap();
+
+            let image = rx.await.unwrap()?;
+
+            let start_at = Instant::now();
+            let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
+
+            let mut image = DynamicImage::ImageRgba8(image);
+            image.apply_orientation(image::metadata::Orientation::FlipVertical);
+
+            let encoder = webp::Encoder::from_image(&image).unwrap();
+            let bin = encoder.encode_lossless().to_vec();
+
+            let encode_time = Instant::now() - start_at;
+
+            tracing::info!("Encode: {:?} ({request_identity})", encode_time);
+
+            Ok(bytes::Bytes::from_owner(bin))
+        }
+        RenderingPayload::Tsunami(rendering_payload) => {
+            let payloads = rendering_payload.into_frame_payloads();
+
+            let mut frames = vec![];
+            for payload in payloads {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+
+                request_channel
+                    .send(crate::Message::FrameRequest((
+                        crate::frame_context::FrameContext {
+                            payload,
+                            request_identity: request_identity.to_string(),
+                        },
+                        tx,
+                    )))
+                    .await
+                    .unwrap();
+
+                let image = rx.await.unwrap()?;
+
+                let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
+                let mut image = DynamicImage::ImageRgba8(image);
+                image.apply_orientation(image::metadata::Orientation::FlipVertical);
+
+                frames.push(image);
+            }
+
+            let start_at = Instant::now();
+
+            let first_frame = frames.first().unwrap();
+
+            let mut encoder = webp_animation::Encoder::new_with_options(
+                (first_frame.width(), first_frame.height()),
+                Default::default()
+            ).unwrap();
+
+            for (n, frame) in frames.iter().enumerate() {
+                encoder.add_frame(
+                    frame.as_bytes(),
+                    (n * 2250) as i32,
+                ).unwrap();
+            }
+
+            let bin = encoder.finalize(frames.len() as i32 * 2250 + 750).unwrap();
+
+            let encode_time = Instant::now() - start_at;
+
+            tracing::info!("AnimEncode: {:?} ({request_identity})", encode_time);
+
+            Ok(bytes::Bytes::from_owner(bin))
+        }
+    }
 }
 
 async fn render_handler(
@@ -212,28 +307,20 @@ async fn render_handler(
         }
     };
 
-    let png = app
+    let rendering_context = RenderingContext {
+        payload: rendering_payload,
+        request_identity: request_identity.clone(),
+    };
+
+    let image_binary = app
         .cache
         .try_get_with::<_, RenderingError>(calculated_sha1.into(), async move {
-            let (tx, rx) = tokio::sync::oneshot::channel();
-
-            app.request_channel
-                .send(crate::Message::RenderingRequest((
-                    RenderingContext {
-                        payload: rendering_payload,
-                        request_identity: request_identity.clone(),
-                    },
-                    tx,
-                )))
-                .await
-                .unwrap();
-
-            Ok(bytes::Bytes::from_owner(rx.await.unwrap()?))
+            composite_image(rendering_context, &app.request_channel).await
         })
         .await;
 
-    let png = match png {
-        Ok(png) => png,
+    let image_binary = match image_binary {
+        Ok(image_binary) => image_binary,
         Err(e) => {
             tracing::error!("Request {short_hash} is errored. Code: {e}");
             return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
@@ -248,13 +335,13 @@ async fn render_handler(
 
     (
         [
-            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (CONTENT_TYPE, HeaderValue::from_str("image/webp").unwrap()),
             (
                 HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
                 HeaderValue::from_str(&app.instance_name).unwrap(),
             ),
         ],
-        png,
+        image_binary,
     )
         .into_response()
 }
@@ -295,32 +382,27 @@ async fn demo_handler(
             .to_utc(),
         epicenter: vec![Vertex::<GeoDegree>::new(137.2, 37.5)],
         area_intensities: enum_map! {
-            震度::震度1 => vec![211, 355, 357, 203, 590, 622, 632, 741, 101, 106, 107, 161, 700, 703, 704, 711, 713],
-            震度::震度2 => vec![332, 440, 532, 210, 213, 351, 352, 354, 356, 551, 571, 601, 611, 200, 201, 202, 591, 592, 620, 621, 630, 631, 721, 740, 751, 763, 770],
-            震度::震度3 => vec![241, 251, 301, 311, 321, 331, 441, 442, 450, 461, 462, 510, 521, 531, 535, 562, 563, 212, 220, 221, 222, 230, 231, 232, 233, 340, 341, 342, 350, 360, 361, 411, 412, 550, 570, 575, 580, 581, 600, 610],
-            震度::震度4 => vec![401, 421, 422, 431, 432, 240, 242, 243, 250, 252, 300, 310, 320, 330, 443, 451, 460, 500, 501, 511, 520, 530, 540, 560],
-            震度::震度5弱 => vec![420, 430],
-            震度::震度5強 => vec![391, 370, 372, 375, 380, 381, 400],
-            震度::震度6弱 => vec![371],
+            震度::震度1 => vec![codes::地震情報細分区域(211), codes::地震情報細分区域(355), codes::地震情報細分区域(357), codes::地震情報細分区域(203), codes::地震情報細分区域(590), codes::地震情報細分区域(622), codes::地震情報細分区域(632), codes::地震情報細分区域(741), codes::地震情報細分区域(101), codes::地震情報細分区域(106), codes::地震情報細分区域(107), codes::地震情報細分区域(161), codes::地震情報細分区域(700), codes::地震情報細分区域(703), codes::地震情報細分区域(704), codes::地震情報細分区域(711), codes::地震情報細分区域(713)],
+            震度::震度2 => vec![codes::地震情報細分区域(332), codes::地震情報細分区域(440), codes::地震情報細分区域(532), codes::地震情報細分区域(210), codes::地震情報細分区域(213), codes::地震情報細分区域(351), codes::地震情報細分区域(352), codes::地震情報細分区域(354), codes::地震情報細分区域(356), codes::地震情報細分区域(551), codes::地震情報細分区域(571), codes::地震情報細分区域(601), codes::地震情報細分区域(611), codes::地震情報細分区域(200), codes::地震情報細分区域(201), codes::地震情報細分区域(202), codes::地震情報細分区域(591), codes::地震情報細分区域(592), codes::地震情報細分区域(620), codes::地震情報細分区域(621), codes::地震情報細分区域(630), codes::地震情報細分区域(631), codes::地震情報細分区域(721), codes::地震情報細分区域(740), codes::地震情報細分区域(751), codes::地震情報細分区域(763), codes::地震情報細分区域(770)],
+            震度::震度3 => vec![codes::地震情報細分区域(241), codes::地震情報細分区域(251), codes::地震情報細分区域(301), codes::地震情報細分区域(311), codes::地震情報細分区域(321), codes::地震情報細分区域(331), codes::地震情報細分区域(441), codes::地震情報細分区域(442), codes::地震情報細分区域(450), codes::地震情報細分区域(461), codes::地震情報細分区域(462), codes::地震情報細分区域(510), codes::地震情報細分区域(521), codes::地震情報細分区域(531), codes::地震情報細分区域(535), codes::地震情報細分区域(562), codes::地震情報細分区域(563), codes::地震情報細分区域(212), codes::地震情報細分区域(220), codes::地震情報細分区域(221), codes::地震情報細分区域(222), codes::地震情報細分区域(230), codes::地震情報細分区域(231), codes::地震情報細分区域(232), codes::地震情報細分区域(233), codes::地震情報細分区域(340), codes::地震情報細分区域(341), codes::地震情報細分区域(342), codes::地震情報細分区域(350), codes::地震情報細分区域(360), codes::地震情報細分区域(361), codes::地震情報細分区域(411), codes::地震情報細分区域(412), codes::地震情報細分区域(550), codes::地震情報細分区域(570), codes::地震情報細分区域(575), codes::地震情報細分区域(580), codes::地震情報細分区域(581), codes::地震情報細分区域(600), codes::地震情報細分区域(610)],
+            震度::震度4 => vec![codes::地震情報細分区域(401), codes::地震情報細分区域(421), codes::地震情報細分区域(422), codes::地震情報細分区域(431), codes::地震情報細分区域(432), codes::地震情報細分区域(240), codes::地震情報細分区域(242), codes::地震情報細分区域(243), codes::地震情報細分区域(250), codes::地震情報細分区域(252), codes::地震情報細分区域(300), codes::地震情報細分区域(310), codes::地震情報細分区域(320), codes::地震情報細分区域(330), codes::地震情報細分区域(443), codes::地震情報細分区域(451), codes::地震情報細分区域(460), codes::地震情報細分区域(500), codes::地震情報細分区域(501), codes::地震情報細分区域(511), codes::地震情報細分区域(520), codes::地震情報細分区域(530), codes::地震情報細分区域(540), codes::地震情報細分区域(560)],
+            震度::震度5弱 => vec![codes::地震情報細分区域(420), codes::地震情報細分区域(430)],
+            震度::震度5強 => vec![codes::地震情報細分区域(391), codes::地震情報細分区域(370), codes::地震情報細分区域(372), codes::地震情報細分区域(375), codes::地震情報細分区域(380), codes::地震情報細分区域(381), codes::地震情報細分区域(400)],
+            震度::震度6弱 => vec![codes::地震情報細分区域(371)],
             震度::震度6強 => vec![],
-            震度::震度7 => vec![390],
+            震度::震度7 => vec![codes::地震情報細分区域(390)],
         },
     });
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    app.request_channel
-        .send(crate::Message::RenderingRequest((
-            RenderingContext {
-                payload: rendering_payload,
-                request_identity: request_identity.clone(),
-            },
-            tx,
-        )))
-        .await
-        .unwrap();
-
-    let bin = rx.await.unwrap().unwrap();
+    let bin = composite_image(
+        RenderingContext {
+            payload: rendering_payload,
+            request_identity: request_identity.clone(),
+        },
+        &app.request_channel,
+    )
+    .await
+    .unwrap();
 
     let response_at = app.response_limiter.schedule([0; 20], request_identity);
 
@@ -328,7 +410,7 @@ async fn demo_handler(
 
     (
         [
-            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (CONTENT_TYPE, HeaderValue::from_str("image/webp").unwrap()),
             (
                 HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
                 HeaderValue::from_str(&app.instance_name).unwrap(),
@@ -362,27 +444,22 @@ async fn tsunami_demo_handler(
             .to_utc(),
         epicenter: vec![Vertex::<GeoDegree>::new(142.3, 41.0)],
         forecast_levels: enum_map! {
-            津波情報::津波予報 => vec![111, 202, 300, 310, 311, 312, 320, 321, 330, 380, 400, 580, 610, 771, 772],
-            津波情報::津波注意報 => vec![100, 102, 200, 220, 250],
-            津波情報::津波警報 => vec![101, 201, 210],
+            津波情報::津波予報 => vec![codes::津波予報区(111), codes::津波予報区(202), codes::津波予報区(300), codes::津波予報区(310), codes::津波予報区(311), codes::津波予報区(312), codes::津波予報区(320), codes::津波予報区(321), codes::津波予報区(330), codes::津波予報区(380), codes::津波予報区(400), codes::津波予報区(580), codes::津波予報区(610), codes::津波予報区(771), codes::津波予報区(772)],
+            津波情報::津波注意報 => vec![codes::津波予報区(100), codes::津波予報区(102), codes::津波予報区(200), codes::津波予報区(220), codes::津波予報区(250)],
+            津波情報::津波警報 => vec![codes::津波予報区(101), codes::津波予報区(201), codes::津波予報区(210)],
             _ => vec![],
         },
     });
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    app.request_channel
-        .send(crate::Message::RenderingRequest((
-            RenderingContext {
-                payload: tsunami_payload,
-                request_identity: request_identity.clone(),
-            },
-            tx,
-        )))
-        .await
-        .unwrap();
-
-    let bin = rx.await.unwrap().unwrap();
+    let bin = composite_image(
+        RenderingContext {
+            payload: tsunami_payload,
+            request_identity: request_identity.clone(),
+        },
+        &app.request_channel,
+    )
+    .await
+    .unwrap();
 
     let response_at = app.response_limiter.schedule([0; 20], request_identity);
 
@@ -390,7 +467,7 @@ async fn tsunami_demo_handler(
 
     (
         [
-            (CONTENT_TYPE, HeaderValue::from_str("image/png").unwrap()),
+            (CONTENT_TYPE, HeaderValue::from_str("image/webp").unwrap()),
             (
                 HeaderName::from_bytes(b"X-Instance-Name").unwrap(),
                 HeaderValue::from_str(&app.instance_name).unwrap(),

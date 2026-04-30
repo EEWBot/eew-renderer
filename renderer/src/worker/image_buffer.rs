@@ -1,6 +1,7 @@
 use glium::texture::Texture2dDataSink;
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct RGBAImageData {
     pub data: Vec<u8>,
     pub width: u32,
