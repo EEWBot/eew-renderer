@@ -1094,9 +1094,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "1.4.1"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dab9e9188e97a93276e1fe7b56401b851e2b45a46d045ca658100c1303ada649"
+checksum = "fb130435a959a8d525e6bca66ff6c40981a300ee96d70e3ef56f046556d614a3"
 dependencies = [
  "rustversion",
  "typenum",
@@ -2665,7 +2665,7 @@ dependencies = [
  "clap",
  "const_soft_float",
  "enum-map",
- "generic-array 1.4.1",
+ "generic-array 1.4.2",
  "glium",
  "glutin-winit",
  "headers",
