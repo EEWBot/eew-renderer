@@ -192,7 +192,7 @@ version = "0.1.0"
 dependencies = [
  "earcutr",
  "geo",
- "itertools",
+ "itertools 0.15.0",
  "ordered-float",
  "renderer-types",
  "shapefile",
@@ -327,7 +327,7 @@ version = "0.1.0"
 source = "git+https://github.com/EEWBot/base32768-rs?rev=67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524#67e7ddfd1a745f2aecdf2dd7cbd0a8f3f9f1b524"
 dependencies = [
  "base32768-table",
- "itertools",
+ "itertools 0.14.0",
  "phf 0.13.1",
  "thiserror 2.0.18",
 ]
@@ -872,7 +872,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afc28d89ac6cb489f679fcf51aaa62b4667bb0fb73a30f1d4d23949069707c07"
 dependencies = [
- "itertools",
+ "itertools 0.14.0",
  "num-traits",
 ]
 
@@ -1583,6 +1583,15 @@ name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
 dependencies = [
  "either",
 ]
@@ -2446,7 +2455,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03da047801ff44bb6a4d407d4860c05fd70bb81714e6b2f3812603d5b145b042"
 dependencies = [
  "heck",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "multimap",
  "petgraph",
@@ -2465,7 +2474,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
@@ -2697,7 +2706,7 @@ version = "0.1.0"
 dependencies = [
  "asset-preprocessor",
  "const-gen",
- "itertools",
+ "itertools 0.15.0",
  "ordered-float",
  "phf 0.13.1",
  "renderer-types",
