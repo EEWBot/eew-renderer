@@ -1,4 +1,4 @@
-use crate::model::{RenderingError, 津波情報};
+use crate::model::{津波情報, RenderingError};
 use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::vertex::{ShapeUniform, ShapeVertex};
 use crate::worker::FrameContext;

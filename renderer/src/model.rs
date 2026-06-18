@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 
+use crate::worker::image_buffer::RGBAImageData;
 use enum_map::Enum;
 use thiserror::Error;
-use crate::worker::image_buffer::RGBAImageData;
 
 #[derive(Error, Debug)]
 pub enum RenderingError {}

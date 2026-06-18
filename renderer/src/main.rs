@@ -2,10 +2,10 @@ pub mod proto {
     include!(concat!(env!("OUT_DIR"), "/net.eewbot.rs"));
 }
 
+mod frame_context;
 mod model;
 mod namesgenerator;
 mod rendering_context;
-mod frame_context;
 mod web;
 mod worker;
 

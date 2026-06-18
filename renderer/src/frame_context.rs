@@ -1,9 +1,8 @@
-use crate::model::{TimeKind, 津波情報, 震度};
+use crate::model::{津波情報, 震度, TimeKind};
 use chrono::{DateTime, Utc};
 use enum_map::EnumMap;
 use renderer_types::codes;
 use renderer_types::{GeoDegree, Vertex};
-
 
 pub trait HasEpicenter {
     fn epicenter(&self) -> &[Vertex<GeoDegree>];
@@ -17,7 +16,6 @@ pub trait HasTime {
 pub trait HasTsunamiForecastLevels {
     fn forecast_levels(&self) -> &EnumMap<津波情報, Vec<codes::津波予報区>>;
 }
-
 
 #[derive(Debug)]
 pub struct EarthquakePayload {
@@ -41,7 +39,6 @@ impl HasEpicenter for EarthquakePayload {
         &self.epicenter
     }
 }
-
 
 #[derive(Debug)]
 pub struct TsunamiFirstPayload {
@@ -101,14 +98,12 @@ impl HasTsunamiForecastLevels for TsunamiSecondPayload {
     }
 }
 
-
 #[derive(Debug)]
 pub enum FramePayload {
     Earthquake(EarthquakePayload),
     TsunamiFirst(TsunamiFirstPayload),
     TsunamiSecond(TsunamiSecondPayload),
 }
-
 
 #[derive(Debug)]
 pub struct FrameContext {

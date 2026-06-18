@@ -1,5 +1,5 @@
-use thiserror::Error;
 use strum_macros::Display;
+use thiserror::Error;
 
 #[derive(Display, Debug, Clone, Copy)]
 pub enum VersionedTypeId {

@@ -57,21 +57,27 @@ impl QueryInterface {
     }
 
     pub fn tsunami_area_code_to_internal_code(area_code: codes::津波予報区) -> Option<u16> {
-        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.get(&area_code.0).copied()
+        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE
+            .get(&area_code.0)
+            .copied()
     }
 
     pub fn tsunami_area_code_count() -> usize {
         TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len()
     }
 
-    pub fn query_bounding_box_by_area(area_code: codes::地震情報細分区域) -> Option<BoundingBox<GeoDegree>> {
+    pub fn query_bounding_box_by_area(
+        area_code: codes::地震情報細分区域,
+    ) -> Option<BoundingBox<GeoDegree>> {
         let tuple = AREAS.get(&area_code.0)?.1;
         let min = Vertex::new(tuple.0, tuple.1);
         let max = Vertex::new(tuple.2, tuple.3);
         Some(BoundingBox::new(min, max))
     }
 
-    pub fn query_rendering_center_by_area(area_code: codes::地震情報細分区域) -> Option<Vertex<GeoDegree>> {
+    pub fn query_rendering_center_by_area(
+        area_code: codes::地震情報細分区域,
+    ) -> Option<Vertex<GeoDegree>> {
         Some(INTENSITY_STATION_POSITIONS[AREAS.get(&area_code.0)?.0].into())
     }
 

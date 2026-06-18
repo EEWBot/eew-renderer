@@ -19,9 +19,7 @@ use prost::Message;
 use image::{DynamicImage, RgbaImage};
 
 use crate::model::*;
-use crate::rendering_context::{
-    RenderingContext, RenderingPayload,
-};
+use crate::rendering_context::{RenderingContext, RenderingPayload};
 
 mod rate_limiter;
 use rate_limiter::ResponseRateLimiter;
@@ -120,14 +118,14 @@ async fn composite_image(
 
             let mut encoder = webp_animation::Encoder::new_with_options(
                 (first_frame.width(), first_frame.height()),
-                Default::default()
-            ).unwrap();
+                Default::default(),
+            )
+            .unwrap();
 
             for (n, frame) in frames.iter().enumerate() {
-                encoder.add_frame(
-                    frame.as_bytes(),
-                    (n * 2250) as i32,
-                ).unwrap();
+                encoder
+                    .add_frame(frame.as_bytes(), (n * 2250) as i32)
+                    .unwrap();
             }
 
             let bin = encoder.finalize(frames.len() as i32 * 2250 + 750).unwrap();
@@ -346,8 +344,7 @@ async fn root_handler(State(app): State<AppState>, ClientIp(_client_ip): ClientI
         [(CONTENT_TYPE, HeaderValue::from_str("text/html").unwrap())],
         format!(
             "<h1>EEW Renderer</h1><p>Instance Name: {}</p><p>Bypass HMAC: {}</p>",
-            app.instance_name,
-            app.security_rules.bypass_hmac,
+            app.instance_name, app.security_rules.bypass_hmac,
         ),
     )
         .into_response()
