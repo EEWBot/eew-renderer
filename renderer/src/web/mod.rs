@@ -35,9 +35,6 @@ pub(in crate::web) type Sha1Bytes = [u8; 20];
 #[derive(Clone, Debug, clap::Parser)]
 pub struct SecurityRules {
     #[clap(env, long, default_value_t = false)]
-    pub allow_demo: bool,
-
-    #[clap(env, long, default_value_t = false)]
     pub bypass_hmac: bool,
 }
 
@@ -348,9 +345,8 @@ async fn root_handler(State(app): State<AppState>, ClientIp(_client_ip): ClientI
     (
         [(CONTENT_TYPE, HeaderValue::from_str("text/html").unwrap())],
         format!(
-            "<h1>EEW Renderer</h1><p>Instance Name: {}</p><p>Demo Endpoint: {}</p><p>Bypass HMAC: {}</p>",
+            "<h1>EEW Renderer</h1><p>Instance Name: {}</p><p>Bypass HMAC: {}</p>",
             app.instance_name,
-            app.security_rules.allow_demo,
             app.security_rules.bypass_hmac,
         ),
     )
