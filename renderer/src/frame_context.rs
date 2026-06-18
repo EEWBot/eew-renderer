@@ -72,12 +72,6 @@ impl HasTsunamiForecastLevels for TsunamiFirstPayload {
     }
 }
 
-impl HasEpicenter for TsunamiFirstPayload {
-    fn epicenter(&self) -> &[Vertex<GeoDegree>] {
-        &self.epicenter
-    }
-}
-
 #[derive(Debug)]
 pub struct TsunamiSecondPayload {
     pub time: DateTime<Utc>,
