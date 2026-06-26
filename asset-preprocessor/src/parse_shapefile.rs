@@ -79,7 +79,7 @@ Please follow:
 }
 
 struct AreaRings {
-    area_code: codes::Area,
+    area_code: codes::地震情報細分区域,
     bounding_box: BoundingBox<GeoDegree>,
     rings: Vec<Ring>,
 }
@@ -89,12 +89,12 @@ impl AreaRings {
         let Shape::Polygon(polygon) = shape else {
             return None;
         };
-        let area_code: codes::Area = match record.get("code").unwrap() {
+        let area_code: codes::地震情報細分区域 = match record.get("code").unwrap() {
             FieldValue::Character(Some(c)) => match c.parse() {
-                Ok(c) => c,
+                Ok(c) => codes::地震情報細分区域(c),
                 Err(_) => panic!("ｺﾜｯ…ｺﾜれたshapefileきた！"),
             },
-            FieldValue::Character(None) => codes::UNNUMBERED_AREA, // 北方領土・諸外国等がNoneになる
+            FieldValue::Character(None) => codes::地震情報細分区域::UNNUMBERED, // 北方領土・諸外国等がNoneになる
             _ => panic!("知らないshapefileきた？🤔"),
         };
         let bounding_box = (*polygon.bbox()).into();
@@ -119,7 +119,7 @@ pub(crate) struct PointReferences<'a> {
 impl<'a> PointReferences<'a> {
     fn tally_of(
         shapefile: &'a Shapefile,
-        area_to_pref: &'a HashMap<codes::Area, codes::Pref>,
+        area_to_pref: &'a HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>,
     ) -> Self {
         let mut map: HashMap<Point, PointReference> = HashMap::new();
 
@@ -162,13 +162,15 @@ impl<'a> PointReferences<'a> {
 }
 
 pub(crate) struct PointReference<'a> {
-    area_to_pref: &'a HashMap<codes::Area, codes::Pref>,
-    areas: HashSet<codes::Area>,
+    area_to_pref: &'a HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>,
+    areas: HashSet<codes::地震情報細分区域>,
     adjacent_points: HashSet<Point>,
 }
 
 impl<'a> PointReference<'a> {
-    fn new(area_to_pref: &'a HashMap<codes::Area, codes::Pref>) -> Self {
+    fn new(
+        area_to_pref: &'a HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>
+    ) -> Self {
         Self {
             area_to_pref,
             areas: HashSet::new(),
@@ -176,7 +178,7 @@ impl<'a> PointReference<'a> {
         }
     }
 
-    fn mark_area(&mut self, area: codes::Area) {
+    fn mark_area(&mut self, area: codes::地震情報細分区域) {
         self.areas.insert(area);
     }
 
@@ -184,15 +186,15 @@ impl<'a> PointReference<'a> {
         self.adjacent_points.insert(point);
     }
 
-    fn area_references(&self) -> &HashSet<codes::Area> {
+    fn area_references(&self) -> &HashSet<codes::地震情報細分区域> {
         &self.areas
     }
 
-    pub(crate) fn pref_references(&self) -> HashSet<codes::Pref> {
+    pub(crate) fn pref_references(&self) -> HashSet<codes::地震情報都道府県等> {
         let areas = self
             .area_references()
             .iter()
-            .filter(|a| **a != codes::UNNUMBERED_AREA)
+            .filter(|a| **a != codes::地震情報細分区域::UNNUMBERED)
             .map(|a| *self.area_to_pref.get(a).unwrap());
         HashSet::from_iter(areas)
     }
@@ -202,15 +204,18 @@ impl<'a> PointReference<'a> {
     }
 }
 pub fn read(
-    #[allow(non_snake_case)] area_code__pref_code: &HashMap<codes::Area, codes::Pref>,
+    #[allow(non_snake_case)] area_code__pref_code: &HashMap<
+        codes::地震情報細分区域,
+        codes::地震情報都道府県等,
+    >,
 ) -> (
-    HashMap<codes::Area, BoundingBox<GeoDegree>>, // area_bounding_box
-    HashMap<codes::Area, Vertex<GeoDegree>>,      // area_centers
-    Vec<(f32, f32)>,                              // vertex_buffer
-    Vec<u32>,                                     // map_indices
-    Vec<Vec<u32>>,                                // area_lines
-    Vec<Vec<u32>>,                                // pref_lines
-    Vec<(f32, usize)>,                            // scale_level_map
+    HashMap<codes::地震情報細分区域, BoundingBox<GeoDegree>>, // area_bounding_box
+    HashMap<codes::地震情報細分区域, Vertex<GeoDegree>>,      // area_centers
+    Vec<(f32, f32)>,                                          // vertex_buffer
+    Vec<u32>,                                                 // map_indices
+    Vec<Vec<u32>>,                                            // area_lines
+    Vec<Vec<u32>>,                                            // pref_lines
+    Vec<(f32, usize)>,                                        // scale_level_map
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp",
@@ -222,10 +227,10 @@ pub fn read(
 
     let area_centers = calculate_area_centers(&shapefile);
 
-    let area_bounding_box: HashMap<codes::Area, BoundingBox<GeoDegree>> = shapefile
+    let area_bounding_box: HashMap<codes::地震情報細分区域, BoundingBox<GeoDegree>> = shapefile
         .entries
         .iter()
-        .filter(|area_rings| area_rings.area_code != codes::UNNUMBERED_AREA)
+        .filter(|area_rings| area_rings.area_code != codes::地震情報細分区域::UNNUMBERED)
         .map(|area_rings| (area_rings.area_code, area_rings.bounding_box))
         .collect();
 
@@ -400,16 +405,18 @@ fn gen_lod(
         .collect()
 }
 
-fn calculate_area_centers(shapefile: &Shapefile) -> HashMap<codes::Area, Vertex<GeoDegree>> {
+fn calculate_area_centers(
+    shapefile: &Shapefile,
+) -> HashMap<codes::地震情報細分区域, Vertex<GeoDegree>> {
     use geo::{
         algorithm::{Area, Centroid},
         LineString, Polygon,
     };
 
-    let area_weighted_vectors: HashMap<codes::Area, Vec<(f64, geo::Point)>> = shapefile
+    let area_weighted_vectors: HashMap<codes::地震情報細分区域, Vec<(f64, geo::Point)>> = shapefile
         .entries
         .iter()
-        .filter(|area_rings| area_rings.area_code != codes::UNNUMBERED_AREA)
+        .filter(|area_rings| area_rings.area_code != codes::地震情報細分区域::UNNUMBERED)
         .map(|area_rings| {
             let area_polygons: Vec<(f64, geo::Point)> = area_rings
                 .rings
@@ -423,7 +430,7 @@ fn calculate_area_centers(shapefile: &Shapefile) -> HashMap<codes::Area, Vertex<
         })
         .collect();
 
-    let area_centers: HashMap<codes::Area, Point> = area_weighted_vectors
+    let area_centers: HashMap<codes::地震情報細分区域, Point> = area_weighted_vectors
         .into_iter()
         .map(|(area_code, weighted_vectors)| {
             let area_weight: f64 = weighted_vectors
@@ -443,7 +450,7 @@ fn calculate_area_centers(shapefile: &Shapefile) -> HashMap<codes::Area, Vertex<
         })
         .collect();
 
-    let area_centers: HashMap<codes::Area, Vertex<GeoDegree>> = area_centers
+    let area_centers: HashMap<codes::地震情報細分区域, Vertex<GeoDegree>> = area_centers
         .into_iter()
         .map(|(area_code, center)| {
             (

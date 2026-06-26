@@ -72,7 +72,7 @@ impl VertexBuffer {
 
 struct AreaLines {
     lines: Vec<Line>,
-    tsunami_area_code: codes::TsunamiArea,
+    tsunami_area_code: codes::津波予報区,
 }
 
 impl AreaLines {
@@ -81,9 +81,9 @@ impl AreaLines {
             return None;
         };
 
-        let tsunami_area_code: codes::TsunamiArea = match record.get("code").unwrap() {
+        let tsunami_area_code: codes::津波予報区 = match record.get("code").unwrap() {
             FieldValue::Character(Some(c)) => match c.parse() {
-                Ok(c) => c,
+                Ok(c) => codes::津波予報区(c),
                 Err(_) => panic!("Failed to parse code"),
             },
             FieldValue::Character(None) => panic!("UNNUMBERED_AREA DETECTED!"),
@@ -91,7 +91,7 @@ impl AreaLines {
         };
 
         // 帰属未定 (極小の島など)
-        if tsunami_area_code == 0 {
+        if tsunami_area_code.0 == 0 {
             return None;
         }
 
@@ -167,7 +167,7 @@ pub fn read() -> (
                     vertex_buffer.insert((
                         Of32::from(v.longitude),
                         Of32::from(v.latitude),
-                        tsunami_area_code_buffer.insert(e.tsunami_area_code),
+                        tsunami_area_code_buffer.insert(e.tsunami_area_code.0),
                     )) as u32
                 })
                 .collect();

@@ -30,9 +30,9 @@ enum Lon {
 
 #[derive(Debug)]
 pub struct IntensityStationInternal {
-    pub area_code: codes::Area,
-    pub station_code: codes::IntensityStation,
-    pub pref_code: codes::Pref,
+    pub area_code: codes::地震情報細分区域,
+    pub station_code: codes::震度観測点,
+    pub pref_code: codes::地震情報都道府県等,
     pub position: (f32, f32),
 }
 
@@ -46,9 +46,9 @@ pub fn read(
     s: &str,
 ) -> (
     Vec<(f32, f32)>,
-    HashMap<codes::Area, IntensityStationRange>,
-    HashMap<codes::IntensityStation, usize>,
-    HashMap<codes::Area, codes::Pref>,
+    HashMap<codes::地震情報細分区域, IntensityStationRange>,
+    HashMap<u32, usize>,
+    HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>,
 ) {
     let stations: Vec<JsonEntry> = serde_json::from_str(s).unwrap();
 
@@ -63,9 +63,9 @@ pub fn read(
             };
 
             IntensityStationInternal {
-                area_code: v.area_code.parse().unwrap(),
-                station_code: v.station_code.parse().unwrap(),
-                pref_code: v.pref.parse().unwrap(),
+                area_code: codes::地震情報細分区域(v.area_code.parse().unwrap()),
+                station_code: codes::震度観測点(v.station_code.parse().unwrap()),
+                pref_code: codes::地震情報都道府県等(v.pref.parse().unwrap()),
                 position: (lon, lat),
             }
         })
@@ -100,7 +100,7 @@ pub fn read(
     let station_code__index: HashMap<_, _> = intensity_station_internal
         .iter()
         .enumerate()
-        .map(|(i, v)| (v.station_code, i))
+        .map(|(i, v)| (v.station_code.0, i))
         .collect();
 
     let intensity_station_positions: Vec<_> = intensity_station_internal

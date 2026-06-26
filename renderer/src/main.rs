@@ -2,6 +2,7 @@ pub mod proto {
     include!(concat!(env!("OUT_DIR"), "/net.eewbot.rs"));
 }
 
+mod frame_context;
 mod model;
 mod namesgenerator;
 mod rendering_context;
@@ -50,7 +51,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     tracing::info!("Instance Name: {}", cli.instance_name);
-    tracing::info!("Allow Demo: {}", cli.security_rules.allow_demo);
     tracing::info!("ClientIP from: {:?}", cli.client_ip_source);
     tracing::info!("Image Cache Capacity: {}", cli.image_cache_capacity);
     tracing::info!(
