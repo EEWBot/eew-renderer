@@ -129,7 +129,7 @@ async fn composite_image(
             }
 
             let bin = encoder
-                .finalize((frames.len() as i32 * 2250 + 750) / 2)
+                .finalize(((frames.len() - 1) as i32 * 2250 + 750) / 2)
                 .unwrap();
 
             let encode_time = Instant::now() - start_at;
