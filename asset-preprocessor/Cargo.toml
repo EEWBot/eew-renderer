@@ -9,4 +9,4 @@ geo = "0.33"
 itertools = "0.15"
 ordered-float = "5.0"
 renderer-types = { path = "../renderer-types/", features = ["shapefile"] }
-shapefile = "0.8"
+shapefile = "0.9"
