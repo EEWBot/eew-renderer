@@ -9,10 +9,12 @@ use renderer_assets::QueryInterface;
 use std::borrow::Cow;
 use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, T>(
     frame_context: &FrameContext<F, S>,
-    tsunami_payload: &crate::frame_context::TsunamiFirstPayload,
-) {
+    tsunami_payload: &T,
+) where
+    T: crate::frame_context::HasTsunamiForecastLevels,
+{
     let facade = frame_context.facade;
     let resources = frame_context.resources;
     let offset = frame_context.offset;
@@ -26,7 +28,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let mut levels = vec![0_u8; area_code_count];
 
     tsunami_payload
-        .forecast_levels
+        .forecast_levels()
         .iter()
         .for_each(|(level, areas)| {
             areas.iter().for_each(|area| {
