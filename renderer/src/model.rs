@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 
+use crate::worker::image_buffer::RGBAImageData;
 use enum_map::Enum;
 use thiserror::Error;
 
@@ -9,10 +10,10 @@ pub enum RenderingError {}
 #[allow(clippy::type_complexity)]
 #[derive(Debug)]
 pub enum Message {
-    RenderingRequest(
+    FrameRequest(
         (
-            crate::rendering_context::RenderingContext,
-            tokio::sync::oneshot::Sender<Result<Vec<u8>, RenderingError>>,
+            crate::frame_context::FrameContext,
+            tokio::sync::oneshot::Sender<Result<RGBAImageData, RenderingError>>,
         ),
     ),
 }
