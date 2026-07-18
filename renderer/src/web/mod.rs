@@ -155,6 +155,12 @@ async fn render_handler(
         return (StatusCode::BAD_REQUEST, "Failed to UTF-8 parsing").into_response();
     };
 
+    let bin = if bin.ends_with(".webp") {
+        bin.strip_suffix(".webp").unwrap()
+    } else {
+        &bin
+    };
+
     let Some(first_char) = bin.chars().next() else {
         return (
             StatusCode::BAD_REQUEST,
