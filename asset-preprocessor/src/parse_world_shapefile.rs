@@ -6,7 +6,7 @@ use shapefile::{Shape, ShapeReader};
 
 use crate::math::*;
 
-const WEB_MERCATOR_MAX_LATITUD: f32 = 85.051_128_78;
+const WEB_MERCATOR_MAX_LATITUD: f32 = 85.051_13;
 
 struct VertexBuffer {
     buffer: Vec<(Of32, Of32)>,
@@ -38,7 +38,7 @@ impl VertexBuffer {
     }
 }
 
-/// 極点での発散を避けるため、球面Web Mercatorで一般的に使用される打ち切り緯度 ±85.05112878° を、レンダラーの描画上限として採用する。
+/// 極点での発散を避けるため、球面Web Mercatorで一般的に使用される打ち切り緯度 ±85.05113° を、レンダラーの描画上限として採用する。
 /// 経度はそのまま返す。
 fn clamp_mercator_latitude(point: Point) -> Point {
     let latitude = point
