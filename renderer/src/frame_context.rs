@@ -105,6 +105,27 @@ pub enum FramePayload {
     TsunamiSecond(TsunamiSecondPayload),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MapLayerConfig {
+    pub world: bool,
+    pub saibunkuiki: bool,
+}
+
+impl FramePayload {
+    pub fn map_layers(&self) -> MapLayerConfig {
+        match self {
+            FramePayload::Earthquake(_) => MapLayerConfig {
+                world: true,
+                saibunkuiki: true,
+            },
+            FramePayload::TsunamiFirst(_) | FramePayload::TsunamiSecond(_) => MapLayerConfig {
+                world: false,
+                saibunkuiki: false,
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct FrameContext {
     pub payload: FramePayload,
