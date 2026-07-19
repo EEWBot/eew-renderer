@@ -108,7 +108,7 @@ pub enum FramePayload {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MapLayerConfig {
     pub world: bool,
-    pub saibunkuiki: bool,
+    pub saibunkuiki_line: bool,
 }
 
 impl FramePayload {
@@ -116,11 +116,11 @@ impl FramePayload {
         match self {
             FramePayload::Earthquake(_) => MapLayerConfig {
                 world: true,
-                saibunkuiki: true,
+                saibunkuiki_line: true,
             },
             FramePayload::TsunamiFirst(_) | FramePayload::TsunamiSecond(_) => MapLayerConfig {
                 world: false,
-                saibunkuiki: false,
+                saibunkuiki_line: false,
             },
         }
     }

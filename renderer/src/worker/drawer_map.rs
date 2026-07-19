@@ -74,7 +74,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-    if layers.saibunkuiki {
+    if layers.saibunkuiki_line {
         resources
             .shader
             .border_line
