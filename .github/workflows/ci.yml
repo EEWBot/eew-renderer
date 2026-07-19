@@ -49,8 +49,8 @@ jobs:
         run: |
           rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
-          7z x ./shapefiles_v1.zip -y
+          rc cp yr32srv/eewbot/shapefiles_v2.zip ./shapefiles_v2.zip
+          7z x ./shapefiles_v2.zip -y
           popd
 
       - uses: Swatinem/rust-cache@v2.9.1
@@ -140,8 +140,8 @@ jobs:
 
           rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
-          unzip -o ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v2.zip ./shapefiles_v2.zip
+          unzip -o ./shapefiles_v2.zip
           popd
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
@@ -234,8 +234,8 @@ jobs:
 
           rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
-          unzip -o ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v2.zip ./shapefiles_v2.zip
+          unzip -o ./shapefiles_v2.zip
           popd
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
@@ -305,8 +305,8 @@ jobs:
 
           rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
           pushd assets/shapefile/
-          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
-          unzip -o ./shapefiles_v1.zip
+          rc cp yr32srv/eewbot/shapefiles_v2.zip ./shapefiles_v2.zip
+          unzip -o ./shapefiles_v2.zip
           popd
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
