@@ -176,7 +176,7 @@ async fn render_handler(
 
         bin
     } else {
-        let Ok(bin) = base32768::decode(&bin) else {
+        let Ok(bin) = base32768::decode(bin) else {
             return (StatusCode::BAD_REQUEST, "Failed to Base32768 decoding").into_response();
         };
 
