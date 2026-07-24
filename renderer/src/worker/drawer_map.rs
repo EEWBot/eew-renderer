@@ -1,3 +1,4 @@
+use crate::frame_context::MapLayerConfig;
 use crate::worker::vertex::{BorderLineUniform, MapUniform};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
@@ -6,7 +7,7 @@ use std::ops::DerefMut;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
-    has_saibunkuiki: bool,
+    layers: MapLayerConfig,
 ) {
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
@@ -15,6 +16,25 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let aspect_ratio = frame_context.image_size.aspect_ratio();
     let offset = frame_context.offset.into();
     let image_size: [f32; 2] = frame_context.image_size.to_f32().into();
+
+    if layers.world {
+        resources
+            .shader
+            .map
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.world.vertex,
+                &resources.world.index,
+                &MapUniform {
+                    aspect_ratio,
+                    offset,
+                    zoom: scale,
+                    color: theme.ground_color,
+                },
+                params,
+            )
+            .unwrap();
+    }
 
     resources
         .shader
@@ -54,7 +74,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         )
         .unwrap();
 
-    if has_saibunkuiki {
+    if layers.saibunkuiki_line {
         resources
             .shader
             .border_line

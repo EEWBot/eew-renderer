@@ -175,22 +175,24 @@ impl ApplicationHandler<Message> for App<'_> {
             clear_color[3],
         );
 
+        let map_layers = request_frame_context.payload.map_layers();
+
         match &request_frame_context.payload {
             FramePayload::Earthquake(earthquake) => {
-                drawer_map::draw(&frame_context, true);
+                drawer_map::draw(&frame_context, map_layers);
                 drawer_intensity_icon::draw_all(&frame_context, earthquake);
                 drawer_epicenter::draw(&frame_context, earthquake);
                 drawer_overlay::draw(&frame_context, earthquake);
             }
             FramePayload::TsunamiFirst(tsunami) => {
-                drawer_map::draw(&frame_context, false);
+                drawer_map::draw(&frame_context, map_layers);
                 drawer_tsunami_line::draw(&frame_context, tsunami);
                 drawer_tsunami_legends::draw(&frame_context, tsunami);
                 drawer_epicenter::draw(&frame_context, tsunami);
                 drawer_overlay::draw(&frame_context, tsunami);
             }
             FramePayload::TsunamiSecond(tsunami) => {
-                drawer_map::draw(&frame_context, false);
+                drawer_map::draw(&frame_context, map_layers);
                 drawer_tsunami_legends::draw(&frame_context, tsunami);
                 drawer_epicenter::draw(&frame_context, tsunami);
                 drawer_overlay::draw(&frame_context, tsunami);

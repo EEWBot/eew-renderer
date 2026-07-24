@@ -15,6 +15,7 @@ pub struct Resources<'a> {
     pub shader: Shader<'a>,
     pub buffer: Buffer,
     pub lake: Lake,
+    pub world: World,
     pub texture: Texture,
 }
 
@@ -23,12 +24,14 @@ impl Resources<'_> {
         let shader = Shader::load(facade);
         let buffer = Buffer::load(facade);
         let lake = Lake::load(facade);
+        let world = World::load(facade);
         let texture = Texture::load(facade);
 
         Self {
             shader,
             buffer,
             lake,
+            world,
             texture,
         }
     }
@@ -130,6 +133,32 @@ impl Lake {
             IndexBuffer::immutable(facade, PrimitiveType::TrianglesList, geom.indices).unwrap();
 
         Lake { vertex, index }
+    }
+}
+
+#[derive(Debug)]
+pub struct World {
+    pub vertex: VertexBuffer<MapVertex>,
+    pub index: IndexBuffer<u32>,
+}
+
+impl World {
+    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
+        let geom = renderer_assets::QueryInterface::world_geometries();
+
+        let vertex: Vec<_> = geom
+            .vertices
+            .iter()
+            .map(|v| MapVertex {
+                position: [v.0, v.1],
+            })
+            .collect();
+        let vertex = VertexBuffer::immutable(facade, &vertex).unwrap();
+
+        let index =
+            IndexBuffer::immutable(facade, PrimitiveType::TrianglesList, geom.indices).unwrap();
+
+        World { vertex, index }
     }
 }
 
