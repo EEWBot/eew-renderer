@@ -34,11 +34,15 @@ fn main() {
         area_code__bbox,
         area_code__centers,
         vertices,
-        indices,
+        map_indices,
         area_lines,
         pref_lines,
         scale_level_map,
     ) = parse_shapefile::read(&area_code__pref_code);
+
+    let [map_triangles_main, map_triangles_okinawa, map_triangles_ogasawara] = map_indices;
+    let [tsunami_indices_main, tsunami_indices_okinawa, tsunami_indices_ogasawara] =
+        tsunami_indices;
 
     // <AreaCode, (StationIndex, (BBox))>
     let areas: HashMap<u32, (usize, (f32, f32, f32, f32))> = area_code__bbox
@@ -75,7 +79,9 @@ fn main() {
         const_declaration!(AREAS = areas),
         const_declaration!(STATION_CODES = station_code__index),
         const_declaration!(VERTICES = vertices),
-        const_declaration!(MAP_TRIANGLES = indices),
+        const_declaration!(MAP_TRIANGLES_MAIN = map_triangles_main),
+        const_declaration!(MAP_TRIANGLES_OKINAWA = map_triangles_okinawa),
+        const_declaration!(MAP_TRIANGLES_OGASAWARA = map_triangles_ogasawara),
         const_declaration!(AREA_LINES = area_lines),
         const_declaration!(PREF_LINES = pref_lines),
         const_declaration!(SCALE_LEVEL_MAP = scale_level_map),
@@ -84,7 +90,9 @@ fn main() {
         const_declaration!(WORLD_VERTICES = world_vertices),
         const_declaration!(WORLD_INDICES = world_indices),
         const_declaration!(TSUNAMI_VERTICES = tsunami_vertices),
-        const_declaration!(TSUNAMI_INDICES = tsunami_indices),
+        const_declaration!(TSUNAMI_INDICES_MAIN = tsunami_indices_main),
+        const_declaration!(TSUNAMI_INDICES_OKINAWA = tsunami_indices_okinawa),
+        const_declaration!(TSUNAMI_INDICES_OGASAWARA = tsunami_indices_ogasawara),
         const_declaration!(TSUNAMI_AREA_CODE_TO_INTERNAL_CODE = tsunami_area_code_to_internal_code),
     ]
     .join("\n");

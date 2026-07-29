@@ -9,7 +9,7 @@ pub struct QueryInterface;
 
 pub struct Geometries {
     pub vertices: &'static [(f32, f32)],
-    pub map_triangles: &'static [u32],
+    pub map_triangles: [&'static [u32]; InsetRegion::COUNT],
     pub area_lines: &'static [&'static [u32]],
     pub pref_lines: &'static [&'static [u32]],
 }
@@ -26,14 +26,18 @@ pub struct WorldGeometries {
 
 pub struct TsunamiGeometries {
     pub vertices: &'static [(f32, f32, u16)],
-    pub indices: &'static [u32],
+    pub indices: [&'static [u32]; InsetRegion::COUNT],
 }
 
 impl QueryInterface {
     pub fn geometries() -> Geometries {
         Geometries {
             vertices: VERTICES,
-            map_triangles: MAP_TRIANGLES,
+            map_triangles: [
+                MAP_TRIANGLES_MAIN,
+                MAP_TRIANGLES_OKINAWA,
+                MAP_TRIANGLES_OGASAWARA,
+            ],
             area_lines: AREA_LINES,
             pref_lines: PREF_LINES,
         }
@@ -56,7 +60,11 @@ impl QueryInterface {
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
             vertices: TSUNAMI_VERTICES,
-            indices: TSUNAMI_INDICES,
+            indices: [
+                TSUNAMI_INDICES_MAIN,
+                TSUNAMI_INDICES_OKINAWA,
+                TSUNAMI_INDICES_OGASAWARA,
+            ],
         }
     }
 
