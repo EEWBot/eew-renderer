@@ -3,11 +3,13 @@ use crate::worker::vertex::{BorderLineUniform, MapUniform};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::Surface;
+use renderer_types::InsetRegion;
 use std::ops::DerefMut;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
     layers: MapLayerConfig,
+    regions: &[InsetRegion],
 ) {
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
@@ -36,22 +38,24 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             .unwrap();
     }
 
-    resources
-        .shader
-        .map
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.map_vertex,
-            &resources.buffer.map,
-            &MapUniform {
-                aspect_ratio,
-                offset,
-                zoom: scale,
-                color: theme.ground_color,
-            },
-            params,
-        )
-        .unwrap();
+    for region in regions {
+        resources
+            .shader
+            .map
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.buffer.map_vertex,
+                resources.buffer.get_map_by_region(*region),
+                &MapUniform {
+                    aspect_ratio,
+                    offset,
+                    zoom: scale,
+                    color: theme.ground_color,
+                },
+                params,
+            )
+            .unwrap();
+    }
 
     resources
         .shader
@@ -94,21 +98,24 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             .unwrap();
     }
 
-    resources
-        .shader
-        .border_line
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.map_vertex,
-            resources.buffer.get_pref_line_by_scale(scale).unwrap(),
-            &BorderLineUniform {
-                dimension: image_size,
-                offset,
-                zoom: scale,
-                line_width: theme.prefectural_border_width,
-                color: theme.prefectural_border_color,
-            },
-            params,
-        )
-        .unwrap();
+    // 県境線は本土のみに存在するため、Main を含む場合のみ描画
+    if regions.contains(&InsetRegion::Main) {
+        resources
+            .shader
+            .border_line
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.buffer.map_vertex,
+                resources.buffer.get_pref_line_by_scale(scale).unwrap(),
+                &BorderLineUniform {
+                    dimension: image_size,
+                    offset,
+                    zoom: scale,
+                    line_width: theme.prefectural_border_width,
+                    color: theme.prefectural_border_color,
+                },
+                params,
+            )
+            .unwrap();
+    }
 }

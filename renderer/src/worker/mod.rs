@@ -1,4 +1,4 @@
-use crate::frame_context::FramePayload;
+use crate::frame_context::{FramePayload, HasEpicenter};
 use crate::model::Message;
 use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
@@ -31,6 +31,7 @@ use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
 
 mod drawer_epicenter;
+mod drawer_inset_frame;
 mod drawer_intensity_icon;
 mod drawer_map;
 mod drawer_overlay;
@@ -40,6 +41,7 @@ mod fonts;
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
 mod headless;
 pub mod image_buffer;
+mod inset;
 mod resources;
 mod shader;
 mod theme;
@@ -117,14 +119,14 @@ fn log_gl_info<F: Facade>(facade: &F) {
     tracing::info!("GL_VERSION: {}", context.get_opengl_version_string());
 }
 
-pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
+pub struct FrameContext<'a, 'b, 'p, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
     pub image_size: Size<u32>, // TODO: Themeに移動する
     pub theme: &'a Theme,
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
-    pub draw_parameters: &'a DrawParameters<'a>,
+    pub draw_parameters: &'p DrawParameters<'p>,
     pub scale: f32,
     pub offset: Vertex<Mercator>,
 }
@@ -238,22 +240,33 @@ fn render_frame<F: ?Sized + Facade>(
 
     match &request_frame_context.payload {
         FramePayload::Earthquake(earthquake) => {
-            drawer_map::draw(&frame_context, map_layers);
+            drawer_map::draw(&frame_context, map_layers, &InsetRegion::ALL);
             drawer_intensity_icon::draw_all(&frame_context, earthquake);
             drawer_epicenter::draw(&frame_context, earthquake);
             drawer_overlay::draw(&frame_context, earthquake);
         }
         FramePayload::TsunamiFirst(tsunami) => {
-            drawer_map::draw(&frame_context, map_layers);
-            drawer_tsunami_line::draw(&frame_context, tsunami);
+            let insets = build_inset_cameras();
+            let levels = drawer_tsunami_line::build_levels_texture(facade, tsunami);
+            drawer_map::draw(&frame_context, map_layers, &[InsetRegion::Main]);
+            drawer_tsunami_line::draw(&frame_context, InsetRegion::Main, &levels);
             drawer_tsunami_legends::draw(&frame_context, tsunami);
             drawer_epicenter::draw(&frame_context, tsunami);
+            draw_insets(
+                &frame_context,
+                &insets,
+                tsunami.epicenter(),
+                map_layers,
+                Some(&levels),
+            );
             drawer_overlay::draw(&frame_context, tsunami);
         }
         FramePayload::TsunamiSecond(tsunami) => {
-            drawer_map::draw(&frame_context, map_layers);
+            let insets = build_inset_cameras();
+            drawer_map::draw(&frame_context, map_layers, &[InsetRegion::Main]);
             drawer_tsunami_legends::draw(&frame_context, tsunami);
             drawer_epicenter::draw(&frame_context, tsunami);
+            draw_insets(&frame_context, &insets, tsunami.epicenter(), map_layers, None);
             drawer_overlay::draw(&frame_context, tsunami);
         }
     }
@@ -358,8 +371,49 @@ pub fn calculate_bounding_box(payload: &FramePayload) -> BoundingBox<GeoDegree> 
             bbox
         }
         FramePayload::TsunamiFirst(_) | FramePayload::TsunamiSecond(_) => {
-            BoundingBox::new(Vertex::new(122.9, 24.0), Vertex::new(148.9, 45.5))
+            BoundingBox::new(Vertex::new(128.3, 30.0), Vertex::new(148.9, 45.5))
         }
+    }
+}
+
+fn build_inset_cameras() -> Vec<(&'static inset::InsetPass, inset::InsetCamera)> {
+    inset::ALL_INSETS
+        .iter()
+        .map(|pass| (*pass, pass.camera()))
+        .collect()
+}
+
+fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
+    base: &FrameContext<F, S>,
+    insets: &[(&'static inset::InsetPass, inset::InsetCamera)],
+    epicenters: &[Vertex<GeoDegree>],
+    layers: crate::frame_context::MapLayerConfig,
+    levels: Option<&glium::texture::UnsignedTexture1d>,
+) {
+    for (inset, camera) in insets {
+        let mut draw_parameters = base.draw_parameters.clone();
+        draw_parameters.viewport = Some(inset.viewport);
+
+        let frame_context = FrameContext {
+            facade: base.facade,
+            surface: base.surface.clone(),
+            image_size: camera.image_size,
+            theme: base.theme,
+            resources: base.resources,
+            font_manager: base.font_manager.clone(),
+            draw_parameters: &draw_parameters,
+            scale: camera.scale,
+            offset: camera.offset,
+        };
+
+        drawer_inset_frame::draw_background(&frame_context);
+        drawer_map::draw(&frame_context, layers, &[inset.region]);
+        if let Some(levels) = levels {
+            drawer_tsunami_line::draw(&frame_context, inset.region, levels);
+        }
+        drawer_inset_frame::draw_border_and_label(&frame_context, inset.label);
+        let icon_ratio = ICON_RATIO_IN_Y_AXIS * (DIMENSION.1 as f32 / inset.viewport.height as f32);
+        drawer_epicenter::draw_epicenters(&frame_context, epicenters, icon_ratio);
     }
 }
 

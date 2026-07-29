@@ -6,24 +6,18 @@ use glium::texture::{
 };
 use glium::Surface;
 use renderer_assets::QueryInterface;
+use renderer_types::InsetRegion;
 use std::borrow::Cow;
 use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, T>(
-    frame_context: &FrameContext<F, S>,
+pub fn build_levels_texture<F: ?Sized + Facade, T>(
+    facade: &F,
     tsunami_payload: &T,
-) where
+) -> UnsignedTexture1d
+where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
-    let facade = frame_context.facade;
-    let resources = frame_context.resources;
-    let offset = frame_context.offset;
-    let scale = frame_context.scale;
-    let draw_parameters = frame_context.draw_parameters;
-    let theme = frame_context.theme;
-
     let area_code_count = QueryInterface::tsunami_area_code_count();
-    // println!("AreaCodeCount: {area_code_count}");
 
     let mut levels = vec![0_u8; area_code_count];
 
@@ -38,19 +32,31 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, T>(
             })
         });
 
-    // println!("{:?}", levels);
     let levels = RawImage1d {
         data: Cow::from(&levels),
         width: levels.len() as u32,
         format: ClientFormat::U8,
     };
-    let levels = UnsignedTexture1d::with_format(
+
+    UnsignedTexture1d::with_format(
         facade,
         levels,
         UncompressedUintFormat::U8,
         MipmapsOption::NoMipmap,
     )
-    .unwrap();
+    .unwrap()
+}
+
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
+    frame_context: &FrameContext<F, S>,
+    region: InsetRegion,
+    levels: &UnsignedTexture1d,
+) {
+    let resources = frame_context.resources;
+    let offset = frame_context.offset;
+    let scale = frame_context.scale;
+    let draw_parameters = frame_context.draw_parameters;
+    let theme = frame_context.theme;
 
     resources
         .shader
@@ -58,7 +64,10 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, T>(
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
             &frame_context.resources.buffer.tsunami_vertex,
-            &frame_context.resources.buffer.tsunami_indices,
+            frame_context
+                .resources
+                .buffer
+                .get_tsunami_indices_by_region(region),
             &TsunamiUniform {
                 dimension: frame_context.image_size.to_f32().into(),
                 offset: offset.into(),

@@ -9,6 +9,7 @@ use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::{IndexBuffer, Texture2d, VertexBuffer};
+use renderer_types::InsetRegion;
 
 #[derive(Debug)]
 pub struct Resources<'a> {
@@ -42,9 +43,9 @@ pub struct Buffer {
     pub map_vertex: VertexBuffer<MapVertex>,
     area_line: Vec<IndexBuffer<u32>>,
     pref_line: Vec<IndexBuffer<u32>>,
-    pub map: IndexBuffer<u32>,
+    map: [IndexBuffer<u32>; InsetRegion::COUNT],
     pub tsunami_vertex: VertexBuffer<TsunamiVertex>,
-    pub tsunami_indices: IndexBuffer<u32>,
+    tsunami_indices: [IndexBuffer<u32>; InsetRegion::COUNT],
 }
 
 impl Buffer {
@@ -62,8 +63,9 @@ impl Buffer {
 
         let vertex = VertexBuffer::new(facade, &vertices).unwrap();
 
-        let map =
-            IndexBuffer::new(facade, PrimitiveType::TrianglesList, geom.map_triangles).unwrap();
+        let map = geom
+            .map_triangles
+            .map(|i| IndexBuffer::new(facade, PrimitiveType::TrianglesList, i).unwrap());
 
         let area_line: Vec<_> = geom
             .area_lines
@@ -86,8 +88,9 @@ impl Buffer {
             })
             .collect::<Vec<_>>();
         let tsunami_vertex = VertexBuffer::immutable(facade, &tsunami_vertex).unwrap();
-        let tsunami_indices =
-            IndexBuffer::immutable(facade, PrimitiveType::LineStrip, tsunami_geom.indices).unwrap();
+        let tsunami_indices = tsunami_geom
+            .indices
+            .map(|i| IndexBuffer::immutable(facade, PrimitiveType::LineStrip, i).unwrap());
 
         Buffer {
             map_vertex: vertex,
@@ -97,6 +100,14 @@ impl Buffer {
             tsunami_vertex,
             tsunami_indices,
         }
+    }
+
+    pub fn get_map_by_region(&self, region: InsetRegion) -> &IndexBuffer<u32> {
+        &self.map[region.index()]
+    }
+
+    pub fn get_tsunami_indices_by_region(&self, region: InsetRegion) -> &IndexBuffer<u32> {
+        &self.tsunami_indices[region.index()]
     }
 
     pub fn get_area_line_by_scale(&self, scale: f32) -> Option<&IndexBuffer<u32>> {
@@ -169,7 +180,7 @@ pub struct Shader<'a> {
     pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
     pub map: ShaderProgram<MapUniform, MapVertex>,
     pub shape: ShaderProgram<ShapeUniform, ShapeVertex>,
-    pub tsunami: ShaderProgram<TsunamiUniform, TsunamiVertex>,
+    pub tsunami: ShaderProgram<TsunamiUniform<'a>, TsunamiVertex>,
     pub text: ShaderProgram<TextUniform<'a>, TextVertex>,
     pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
 }

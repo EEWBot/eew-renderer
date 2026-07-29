@@ -129,16 +129,16 @@ pub struct TsunamiVertex {
 implement_vertex!(TsunamiVertex, position, code);
 
 #[derive(Debug)]
-pub struct TsunamiUniform {
+pub struct TsunamiUniform<'a> {
     pub dimension: [f32; 2],
     pub offset: [f32; 2],
     pub zoom: f32,
     pub colors: TsunamiLineColors,
-    pub levels: UnsignedTexture1d,
+    pub levels: &'a UnsignedTexture1d,
     pub line_width: f32,
 }
 
-impl Uniforms for TsunamiUniform {
+impl Uniforms for TsunamiUniform<'_> {
     fn visit_values<'a, Fn: FnMut(&str, UniformValue<'a>)>(&'a self, mut visitor: Fn) {
         visitor("dimension", self.dimension.as_uniform_value());
         visitor("offset", self.offset.as_uniform_value());
@@ -156,7 +156,7 @@ impl Uniforms for TsunamiUniform {
         behavior.format = ImageUnitFormat::R8UI;
         visitor(
             "levels",
-            UniformValue::UnsignedImage1d(&self.levels, Some(behavior)),
+            UniformValue::UnsignedImage1d(self.levels, Some(behavior)),
         );
         visitor("line_width", self.line_width.as_uniform_value());
         // meow
