@@ -247,15 +247,19 @@ fn render_frame<F: ?Sized + Facade>(
         }
         FramePayload::TsunamiFirst(tsunami) => {
             let insets = build_inset_cameras();
+            let epicenter_buffer =
+                drawer_epicenter::create_vertex_buffer(facade, tsunami.epicenter());
             let levels = drawer_tsunami_line::build_levels_texture(facade, tsunami);
             drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
             drawer_tsunami_line::draw(&frame_context, InsetRegion::Main, &levels);
             drawer_tsunami_legends::draw(&frame_context, tsunami);
-            drawer_epicenter::draw(&frame_context, tsunami);
+            if let Some(buffer) = &epicenter_buffer {
+                drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
+            }
             draw_insets(
                 &frame_context,
                 &insets,
-                tsunami.epicenter(),
+                epicenter_buffer.as_ref(),
                 map_layers,
                 Some(&levels),
             );
@@ -263,10 +267,20 @@ fn render_frame<F: ?Sized + Facade>(
         }
         FramePayload::TsunamiSecond(tsunami) => {
             let insets = build_inset_cameras();
+            let epicenter_buffer =
+                drawer_epicenter::create_vertex_buffer(facade, tsunami.epicenter());
             drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
             drawer_tsunami_legends::draw(&frame_context, tsunami);
-            drawer_epicenter::draw(&frame_context, tsunami);
-            draw_insets(&frame_context, &insets, tsunami.epicenter(), map_layers, None);
+            if let Some(buffer) = &epicenter_buffer {
+                drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
+            }
+            draw_insets(
+                &frame_context,
+                &insets,
+                epicenter_buffer.as_ref(),
+                map_layers,
+                None,
+            );
             drawer_overlay::draw(&frame_context, tsunami);
         }
     }
@@ -386,7 +400,7 @@ fn build_inset_cameras() -> Vec<(&'static inset::InsetPass, inset::InsetCamera)>
 fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
     base: &FrameContext<F, S>,
     insets: &[(&'static inset::InsetPass, inset::InsetCamera)],
-    epicenters: &[Vertex<GeoDegree>],
+    epicenter_buffer: Option<&glium::VertexBuffer<vertex::EpicenterVertex>>,
     layers: crate::frame_context::MapLayerConfig,
     levels: Option<&glium::texture::UnsignedTexture1d>,
 ) {
@@ -412,8 +426,11 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
             drawer_tsunami_line::draw(&frame_context, inset.region, levels);
         }
         drawer_inset_frame::draw_border_and_label(&frame_context, inset.label);
-        let icon_ratio = ICON_RATIO_IN_Y_AXIS * (DIMENSION.1 as f32 / inset.viewport.height as f32);
-        drawer_epicenter::draw_epicenters(&frame_context, epicenters, icon_ratio);
+        if let Some(buffer) = epicenter_buffer {
+            let icon_ratio =
+                ICON_RATIO_IN_Y_AXIS * (DIMENSION.1 as f32 / inset.viewport.height as f32);
+            drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, icon_ratio);
+        }
     }
 }
 
