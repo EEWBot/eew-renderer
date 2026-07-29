@@ -33,11 +33,7 @@ impl QueryInterface {
     pub fn geometries() -> Geometries {
         Geometries {
             vertices: VERTICES,
-            map_triangles: [
-                MAP_TRIANGLES_MAIN,
-                MAP_TRIANGLES_OKINAWA,
-                MAP_TRIANGLES_OGASAWARA,
-            ],
+            map_triangles: MAP_TRIANGLES,
             area_lines: AREA_LINES,
             pref_lines: PREF_LINES,
         }
@@ -60,11 +56,7 @@ impl QueryInterface {
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
             vertices: TSUNAMI_VERTICES,
-            indices: [
-                TSUNAMI_INDICES_MAIN,
-                TSUNAMI_INDICES_OKINAWA,
-                TSUNAMI_INDICES_OGASAWARA,
-            ],
+            indices: TSUNAMI_INDICES,
         }
     }
 
