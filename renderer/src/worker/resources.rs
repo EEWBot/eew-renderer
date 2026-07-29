@@ -67,12 +67,12 @@ impl Buffer {
 
         let vertex = VertexBuffer::new(facade, &vertices).unwrap();
 
-        let mut map_ranges: [std::ops::Range<usize>; InsetRegion::COUNT] = Default::default();
         let mut cursor = 0;
-        for (range, indices) in map_ranges.iter_mut().zip(geom.map_triangles) {
-            *range = cursor..cursor + indices.len();
-            cursor += indices.len();
-        }
+        let map_ranges = std::array::from_fn(|i| {
+            let start = cursor;
+            cursor += geom.map_triangles[i].len();
+            start..cursor
+        });
         let map = IndexBuffer::new(
             facade,
             PrimitiveType::TrianglesList,
@@ -333,11 +333,7 @@ pub struct Inset {
 
 impl Inset {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let border_vertex_buffer = VertexBuffer::dynamic(
-            facade,
-            &crate::worker::drawer_inset_frame::border_vertices(0.0, 0.0),
-        )
-        .unwrap();
+        let border_vertex_buffer = VertexBuffer::empty_dynamic(facade, 10).unwrap();
 
         let background_vertex_buffer = VertexBuffer::immutable(
             facade,

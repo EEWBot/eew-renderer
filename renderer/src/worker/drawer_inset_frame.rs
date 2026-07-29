@@ -7,7 +7,7 @@ use glium::Surface;
 use rusttype::Scale;
 use std::ops::DerefMut;
 
-pub(in crate::worker) fn border_vertices(width_x: f32, width_y: f32) -> [ShapeVertex; 10] {
+fn border_vertices(width_x: f32, width_y: f32) -> [ShapeVertex; 10] {
     let inner_left = -1.0 + width_x;
     let inner_right = 1.0 - width_x;
     let inner_bottom = -1.0 + width_y;

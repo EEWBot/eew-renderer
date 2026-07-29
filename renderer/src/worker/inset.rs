@@ -1,12 +1,12 @@
 use glium::Rect;
 use renderer_types::{
-    BoundingBox, GeoDegree, InsetRegion, Mercator, Size, Vertex, ViewBBox, OGASAWARA_VIEW_BBOX,
+    BoundingBox, GeoDegree, InsetRegion, Mercator, Size, Vertex, OGASAWARA_VIEW_BBOX,
     OKINAWA_VIEW_BBOX,
 };
 
 pub struct InsetPass {
     pub region: InsetRegion,
-    pub view_bbox: ViewBBox,
+    pub view_bbox: BoundingBox<GeoDegree>,
     pub viewport: Rect,
     pub label: &'static str,
 }
@@ -47,11 +47,9 @@ pub struct InsetCamera {
 
 impl InsetPass {
     pub fn camera(&self) -> InsetCamera {
-        let ((min_lon, min_lat), (max_lon, max_lat)) = self.view_bbox;
-        let bounding_box: BoundingBox<GeoDegree> =
-            BoundingBox::new(Vertex::new(min_lon, min_lat), Vertex::new(max_lon, max_lat));
         let rendering_bbox = BoundingBox::from_vertices_float(
-            &bounding_box
+            &self
+                .view_bbox
                 .gl_vertices()
                 .iter()
                 .map(|v| v.to_mercator())

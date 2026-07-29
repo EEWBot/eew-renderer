@@ -1,3 +1,5 @@
+use crate::{BoundingBox, GeoDegree, Vertex};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InsetRegion {
     Main,
@@ -7,14 +9,9 @@ pub enum InsetRegion {
 
 impl InsetRegion {
     pub const COUNT: usize = 3;
-    pub const ALL: [Self; Self::COUNT] = [Self::Main, Self::Okinawa, Self::Ogasawara];
 
     pub const fn index(self) -> usize {
-        match self {
-            Self::Main => 0,
-            Self::Okinawa => 1,
-            Self::Ogasawara => 2,
-        }
+        self as usize
     }
 }
 
@@ -53,10 +50,10 @@ pub fn classify_saibunkuiki(code: u32) -> InsetRegion {
     }
 }
 
-pub type ViewBBox = ((f32, f32), (f32, f32));
-
 /// ((与那国島西, 波照間島南), (北大東島東, 口之島北))
-pub const OKINAWA_VIEW_BBOX: ViewBBox = ((122.5, 23.9), (131.9, 30.1));
+pub const OKINAWA_VIEW_BBOX: BoundingBox<GeoDegree> =
+    BoundingBox::new(Vertex::new(122.5, 23.9), Vertex::new(131.9, 30.1));
 
 /// ((西ノ島西, 南硫黄島南), (東, 聟島列島北))
-pub const OGASAWARA_VIEW_BBOX: ViewBBox = ((140.2, 23.9), (142.5, 27.9));
+pub const OGASAWARA_VIEW_BBOX: BoundingBox<GeoDegree> =
+    BoundingBox::new(Vertex::new(140.2, 23.9), Vertex::new(142.5, 27.9));

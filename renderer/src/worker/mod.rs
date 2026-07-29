@@ -246,7 +246,6 @@ fn render_frame<F: ?Sized + Facade>(
             drawer_overlay::draw(&frame_context, earthquake);
         }
         FramePayload::TsunamiFirst(tsunami) => {
-            let insets = build_inset_cameras();
             let epicenter_buffer =
                 drawer_epicenter::create_vertex_buffer(facade, tsunami.epicenter());
             let levels = drawer_tsunami_line::build_levels_texture(facade, tsunami);
@@ -258,7 +257,6 @@ fn render_frame<F: ?Sized + Facade>(
             }
             draw_insets(
                 &frame_context,
-                &insets,
                 epicenter_buffer.as_ref(),
                 map_layers,
                 Some(&levels),
@@ -266,7 +264,6 @@ fn render_frame<F: ?Sized + Facade>(
             drawer_overlay::draw(&frame_context, tsunami);
         }
         FramePayload::TsunamiSecond(tsunami) => {
-            let insets = build_inset_cameras();
             let epicenter_buffer =
                 drawer_epicenter::create_vertex_buffer(facade, tsunami.epicenter());
             drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
@@ -274,13 +271,7 @@ fn render_frame<F: ?Sized + Facade>(
             if let Some(buffer) = &epicenter_buffer {
                 drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
             }
-            draw_insets(
-                &frame_context,
-                &insets,
-                epicenter_buffer.as_ref(),
-                map_layers,
-                None,
-            );
+            draw_insets(&frame_context, epicenter_buffer.as_ref(), map_layers, None);
             drawer_overlay::draw(&frame_context, tsunami);
         }
     }
@@ -390,21 +381,15 @@ pub fn calculate_bounding_box(payload: &FramePayload) -> BoundingBox<GeoDegree> 
     }
 }
 
-fn build_inset_cameras() -> Vec<(&'static inset::InsetPass, inset::InsetCamera)> {
-    inset::ALL_INSETS
-        .iter()
-        .map(|pass| (*pass, pass.camera()))
-        .collect()
-}
-
 fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
     base: &FrameContext<F, S>,
-    insets: &[(&'static inset::InsetPass, inset::InsetCamera)],
     epicenter_buffer: Option<&glium::VertexBuffer<vertex::EpicenterVertex>>,
     layers: crate::frame_context::MapLayerConfig,
     levels: Option<&glium::texture::UnsignedTexture1d>,
 ) {
-    for (inset, camera) in insets {
+    for inset in inset::ALL_INSETS {
+        let camera = inset.camera();
+
         let mut draw_parameters = base.draw_parameters.clone();
         draw_parameters.viewport = Some(inset.viewport);
 
