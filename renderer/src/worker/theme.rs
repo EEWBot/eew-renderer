@@ -15,6 +15,9 @@ pub struct Theme {
     pub inset_background_color: [f32; 4],
     pub inset_border_color: [f32; 4],
     pub inset_border_width: f32,
+    pub inset_label_color: [f32; 4],
+    pub inset_label_font_size: f32,
+    pub inset_label_offset_y: i32,
 }
 
 pub const DEFAULT: Theme = Theme {
@@ -37,6 +40,9 @@ pub const DEFAULT: Theme = Theme {
     inset_background_color: [130.0 / 255.0, 188.0 / 255.0, 255.0 / 255.0, 1.0],
     inset_border_color: [90.0 / 255.0, 95.0 / 255.0, 100.0 / 255.0, 1.0],
     inset_border_width: 2.0,
+    inset_label_color: [0.0, 0.0, 0.0, 0.8],
+    inset_label_font_size: 22.0,
+    inset_label_offset_y: -6,
 };
 
 #[allow(dead_code)]
@@ -59,4 +65,7 @@ pub const DARK_DEMO: Theme = Theme {
     inset_background_color: [0.1, 0.12, 0.15, 1.0],
     inset_border_color: [0.8, 0.8, 0.8, 1.0],
     inset_border_width: 2.0,
+    inset_label_color: [1.0, 1.0, 1.0, 0.8],
+    inset_label_font_size: 22.0,
+    inset_label_offset_y: -6,
 };

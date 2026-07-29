@@ -109,9 +109,14 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
         .draw_text(
             label,
             Font::BizUDPGothicBold,
-            frame_context.theme.tsunami_legend_color,
-            Scale::uniform(22.0),
-            Offset::new(Origin::CenterDown, Origin::CenterDown, 0, -6),
+            theme.inset_label_color,
+            Scale::uniform(theme.inset_label_font_size),
+            Offset::new(
+                Origin::CenterDown,
+                Origin::CenterDown,
+                0,
+                theme.inset_label_offset_y,
+            ),
             frame_context.image_size.into(),
             frame_context.resources,
             frame_context.facade,
