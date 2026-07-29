@@ -119,14 +119,14 @@ fn log_gl_info<F: Facade>(facade: &F) {
     tracing::info!("GL_VERSION: {}", context.get_opengl_version_string());
 }
 
-pub struct FrameContext<'a, 'b, 'p, F: ?Sized + Facade, S: ?Sized + Surface> {
+pub struct FrameContext<'a, 'b, 'c, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
     pub image_size: Size<u32>, // TODO: Themeに移動する
     pub theme: &'a Theme,
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
-    pub draw_parameters: &'p DrawParameters<'p>,
+    pub draw_parameters: &'c DrawParameters<'c>,
     pub scale: f32,
     pub offset: Vertex<Mercator>,
 }

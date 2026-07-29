@@ -61,7 +61,7 @@ pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
         .shape
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &frame_context.resources.inset_background_vertex_buffer,
+            &frame_context.resources.inset.background_vertex_buffer,
             NoIndices(PrimitiveType::TriangleStrip),
             &ShapeUniform {
                 color: frame_context.theme.inset_background_color,
@@ -83,6 +83,7 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
 
     frame_context
         .resources
+        .inset
         .border_vertex_buffer
         .write(&border_vertices(width_x, width_y));
 
@@ -92,7 +93,7 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
         .shape
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &frame_context.resources.border_vertex_buffer,
+            &frame_context.resources.inset.border_vertex_buffer,
             NoIndices(PrimitiveType::TriangleStrip),
             &ShapeUniform {
                 color: theme.inset_border_color,

@@ -18,8 +18,7 @@ pub struct Resources<'a> {
     pub lake: Lake,
     pub world: World,
     pub texture: Texture,
-    pub border_vertex_buffer: VertexBuffer<ShapeVertex>,
-    pub inset_background_vertex_buffer: VertexBuffer<ShapeVertex>,
+    pub inset: Inset,
 }
 
 impl Resources<'_> {
@@ -29,31 +28,7 @@ impl Resources<'_> {
         let lake = Lake::load(facade);
         let world = World::load(facade);
         let texture = Texture::load(facade);
-
-        let border_vertex_buffer = VertexBuffer::dynamic(
-            facade,
-            &crate::worker::drawer_inset_frame::border_vertices(0.0, 0.0),
-        )
-        .unwrap();
-
-        let inset_background_vertex_buffer = VertexBuffer::immutable(
-            facade,
-            &[
-                ShapeVertex {
-                    position: [-1.0, -1.0],
-                },
-                ShapeVertex {
-                    position: [1.0, -1.0],
-                },
-                ShapeVertex {
-                    position: [-1.0, 1.0],
-                },
-                ShapeVertex {
-                    position: [1.0, 1.0],
-                },
-            ],
-        )
-        .unwrap();
+        let inset = Inset::load(facade);
 
         Self {
             shader,
@@ -61,8 +36,7 @@ impl Resources<'_> {
             lake,
             world,
             texture,
-            border_vertex_buffer,
-            inset_background_vertex_buffer,
+            inset,
         }
     }
 }
@@ -347,6 +321,46 @@ impl Texture {
             intensity,
             epicenter,
             overlay,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Inset {
+    pub border_vertex_buffer: VertexBuffer<ShapeVertex>,
+    pub background_vertex_buffer: VertexBuffer<ShapeVertex>,
+}
+
+impl Inset {
+    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
+        let border_vertex_buffer = VertexBuffer::dynamic(
+            facade,
+            &crate::worker::drawer_inset_frame::border_vertices(0.0, 0.0),
+        )
+        .unwrap();
+
+        let background_vertex_buffer = VertexBuffer::immutable(
+            facade,
+            &[
+                ShapeVertex {
+                    position: [-1.0, -1.0],
+                },
+                ShapeVertex {
+                    position: [1.0, -1.0],
+                },
+                ShapeVertex {
+                    position: [-1.0, 1.0],
+                },
+                ShapeVertex {
+                    position: [1.0, 1.0],
+                },
+            ],
+        )
+        .unwrap();
+
+        Self {
+            border_vertex_buffer,
+            background_vertex_buffer,
         }
     }
 }
