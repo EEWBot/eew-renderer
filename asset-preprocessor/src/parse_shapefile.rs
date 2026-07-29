@@ -212,10 +212,10 @@ pub fn read(
     HashMap<codes::地震情報細分区域, BoundingBox<GeoDegree>>, // area_bounding_box
     HashMap<codes::地震情報細分区域, Vertex<GeoDegree>>,      // area_centers
     Vec<(f32, f32)>,                                          // vertex_buffer
-    Vec<u32>,                                                 // map_indices
-    Vec<Vec<u32>>,                                            // area_lines
-    Vec<Vec<u32>>,                                            // pref_lines
-    Vec<(f32, usize)>,                                        // scale_level_map
+    [Vec<u32>; InsetRegion::COUNT], // map_indices (main / okinawa / ogasawara)
+    Vec<Vec<u32>>,                  // area_lines
+    Vec<Vec<u32>>,                  // pref_lines
+    Vec<(f32, usize)>,              // scale_level_map
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/earthquake_detailed/earthquake_detailed_simplified.shp",
@@ -234,13 +234,17 @@ pub fn read(
         .map(|area_rings| (area_rings.area_code, area_rings.bounding_box))
         .collect();
 
-    let map_indices = shapefile
-        .entries
-        .iter()
-        .flat_map(|area_rings| &area_rings.rings)
-        .flat_map(|r| r.triangulate())
-        .map(|p| vertex_buffer.insert(p.into()) as u32)
-        .collect();
+    let mut map_indices: [Vec<u32>; InsetRegion::COUNT] = Default::default();
+    for area_rings in &shapefile.entries {
+        let region = classify_saibunkuiki(area_rings.area_code.0);
+        map_indices[region.index()].extend(
+            area_rings
+                .rings
+                .iter()
+                .flat_map(|r| r.triangulate())
+                .map(|p| vertex_buffer.insert(p.into()) as u32),
+        );
+    }
 
     let references = PointReferences::tally_of(&shapefile, area_code__pref_code);
 
