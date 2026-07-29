@@ -18,6 +18,8 @@ pub struct Resources<'a> {
     pub lake: Lake,
     pub world: World,
     pub texture: Texture,
+    pub border_vertex_buffer: VertexBuffer<ShapeVertex>,
+    pub inset_background_vertex_buffer: VertexBuffer<ShapeVertex>,
 }
 
 impl Resources<'_> {
@@ -28,12 +30,39 @@ impl Resources<'_> {
         let world = World::load(facade);
         let texture = Texture::load(facade);
 
+        let border_vertex_buffer = VertexBuffer::dynamic(
+            facade,
+            &crate::worker::drawer_inset_frame::border_vertices(0.0, 0.0),
+        )
+        .unwrap();
+
+        let inset_background_vertex_buffer = VertexBuffer::immutable(
+            facade,
+            &[
+                ShapeVertex {
+                    position: [-1.0, -1.0],
+                },
+                ShapeVertex {
+                    position: [1.0, -1.0],
+                },
+                ShapeVertex {
+                    position: [-1.0, 1.0],
+                },
+                ShapeVertex {
+                    position: [1.0, 1.0],
+                },
+            ],
+        )
+        .unwrap();
+
         Self {
             shader,
             buffer,
             lake,
             world,
             texture,
+            border_vertex_buffer,
+            inset_background_vertex_buffer,
         }
     }
 }

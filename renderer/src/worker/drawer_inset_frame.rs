@@ -3,18 +3,72 @@ use crate::worker::vertex::{ShapeUniform, ShapeVertex};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
-use glium::{Surface, VertexBuffer};
+use glium::Surface;
 use rusttype::Scale;
 use std::ops::DerefMut;
+
+pub(in crate::worker) fn border_vertices(width_x: f32, width_y: f32) -> [ShapeVertex; 10] {
+    let inner_left = -1.0 + width_x;
+    let inner_right = 1.0 - width_x;
+    let inner_bottom = -1.0 + width_y;
+    let inner_top = 1.0 - width_y;
+
+    [
+        // 左上
+        ShapeVertex {
+            position: [-1.0, 1.0],
+        },
+        ShapeVertex {
+            position: [inner_left, inner_top],
+        },
+        // 右上
+        ShapeVertex {
+            position: [1.0, 1.0],
+        },
+        ShapeVertex {
+            position: [inner_right, inner_top],
+        },
+        // 右下
+        ShapeVertex {
+            position: [1.0, -1.0],
+        },
+        ShapeVertex {
+            position: [inner_right, inner_bottom],
+        },
+        // 左下
+        ShapeVertex {
+            position: [-1.0, -1.0],
+        },
+        ShapeVertex {
+            position: [inner_left, inner_bottom],
+        },
+        // 始点に戻して左辺を閉じる
+        ShapeVertex {
+            position: [-1.0, 1.0],
+        },
+        ShapeVertex {
+            position: [inner_left, inner_top],
+        },
+    ]
+}
 
 pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
 ) {
-    draw_quad(
-        frame_context,
-        (-1.0, -1.0, 1.0, 1.0),
-        frame_context.theme.inset_background_color,
-    );
+    frame_context
+        .resources
+        .shader
+        .shape
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            &frame_context.resources.inset_background_vertex_buffer,
+            NoIndices(PrimitiveType::TriangleStrip),
+            &ShapeUniform {
+                color: frame_context.theme.inset_background_color,
+            },
+            frame_context.draw_parameters,
+        )
+        .unwrap();
 }
 
 pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
@@ -27,27 +81,10 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     let width_x = 2.0 * theme.inset_border_width / image_size.x();
     let width_y = 2.0 * theme.inset_border_width / image_size.y();
 
-    let strips = [
-        (-1.0, -1.0, -1.0 + width_x, 1.0), // 左
-        (1.0 - width_x, -1.0, 1.0, 1.0),   // 右
-        (-1.0, 1.0 - width_y, 1.0, 1.0),   // 上
-        (-1.0, -1.0, 1.0, -1.0 + width_y), // 下
-    ];
-    let vertices: Vec<ShapeVertex> = strips
-        .iter()
-        .flat_map(|&(left, bottom, right, top)| {
-            [
-                [left, bottom],
-                [right, bottom],
-                [left, top],
-                [right, bottom],
-                [right, top],
-                [left, top],
-            ]
-        })
-        .map(|position| ShapeVertex { position })
-        .collect();
-    let vertices = VertexBuffer::dynamic(frame_context.facade, &vertices).unwrap();
+    frame_context
+        .resources
+        .border_vertex_buffer
+        .write(&border_vertices(width_x, width_y));
 
     frame_context
         .resources
@@ -55,8 +92,8 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
         .shape
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &vertices,
-            NoIndices(PrimitiveType::TrianglesList),
+            &frame_context.resources.border_vertex_buffer,
+            NoIndices(PrimitiveType::TriangleStrip),
             &ShapeUniform {
                 color: theme.inset_border_color,
             },
@@ -80,39 +117,4 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
             frame_context.surface.borrow_mut().deref_mut(),
             frame_context.draw_parameters,
         );
-}
-
-fn draw_quad<F: ?Sized + Facade, S: ?Sized + Surface>(
-    frame_context: &FrameContext<F, S>,
-    (left, bottom, right, top): (f32, f32, f32, f32),
-    color: [f32; 4],
-) {
-    let shape = [
-        ShapeVertex {
-            position: [left, bottom],
-        },
-        ShapeVertex {
-            position: [right, bottom],
-        },
-        ShapeVertex {
-            position: [left, top],
-        },
-        ShapeVertex {
-            position: [right, top],
-        },
-    ];
-    let shape = VertexBuffer::dynamic(frame_context.facade, &shape).unwrap();
-
-    frame_context
-        .resources
-        .shader
-        .shape
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &shape,
-            NoIndices(PrimitiveType::TriangleStrip),
-            &ShapeUniform { color },
-            frame_context.draw_parameters,
-        )
-        .unwrap();
 }
