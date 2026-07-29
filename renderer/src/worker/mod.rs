@@ -240,7 +240,7 @@ fn render_frame<F: ?Sized + Facade>(
 
     match &request_frame_context.payload {
         FramePayload::Earthquake(earthquake) => {
-            drawer_map::draw(&frame_context, map_layers, &InsetRegion::ALL);
+            drawer_map::draw(&frame_context, map_layers, None);
             drawer_intensity_icon::draw_all(&frame_context, earthquake);
             drawer_epicenter::draw(&frame_context, earthquake);
             drawer_overlay::draw(&frame_context, earthquake);
@@ -248,7 +248,7 @@ fn render_frame<F: ?Sized + Facade>(
         FramePayload::TsunamiFirst(tsunami) => {
             let insets = build_inset_cameras();
             let levels = drawer_tsunami_line::build_levels_texture(facade, tsunami);
-            drawer_map::draw(&frame_context, map_layers, &[InsetRegion::Main]);
+            drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
             drawer_tsunami_line::draw(&frame_context, InsetRegion::Main, &levels);
             drawer_tsunami_legends::draw(&frame_context, tsunami);
             drawer_epicenter::draw(&frame_context, tsunami);
@@ -263,7 +263,7 @@ fn render_frame<F: ?Sized + Facade>(
         }
         FramePayload::TsunamiSecond(tsunami) => {
             let insets = build_inset_cameras();
-            drawer_map::draw(&frame_context, map_layers, &[InsetRegion::Main]);
+            drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
             drawer_tsunami_legends::draw(&frame_context, tsunami);
             drawer_epicenter::draw(&frame_context, tsunami);
             draw_insets(&frame_context, &insets, tsunami.epicenter(), map_layers, None);
@@ -407,7 +407,7 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
         };
 
         drawer_inset_frame::draw_background(&frame_context);
-        drawer_map::draw(&frame_context, layers, &[inset.region]);
+        drawer_map::draw(&frame_context, layers, Some(inset.region));
         if let Some(levels) = levels {
             drawer_tsunami_line::draw(&frame_context, inset.region, levels);
         }

@@ -9,7 +9,7 @@ use std::ops::DerefMut;
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
     layers: MapLayerConfig,
-    regions: &[InsetRegion],
+    region: Option<InsetRegion>,
 ) {
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
@@ -38,45 +38,60 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             .unwrap();
     }
 
-    for region in regions {
-        resources
+    let map_uniform = MapUniform {
+        aspect_ratio,
+        offset,
+        zoom: scale,
+        color: theme.ground_color,
+    };
+    match region {
+        None => resources
             .shader
             .map
             .draw(
                 frame_context.surface.borrow_mut().deref_mut(),
                 &resources.buffer.map_vertex,
-                resources.buffer.get_map_by_region(*region),
+                resources.buffer.get_map_full(),
+                &map_uniform,
+                params,
+            )
+            .unwrap(),
+        Some(region) => resources
+            .shader
+            .map
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.buffer.map_vertex,
+                resources.buffer.get_map_by_region(region),
+                &map_uniform,
+                params,
+            )
+            .unwrap(),
+    }
+
+    // 描画するlakeは本土のみに存在するため、inset描画時はskip
+    if region.is_none_or(|region| region == InsetRegion::Main) {
+        resources
+            .shader
+            .map
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.lake.vertex,
+                &resources.lake.index,
                 &MapUniform {
                     aspect_ratio,
                     offset,
                     zoom: scale,
-                    color: theme.ground_color,
+                    color: [
+                        theme.clear_color[0],
+                        theme.clear_color[1],
+                        theme.clear_color[2],
+                    ],
                 },
                 params,
             )
             .unwrap();
     }
-
-    resources
-        .shader
-        .map
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &resources.lake.vertex,
-            &resources.lake.index,
-            &MapUniform {
-                aspect_ratio,
-                offset,
-                zoom: scale,
-                color: [
-                    theme.clear_color[0],
-                    theme.clear_color[1],
-                    theme.clear_color[2],
-                ],
-            },
-            params,
-        )
-        .unwrap();
 
     if layers.saibunkuiki_line {
         resources
@@ -99,7 +114,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     }
 
     // 県境線は本土のみに存在するため、Main を含む場合のみ描画
-    if regions.contains(&InsetRegion::Main) {
+    if region.is_none_or(|region| region == InsetRegion::Main) {
         resources
             .shader
             .border_line

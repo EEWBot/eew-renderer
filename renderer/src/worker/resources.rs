@@ -43,7 +43,8 @@ pub struct Buffer {
     pub map_vertex: VertexBuffer<MapVertex>,
     area_line: Vec<IndexBuffer<u32>>,
     pref_line: Vec<IndexBuffer<u32>>,
-    map: [IndexBuffer<u32>; InsetRegion::COUNT],
+    map: IndexBuffer<u32>,
+    map_ranges: [std::ops::Range<usize>; InsetRegion::COUNT],
     pub tsunami_vertex: VertexBuffer<TsunamiVertex>,
     tsunami_indices: [IndexBuffer<u32>; InsetRegion::COUNT],
 }
@@ -63,9 +64,18 @@ impl Buffer {
 
         let vertex = VertexBuffer::new(facade, &vertices).unwrap();
 
-        let map = geom
-            .map_triangles
-            .map(|i| IndexBuffer::new(facade, PrimitiveType::TrianglesList, i).unwrap());
+        let mut map_ranges: [std::ops::Range<usize>; InsetRegion::COUNT] = Default::default();
+        let mut cursor = 0;
+        for (range, indices) in map_ranges.iter_mut().zip(geom.map_triangles) {
+            *range = cursor..cursor + indices.len();
+            cursor += indices.len();
+        }
+        let map = IndexBuffer::new(
+            facade,
+            PrimitiveType::TrianglesList,
+            &geom.map_triangles.concat(),
+        )
+        .unwrap();
 
         let area_line: Vec<_> = geom
             .area_lines
@@ -95,6 +105,7 @@ impl Buffer {
         Buffer {
             map_vertex: vertex,
             map,
+            map_ranges,
             area_line,
             pref_line,
             tsunami_vertex,
@@ -102,8 +113,17 @@ impl Buffer {
         }
     }
 
-    pub fn get_map_by_region(&self, region: InsetRegion) -> &IndexBuffer<u32> {
-        &self.map[region.index()]
+    pub fn get_map_full(&self) -> &IndexBuffer<u32> {
+        &self.map
+    }
+
+    pub fn get_map_by_region(
+        &self,
+        region: InsetRegion,
+    ) -> glium::index::IndexBufferSlice<'_, u32> {
+        self.map
+            .slice(self.map_ranges[region.index()].clone())
+            .unwrap()
     }
 
     pub fn get_tsunami_indices_by_region(&self, region: InsetRegion) -> &IndexBuffer<u32> {

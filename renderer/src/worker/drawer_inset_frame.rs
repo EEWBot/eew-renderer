@@ -27,11 +27,42 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     let width_x = 2.0 * theme.inset_border_width / image_size.x();
     let width_y = 2.0 * theme.inset_border_width / image_size.y();
 
-    let color = theme.inset_border_color;
-    draw_quad(frame_context, (-1.0, -1.0, -1.0 + width_x, 1.0), color); // 左
-    draw_quad(frame_context, (1.0 - width_x, -1.0, 1.0, 1.0), color); // 右
-    draw_quad(frame_context, (-1.0, 1.0 - width_y, 1.0, 1.0), color); // 上
-    draw_quad(frame_context, (-1.0, -1.0, 1.0, -1.0 + width_y), color); // 下
+    let strips = [
+        (-1.0, -1.0, -1.0 + width_x, 1.0), // 左
+        (1.0 - width_x, -1.0, 1.0, 1.0),   // 右
+        (-1.0, 1.0 - width_y, 1.0, 1.0),   // 上
+        (-1.0, -1.0, 1.0, -1.0 + width_y), // 下
+    ];
+    let vertices: Vec<ShapeVertex> = strips
+        .iter()
+        .flat_map(|&(left, bottom, right, top)| {
+            [
+                [left, bottom],
+                [right, bottom],
+                [left, top],
+                [right, bottom],
+                [right, top],
+                [left, top],
+            ]
+        })
+        .map(|position| ShapeVertex { position })
+        .collect();
+    let vertices = VertexBuffer::dynamic(frame_context.facade, &vertices).unwrap();
+
+    frame_context
+        .resources
+        .shader
+        .shape
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            &vertices,
+            NoIndices(PrimitiveType::TrianglesList),
+            &ShapeUniform {
+                color: theme.inset_border_color,
+            },
+            frame_context.draw_parameters,
+        )
+        .unwrap();
 
     frame_context
         .font_manager
