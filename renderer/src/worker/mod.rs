@@ -1,4 +1,4 @@
-use crate::frame_context::{FramePayload, HasEpicenter};
+use crate::frame_context::{FramePayload, HasEpicenter, HasTime, HasTsunamiForecastLevels};
 use crate::model::Message;
 use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
@@ -246,33 +246,10 @@ fn render_frame<F: ?Sized + Facade>(
             drawer_overlay::draw(&frame_context, earthquake);
         }
         FramePayload::TsunamiFirst(tsunami) => {
-            let epicenter_buffer =
-                drawer_epicenter::create_vertex_buffer(facade, tsunami.epicenter());
-            let levels = drawer_tsunami_line::build_levels_texture(facade, tsunami);
-            drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
-            drawer_tsunami_line::draw(&frame_context, InsetRegion::Main, &levels);
-            drawer_tsunami_legends::draw(&frame_context, tsunami);
-            if let Some(buffer) = &epicenter_buffer {
-                drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
-            }
-            draw_insets(
-                &frame_context,
-                epicenter_buffer.as_ref(),
-                map_layers,
-                Some(&levels),
-            );
-            drawer_overlay::draw(&frame_context, tsunami);
+            draw_tsunami_frame(&frame_context, tsunami, map_layers, true);
         }
         FramePayload::TsunamiSecond(tsunami) => {
-            let epicenter_buffer =
-                drawer_epicenter::create_vertex_buffer(facade, tsunami.epicenter());
-            drawer_map::draw(&frame_context, map_layers, Some(InsetRegion::Main));
-            drawer_tsunami_legends::draw(&frame_context, tsunami);
-            if let Some(buffer) = &epicenter_buffer {
-                drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
-            }
-            draw_insets(&frame_context, epicenter_buffer.as_ref(), map_layers, None);
-            drawer_overlay::draw(&frame_context, tsunami);
+            draw_tsunami_frame(&frame_context, tsunami, map_layers, false);
         }
     }
 
@@ -379,6 +356,36 @@ pub fn calculate_bounding_box(payload: &FramePayload) -> BoundingBox<GeoDegree> 
             BoundingBox::new(Vertex::new(128.3, 30.0), Vertex::new(148.9, 45.5))
         }
     }
+}
+
+fn draw_tsunami_frame<F: ?Sized + Facade, S: ?Sized + Surface, T>(
+    frame_context: &FrameContext<F, S>,
+    payload: &T,
+    map_layers: crate::frame_context::MapLayerConfig,
+    with_lines: bool,
+) where
+    T: HasEpicenter + HasTime + HasTsunamiForecastLevels,
+{
+    let facade = frame_context.facade;
+
+    let epicenter_buffer = drawer_epicenter::create_vertex_buffer(facade, payload.epicenter());
+    let levels = with_lines.then(|| drawer_tsunami_line::build_levels_texture(facade, payload));
+
+    drawer_map::draw(frame_context, map_layers, Some(InsetRegion::Main));
+    if let Some(levels) = &levels {
+        drawer_tsunami_line::draw(frame_context, InsetRegion::Main, levels);
+    }
+    drawer_tsunami_legends::draw(frame_context, payload);
+    if let Some(buffer) = &epicenter_buffer {
+        drawer_epicenter::draw_vertex_buffer(frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
+    }
+    draw_insets(
+        frame_context,
+        epicenter_buffer.as_ref(),
+        map_layers,
+        levels.as_ref(),
+    );
+    drawer_overlay::draw(frame_context, payload);
 }
 
 fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(

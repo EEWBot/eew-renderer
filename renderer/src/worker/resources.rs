@@ -116,17 +116,15 @@ impl Buffer {
         }
     }
 
-    pub fn get_map_full(&self) -> &IndexBuffer<u32> {
-        &self.map
-    }
-
-    pub fn get_map_by_region(
+    pub fn get_map_slice(
         &self,
-        region: InsetRegion,
+        region: Option<InsetRegion>,
     ) -> glium::index::IndexBufferSlice<'_, u32> {
-        self.map
-            .slice(self.map_ranges[region.index()].clone())
-            .unwrap()
+        let range = match region {
+            Some(region) => self.map_ranges[region.index()].clone(),
+            None => 0..self.map.len(),
+        };
+        self.map.slice(range).unwrap()
     }
 
     pub fn get_tsunami_indices_by_region(&self, region: InsetRegion) -> &IndexBuffer<u32> {

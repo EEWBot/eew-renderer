@@ -19,6 +19,13 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let offset = frame_context.offset.into();
     let image_size: [f32; 2] = frame_context.image_size.to_f32().into();
 
+    let map_uniform = MapUniform {
+        aspect_ratio,
+        offset,
+        zoom: scale,
+        color: theme.ground_color,
+    };
+
     if layers.world {
         resources
             .shader
@@ -27,50 +34,28 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                 frame_context.surface.borrow_mut().deref_mut(),
                 &resources.world.vertex,
                 &resources.world.index,
-                &MapUniform {
-                    aspect_ratio,
-                    offset,
-                    zoom: scale,
-                    color: theme.ground_color,
-                },
+                &map_uniform,
                 params,
             )
             .unwrap();
     }
 
-    let map_uniform = MapUniform {
-        aspect_ratio,
-        offset,
-        zoom: scale,
-        color: theme.ground_color,
-    };
-    match region {
-        None => resources
-            .shader
-            .map
-            .draw(
-                frame_context.surface.borrow_mut().deref_mut(),
-                &resources.buffer.map_vertex,
-                resources.buffer.get_map_full(),
-                &map_uniform,
-                params,
-            )
-            .unwrap(),
-        Some(region) => resources
-            .shader
-            .map
-            .draw(
-                frame_context.surface.borrow_mut().deref_mut(),
-                &resources.buffer.map_vertex,
-                resources.buffer.get_map_by_region(region),
-                &map_uniform,
-                params,
-            )
-            .unwrap(),
-    }
+    resources
+        .shader
+        .map
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            &resources.buffer.map_vertex,
+            resources.buffer.get_map_slice(region),
+            &map_uniform,
+            params,
+        )
+        .unwrap();
 
-    // 描画するlakeは本土のみに存在するため、inset描画時はskip
-    if region.is_none_or(|region| region == InsetRegion::Main) {
+    // lakeと県境線は本土のみに存在するため、Main以外のinset描画時はskip
+    let draws_mainland = region.is_none_or(|region| region == InsetRegion::Main);
+
+    if draws_mainland {
         resources
             .shader
             .map
@@ -79,14 +64,12 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                 &resources.lake.vertex,
                 &resources.lake.index,
                 &MapUniform {
-                    aspect_ratio,
-                    offset,
-                    zoom: scale,
                     color: [
                         theme.clear_color[0],
                         theme.clear_color[1],
                         theme.clear_color[2],
                     ],
+                    ..map_uniform
                 },
                 params,
             )
@@ -113,8 +96,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             .unwrap();
     }
 
-    // 県境線は本土のみに存在するため、Main を含む場合のみ描画
-    if region.is_none_or(|region| region == InsetRegion::Main) {
+    if draws_mainland {
         resources
             .shader
             .border_line
