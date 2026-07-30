@@ -1,4 +1,5 @@
 use crate::worker::fonts::{Font, Offset, Origin};
+use crate::worker::inset::BorderSides;
 use crate::worker::vertex::{ShapeUniform, ShapeVertex};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
@@ -7,49 +8,31 @@ use glium::Surface;
 use rusttype::Scale;
 use std::ops::DerefMut;
 
-fn border_vertices(width_x: f32, width_y: f32) -> [ShapeVertex; 10] {
+fn push_quad(vertices: &mut Vec<ShapeVertex>, x0: f32, y0: f32, x1: f32, y1: f32) {
+    let quad = [[x0, y0], [x1, y0], [x1, y1], [x0, y0], [x1, y1], [x0, y1]];
+    vertices.extend(quad.map(|position| ShapeVertex { position }));
+}
+
+fn border_vertices(width_x: f32, width_y: f32, sides: &BorderSides) -> Vec<ShapeVertex> {
     let inner_left = -1.0 + width_x;
     let inner_right = 1.0 - width_x;
     let inner_bottom = -1.0 + width_y;
     let inner_top = 1.0 - width_y;
 
-    [
-        // 左上
-        ShapeVertex {
-            position: [-1.0, 1.0],
-        },
-        ShapeVertex {
-            position: [inner_left, inner_top],
-        },
-        // 右上
-        ShapeVertex {
-            position: [1.0, 1.0],
-        },
-        ShapeVertex {
-            position: [inner_right, inner_top],
-        },
-        // 右下
-        ShapeVertex {
-            position: [1.0, -1.0],
-        },
-        ShapeVertex {
-            position: [inner_right, inner_bottom],
-        },
-        // 左下
-        ShapeVertex {
-            position: [-1.0, -1.0],
-        },
-        ShapeVertex {
-            position: [inner_left, inner_bottom],
-        },
-        // 始点に戻して左辺を閉じる
-        ShapeVertex {
-            position: [-1.0, 1.0],
-        },
-        ShapeVertex {
-            position: [inner_left, inner_top],
-        },
-    ]
+    let mut vertices = Vec::with_capacity(24);
+    if sides.top {
+        push_quad(&mut vertices, -1.0, inner_top, 1.0, 1.0);
+    }
+    if sides.bottom {
+        push_quad(&mut vertices, -1.0, -1.0, 1.0, inner_bottom);
+    }
+    if sides.left {
+        push_quad(&mut vertices, -1.0, -1.0, inner_left, 1.0);
+    }
+    if sides.right {
+        push_quad(&mut vertices, inner_right, -1.0, 1.0, 1.0);
+    }
+    vertices
 }
 
 pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
@@ -73,6 +56,7 @@ pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
 
 pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
+    sides: &BorderSides,
     label: &str,
 ) {
     let theme = frame_context.theme;
@@ -81,26 +65,35 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     let width_x = 2.0 * theme.inset_border_width / image_size.x();
     let width_y = 2.0 * theme.inset_border_width / image_size.y();
 
-    frame_context
-        .resources
-        .inset
-        .border_vertex_buffer
-        .write(&border_vertices(width_x, width_y));
-
-    frame_context
-        .resources
-        .shader
-        .shape
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &frame_context.resources.inset.border_vertex_buffer,
-            NoIndices(PrimitiveType::TriangleStrip),
-            &ShapeUniform {
-                color: theme.inset_border_color,
+    let mut vertices = border_vertices(width_x, width_y, sides);
+    if !vertices.is_empty() {
+        vertices.resize(
+            frame_context.resources.inset.border_vertex_buffer.len(),
+            ShapeVertex {
+                position: [0.0, 0.0],
             },
-            frame_context.draw_parameters,
-        )
-        .unwrap();
+        );
+        frame_context
+            .resources
+            .inset
+            .border_vertex_buffer
+            .write(&vertices);
+
+        frame_context
+            .resources
+            .shader
+            .shape
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &frame_context.resources.inset.border_vertex_buffer,
+                NoIndices(PrimitiveType::TrianglesList),
+                &ShapeUniform {
+                    color: theme.inset_border_color,
+                },
+                frame_context.draw_parameters,
+            )
+            .unwrap();
+    }
 
     frame_context
         .font_manager

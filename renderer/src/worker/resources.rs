@@ -331,7 +331,7 @@ pub struct Inset {
 
 impl Inset {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let border_vertex_buffer = VertexBuffer::empty_dynamic(facade, 10).unwrap();
+        let border_vertex_buffer = VertexBuffer::empty_dynamic(facade, 24).unwrap();
 
         let background_vertex_buffer = VertexBuffer::immutable(
             facade,

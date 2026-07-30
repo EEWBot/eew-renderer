@@ -404,7 +404,7 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
         if let Some(levels) = levels {
             drawer_tsunami_line::draw(&frame_context, inset.region, levels);
         }
-        drawer_inset_frame::draw_border_and_label(&frame_context, inset.label);
+        drawer_inset_frame::draw_border_and_label(&frame_context, &inset.border_sides, inset.label);
         if let Some(buffer) = epicenter_buffer {
             let icon_ratio =
                 ICON_RATIO_IN_Y_AXIS * (DIMENSION.1 as f32 / inset.viewport.height as f32);

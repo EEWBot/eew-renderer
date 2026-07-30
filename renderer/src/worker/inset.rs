@@ -4,10 +4,27 @@ use renderer_types::{
     BoundingBox, GeoDegree, InsetRegion, Size, OGASAWARA_VIEW_BBOX, OKINAWA_VIEW_BBOX,
 };
 
+pub struct BorderSides {
+    pub top: bool,
+    pub bottom: bool,
+    pub left: bool,
+    pub right: bool,
+}
+
+impl BorderSides {
+    pub const ALL: Self = Self {
+        top: true,
+        bottom: true,
+        left: true,
+        right: true,
+    };
+}
+
 pub struct InsetPass {
     pub region: InsetRegion,
     pub view_bbox: BoundingBox<GeoDegree>,
     pub viewport: Rect,
+    pub border_sides: BorderSides,
     pub label: &'static str,
 }
 
@@ -15,10 +32,16 @@ pub const OKINAWA_INSET: InsetPass = InsetPass {
     region: InsetRegion::Okinawa,
     view_bbox: OKINAWA_VIEW_BBOX,
     viewport: Rect {
-        left: 10,
-        bottom: 413,
+        left: 0,
+        bottom: 423,
         width: 345,
         height: 345,
+    },
+    border_sides: BorderSides {
+        top: false,
+        bottom: true,
+        left: false,
+        right: true,
     },
     label: "沖縄",
 };
@@ -32,6 +55,7 @@ pub const OGASAWARA_INSET: InsetPass = InsetPass {
         width: 180,
         height: 330,
     },
+    border_sides: BorderSides::ALL,
     label: "小笠原",
 };
 
