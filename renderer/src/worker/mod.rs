@@ -30,6 +30,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
 
+mod camera;
 mod drawer_epicenter;
 mod drawer_inset_frame;
 mod drawer_intensity_icon;
@@ -48,8 +49,6 @@ mod theme;
 mod vertex;
 
 const DIMENSION: (u32, u32) = (1024, 768);
-const MAXIMUM_SCALE: f32 = 100.0;
-const SCALE_FACTOR: f32 = 1.2;
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
 pub async fn run(
@@ -185,15 +184,7 @@ fn render_frame<F: ?Sized + Facade>(
 
     let bounding_box = calculate_bounding_box(&request_frame_context.payload);
 
-    let rendering_bbox = BoundingBox::from_vertices_float(
-        &bounding_box
-            .gl_vertices()
-            .iter()
-            .map(|v| v.to_mercator())
-            .collect::<Vec<_>>(),
-    );
-    let offset = -rendering_bbox.center();
-    let scale = calculate_map_scale(rendering_bbox, image_size);
+    let camera = camera::Camera::fit(&bounding_box, image_size);
 
     let draw_parameters = DrawParameters {
         multisampling: false,
@@ -224,8 +215,8 @@ fn render_frame<F: ?Sized + Facade>(
         resources,
         font_manager,
         draw_parameters: &draw_parameters,
-        scale,
-        offset,
+        scale: camera.scale,
+        offset: camera.offset,
     };
 
     let clear_color = frame_context.theme.clear_color;
@@ -424,11 +415,4 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
             drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, icon_ratio);
         }
     }
-}
-
-fn calculate_map_scale(bounding_box: BoundingBox<Mercator>, image_size: Size<u32>) -> f32 {
-    let x_scale = 1.0 / bounding_box.size().x();
-    let y_scale = 1.0 / bounding_box.size().y() * image_size.aspect_ratio();
-
-    f32::min(f32::min(x_scale, y_scale) * 2.0, MAXIMUM_SCALE) / SCALE_FACTOR
 }

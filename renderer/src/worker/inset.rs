@@ -1,7 +1,7 @@
+use super::camera::Camera;
 use glium::Rect;
 use renderer_types::{
-    BoundingBox, GeoDegree, InsetRegion, Mercator, Size, Vertex, OGASAWARA_VIEW_BBOX,
-    OKINAWA_VIEW_BBOX,
+    BoundingBox, GeoDegree, InsetRegion, Size, OGASAWARA_VIEW_BBOX, OKINAWA_VIEW_BBOX,
 };
 
 pub struct InsetPass {
@@ -39,31 +39,9 @@ pub const ALL_INSETS: [&InsetPass; 2] = [&OKINAWA_INSET, &OGASAWARA_INSET];
 
 const INSET_SCALE_FACTOR: f32 = 1.2;
 
-pub struct InsetCamera {
-    pub offset: Vertex<Mercator>,
-    pub scale: f32,
-    pub image_size: Size<u32>,
-}
-
 impl InsetPass {
-    pub fn camera(&self) -> InsetCamera {
-        let rendering_bbox = BoundingBox::from_vertices_float(
-            &self
-                .view_bbox
-                .gl_vertices()
-                .iter()
-                .map(|v| v.to_mercator())
-                .collect::<Vec<_>>(),
-        );
-
+    pub fn camera(&self) -> Camera {
         let image_size = Size::new(self.viewport.width, self.viewport.height);
-        let offset = -rendering_bbox.center();
-        let scale = super::calculate_map_scale(rendering_bbox, image_size) * INSET_SCALE_FACTOR;
-
-        InsetCamera {
-            offset,
-            scale,
-            image_size,
-        }
+        Camera::fit(&self.view_bbox, image_size).zoomed(INSET_SCALE_FACTOR)
     }
 }
