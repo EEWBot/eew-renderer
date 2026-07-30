@@ -36,7 +36,8 @@ where
         .iter()
         .enumerate()
         .for_each(|(i, forecast_level)| {
-            let (shape, text_origin) = calculate_legend_position(frame_context.image_size, i);
+            let (shape, text_origin) =
+                calculate_legend_position(frame_context.camera.image_size, i);
             let shape = VertexBuffer::dynamic(facade, &shape).unwrap();
 
             let color = match forecast_level {
@@ -75,7 +76,7 @@ where
                         text_origin.0,
                         text_origin.1,
                     ),
-                    frame_context.image_size.into(),
+                    frame_context.camera.image_size.into(),
                     resources,
                     facade,
                     frame_context.surface.borrow_mut().deref_mut(),

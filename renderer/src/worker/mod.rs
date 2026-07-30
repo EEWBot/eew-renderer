@@ -1,5 +1,6 @@
 use crate::frame_context::{FramePayload, HasEpicenter, HasTime, HasTsunamiForecastLevels};
 use crate::model::Message;
+use crate::worker::camera::Camera;
 use crate::worker::fonts::FontManager;
 use crate::worker::theme::Theme;
 use glium::backend::Facade;
@@ -122,13 +123,11 @@ fn log_gl_info<F: Facade>(facade: &F) {
 pub struct FrameContext<'a, 'b, 'c, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
-    pub image_size: Size<u32>, // TODO: Themeに移動する
     pub theme: &'a Theme,
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
     pub draw_parameters: &'c DrawParameters<'c>,
-    pub scale: f32,
-    pub offset: Vertex<Mercator>,
+    pub camera: Camera,
 }
 
 #[derive(Default)]
@@ -211,13 +210,11 @@ fn render_frame<F: ?Sized + Facade>(
     let frame_context = FrameContext {
         facade,
         surface: frame_buffer.clone(),
-        image_size,
         theme: &theme::DEFAULT,
         resources,
         font_manager,
         draw_parameters: &draw_parameters,
-        scale: camera.scale,
-        offset: camera.offset,
+        camera,
     };
 
     let clear_color = frame_context.theme.clear_color;
@@ -395,13 +392,11 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
         let frame_context = FrameContext {
             facade: base.facade,
             surface: base.surface.clone(),
-            image_size: camera.image_size,
             theme: base.theme,
             resources: base.resources,
             font_manager: base.font_manager.clone(),
             draw_parameters: &draw_parameters,
-            scale: camera.scale,
-            offset: camera.offset,
+            camera,
         };
 
         drawer_inset_frame::draw_background(&frame_context);

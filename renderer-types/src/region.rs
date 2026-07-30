@@ -30,24 +30,26 @@ pub const SAIBUNKUIKI_CODES_OKINAWA: &[u32] =
 /// 359: 東京都小笠原
 pub const SAIBUNKUIKI_CODES_OGASAWARA: &[u32] = &[359];
 
-pub fn classify_tsunami_area(code: u32) -> InsetRegion {
-    if TSUNAMI_AREA_CODES_OKINAWA.contains(&code) {
+fn classify(code: u32, okinawa: &[u32], ogasawara: &[u32]) -> InsetRegion {
+    if okinawa.contains(&code) {
         InsetRegion::Okinawa
-    } else if TSUNAMI_AREA_CODES_OGASAWARA.contains(&code) {
+    } else if ogasawara.contains(&code) {
         InsetRegion::Ogasawara
     } else {
         InsetRegion::Main
     }
 }
 
+pub fn classify_tsunami_area(code: u32) -> InsetRegion {
+    classify(
+        code,
+        TSUNAMI_AREA_CODES_OKINAWA,
+        TSUNAMI_AREA_CODES_OGASAWARA,
+    )
+}
+
 pub fn classify_saibunkuiki(code: u32) -> InsetRegion {
-    if SAIBUNKUIKI_CODES_OKINAWA.contains(&code) {
-        InsetRegion::Okinawa
-    } else if SAIBUNKUIKI_CODES_OGASAWARA.contains(&code) {
-        InsetRegion::Ogasawara
-    } else {
-        InsetRegion::Main
-    }
+    classify(code, SAIBUNKUIKI_CODES_OKINAWA, SAIBUNKUIKI_CODES_OGASAWARA)
 }
 
 /// ((与那国島西, 波照間島南), (北大東島東, 口之島北))

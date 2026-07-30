@@ -40,9 +40,9 @@ pub fn draw_vertex_buffer<F: ?Sized + Facade, S: ?Sized + Surface>(
             vertex_buffer,
             NoIndices(PrimitiveType::Points),
             &EpicenterUniform {
-                aspect_ratio: frame_context.image_size.aspect_ratio(),
-                offset: frame_context.offset.into(),
-                zoom: frame_context.scale,
+                aspect_ratio: frame_context.camera.image_size.aspect_ratio(),
+                offset: frame_context.camera.offset.into(),
+                zoom: frame_context.camera.scale,
                 icon_ratio_in_y_axis,
                 texture_sampler: &resources.texture.epicenter,
             },

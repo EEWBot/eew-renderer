@@ -76,7 +76,7 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     label: &str,
 ) {
     let theme = frame_context.theme;
-    let image_size = frame_context.image_size.to_f32();
+    let image_size = frame_context.camera.image_size.to_f32();
 
     let width_x = 2.0 * theme.inset_border_width / image_size.x();
     let width_y = 2.0 * theme.inset_border_width / image_size.y();
@@ -117,7 +117,7 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
                 0,
                 theme.inset_label_offset_y,
             ),
-            frame_context.image_size.into(),
+            frame_context.camera.image_size.into(),
             frame_context.resources,
             frame_context.facade,
             frame_context.surface.borrow_mut().deref_mut(),

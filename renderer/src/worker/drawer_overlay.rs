@@ -23,8 +23,8 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
     let draw_parameters = frame_context.draw_parameters;
     let theme = frame_context.theme;
 
-    let rights_position = calculate_rights_notation_position(frame_context.image_size);
-    let watermark_position = calculate_watermark_position(frame_context.image_size);
+    let rights_position = calculate_rights_notation_position(frame_context.camera.image_size);
+    let watermark_position = calculate_watermark_position(frame_context.camera.image_size);
 
     let vertices = [
         TexturedVertex {
@@ -96,7 +96,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
             theme.occurrence_time_color,
             Scale::uniform(20.0), // TODO: calculate from dimension
             Offset::new(Origin::RightDown, Origin::RightDown, -20, -20),
-            frame_context.image_size.into(),
+            frame_context.camera.image_size.into(),
             resources,
             facade,
             frame_context.surface.borrow_mut().deref_mut(),

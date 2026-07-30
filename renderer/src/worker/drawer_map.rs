@@ -14,10 +14,10 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
     let resources = frame_context.resources;
-    let scale = frame_context.scale;
-    let aspect_ratio = frame_context.image_size.aspect_ratio();
-    let offset = frame_context.offset.into();
-    let image_size: [f32; 2] = frame_context.image_size.to_f32().into();
+    let scale = frame_context.camera.scale;
+    let aspect_ratio = frame_context.camera.image_size.aspect_ratio();
+    let offset = frame_context.camera.offset.into();
+    let image_size: [f32; 2] = frame_context.camera.image_size.to_f32().into();
 
     let map_uniform = MapUniform {
         aspect_ratio,

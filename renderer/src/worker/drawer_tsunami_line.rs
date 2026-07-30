@@ -53,8 +53,8 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     levels: &UnsignedTexture1d,
 ) {
     let resources = frame_context.resources;
-    let offset = frame_context.offset;
-    let scale = frame_context.scale;
+    let offset = frame_context.camera.offset;
+    let scale = frame_context.camera.scale;
     let draw_parameters = frame_context.draw_parameters;
     let theme = frame_context.theme;
 
@@ -69,7 +69,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                 .buffer
                 .get_tsunami_indices_by_region(region),
             &TsunamiUniform {
-                dimension: frame_context.image_size.to_f32().into(),
+                dimension: frame_context.camera.image_size.to_f32().into(),
                 offset: offset.into(),
                 zoom: scale,
                 colors: theme.tsunami_colors,

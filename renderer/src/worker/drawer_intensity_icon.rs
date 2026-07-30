@@ -31,9 +31,9 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
 ) {
     let facade = frame_context.facade;
     let resources = frame_context.resources;
-    let aspect_ratio = frame_context.image_size.aspect_ratio();
-    let offset = frame_context.offset;
-    let scale = frame_context.scale;
+    let aspect_ratio = frame_context.camera.image_size.aspect_ratio();
+    let offset = frame_context.camera.offset;
+    let scale = frame_context.camera.scale;
     let draw_parameters = frame_context.draw_parameters;
 
     let per_icon_data: Vec<_> = earthquake_payload
