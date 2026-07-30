@@ -49,6 +49,7 @@ mod theme;
 mod vertex;
 
 const DIMENSION: (u32, u32) = (1024, 768);
+const MAP_MARGIN_FACTOR: f32 = 1.2;
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
 pub async fn run(
@@ -184,7 +185,7 @@ fn render_frame<F: ?Sized + Facade>(
 
     let bounding_box = calculate_bounding_box(&request_frame_context.payload);
 
-    let camera = camera::Camera::fit(&bounding_box, image_size);
+    let camera = camera::Camera::fit(&bounding_box, image_size).with_margin(MAP_MARGIN_FACTOR);
 
     let draw_parameters = DrawParameters {
         multisampling: false,
