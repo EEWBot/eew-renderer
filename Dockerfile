@@ -40,7 +40,11 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
 	apt-get update && apt-get install -y \
 	libx11-6 libxcursor1 libx11-xcb1 libxi6 libxkbcommon-x11-0 \
 	libgl1 libgl1-mesa-dri libgl1-nvidia-glvnd-glx \
+	libegl1 libegl-mesa0 \
 	&& rm -rf /var/lib/apt/lists/*
+
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility
 
 COPY --chown=root:root --from=build-env \
 	/usr/src/eew-renderer/CREDITS \
