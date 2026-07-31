@@ -5,6 +5,33 @@ use renderer_types::{GeoDegree, Vertex};
 pub struct ResolvedNotch {
     pub a: [f32; 2],
     pub b: [f32; 2],
+    pub kept_polygon: KeptPolygon,
+}
+
+impl ResolvedNotch {
+    pub fn side(&self, p: [f32; 2]) -> f32 {
+        (self.b[0] - self.a[0]) * (p[1] - self.a[1]) - (self.b[1] - self.a[1]) * (p[0] - self.a[0])
+    }
+
+    pub fn keep_sign(&self) -> f32 {
+        self.side([0.0, 0.0]).signum()
+    }
+}
+
+pub struct KeptPolygon {
+    points: [[f32; 2]; 5],
+    len: usize,
+}
+
+impl KeptPolygon {
+    pub fn as_slice(&self) -> &[[f32; 2]] {
+        &self.points[..self.len]
+    }
+
+    fn push(&mut self, p: [f32; 2]) {
+        self.points[self.len] = p;
+        self.len += 1;
+    }
 }
 
 fn to_ndc(camera: &Camera, geo: Vertex<GeoDegree>) -> [f32; 2] {
@@ -38,32 +65,39 @@ pub fn resolve(camera: &Camera, notch: &NotchLine) -> ResolvedNotch {
     let b = to_ndc(camera, notch.to);
     let dir = [b[0] - a[0], b[1] - a[1]];
     let (a, b) = clip_line_to_square(a, dir);
-    ResolvedNotch { a, b }
+    let mut resolved = ResolvedNotch {
+        a,
+        b,
+        kept_polygon: KeptPolygon {
+            points: [[0.0, 0.0]; 5],
+            len: 0,
+        },
+    };
+    resolved.kept_polygon = kept_polygon(&resolved);
+    resolved
 }
 
-pub fn kept_polygon(notch: &ResolvedNotch) -> Vec<[f32; 2]> {
+fn kept_polygon(notch: &ResolvedNotch) -> KeptPolygon {
     let square = [[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]];
 
-    let side = |p: [f32; 2]| -> f32 {
-        (notch.b[0] - notch.a[0]) * (p[1] - notch.a[1])
-            - (notch.b[1] - notch.a[1]) * (p[0] - notch.a[0])
+    let keep_sign = notch.keep_sign();
+
+    let mut result = KeptPolygon {
+        points: [[0.0, 0.0]; 5],
+        len: 0,
     };
-
-    let keep_sign = side([0.0, 0.0]).signum();
-
-    let mut result = Vec::with_capacity(5);
     for i in 0..square.len() {
         let current = square[i];
         let next = square[(i + 1) % square.len()];
-        let current_inside = side(current) * keep_sign >= 0.0;
-        let next_inside = side(next) * keep_sign >= 0.0;
+        let current_inside = notch.side(current) * keep_sign >= 0.0;
+        let next_inside = notch.side(next) * keep_sign >= 0.0;
 
         if current_inside {
             result.push(current);
         }
         if current_inside != next_inside {
-            let d_current = side(current);
-            let d_next = side(next);
+            let d_current = notch.side(current);
+            let d_next = notch.side(next);
             let t = d_current / (d_current - d_next);
             result.push([
                 current[0] + t * (next[0] - current[0]),

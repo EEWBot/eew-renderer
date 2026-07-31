@@ -21,6 +21,9 @@ fn border_vertices(width_x: f32, width_y: f32, sides: &BorderSides) -> Vec<Shape
     let inner_bottom = -1.0 + width_y;
     let inner_top = 1.0 - width_y;
 
+    let side_bottom = if sides.bottom { inner_bottom } else { -1.0 };
+    let side_top = if sides.top { inner_top } else { 1.0 };
+
     let mut vertices = Vec::with_capacity(30);
     if sides.top {
         push_quad(&mut vertices, -1.0, inner_top, 1.0, 1.0);
@@ -29,10 +32,10 @@ fn border_vertices(width_x: f32, width_y: f32, sides: &BorderSides) -> Vec<Shape
         push_quad(&mut vertices, -1.0, -1.0, 1.0, inner_bottom);
     }
     if sides.left {
-        push_quad(&mut vertices, -1.0, -1.0, inner_left, 1.0);
+        push_quad(&mut vertices, -1.0, side_bottom, inner_left, side_top);
     }
     if sides.right {
-        push_quad(&mut vertices, inner_right, -1.0, 1.0, 1.0);
+        push_quad(&mut vertices, inner_right, side_bottom, 1.0, side_top);
     }
     vertices
 }
@@ -41,17 +44,16 @@ pub fn draw_stencil_mask<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
     notch: &ResolvedNotch,
 ) {
-    let polygon = crate::worker::notch::kept_polygon(notch);
-
-    let buffer = &frame_context.resources.inset.notch_mask_vertex_buffer;
-    let mut vertices: Vec<_> = polygon
-        .into_iter()
-        .map(|position| ShapeVertex { position })
+    let vertices: Vec<_> = notch
+        .kept_polygon
+        .as_slice()
+        .iter()
+        .map(|&position| ShapeVertex { position })
         .collect();
 
-    let last = *vertices.last().unwrap();
-    vertices.resize(buffer.len(), last);
-    buffer.write(&vertices);
+    let buffer = &frame_context.resources.inset.notch_mask_vertex_buffer;
+    let slice = buffer.slice(0..vertices.len()).unwrap();
+    slice.write(&vertices);
 
     let mut draw_parameters = frame_context.draw_parameters.clone();
     draw_parameters.color_mask = (false, false, false, false);
@@ -64,7 +66,7 @@ pub fn draw_stencil_mask<F: ?Sized + Facade, S: ?Sized + Surface>(
         .shape
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            buffer,
+            slice,
             NoIndices(PrimitiveType::TriangleFan),
             &ShapeUniform {
                 color: [0.0, 0.0, 0.0, 0.0],
@@ -107,10 +109,10 @@ fn push_notch_border(
     let normal = [-dir[1] / length, dir[0] / length];
 
     let mut offset = [normal[0] * width_x, normal[1] * width_y];
-    if offset[0] * ax + offset[1] * ay > 0.0 {
+    if notch.side([ax + offset[0], ay + offset[1]]).signum() != notch.keep_sign() {
         offset = [-offset[0], -offset[1]];
     }
-    
+
     let inner_a = [ax + offset[0], ay + offset[1]];
     let inner_b = [bx + offset[0], by + offset[1]];
 
@@ -123,17 +125,19 @@ fn label_offset_x(notch: Option<&ResolvedNotch>, viewport_width: f32) -> i32 {
         return 0;
     };
     const EPSILON: f32 = 1e-3;
-    let bottom_xs: Vec<f32> = crate::worker::notch::kept_polygon(notch)
+    let (min, max, count) = notch
+        .kept_polygon
+        .as_slice()
         .iter()
         .filter(|[_, y]| *y <= -1.0 + EPSILON)
-        .map(|[x, _]| *x)
-        .collect();
-    if bottom_xs.len() < 2 {
+        .fold(
+            (f32::INFINITY, f32::NEG_INFINITY, 0usize),
+            |(min, max, count), [x, _]| (min.min(*x), max.max(*x), count + 1),
+        );
+    if count < 2 {
         return 0;
     }
-    let min = bottom_xs.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-    let max = bottom_xs.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
-    
+
     ((min + max) / 2.0 * viewport_width / 2.0).round() as i32
 }
 
@@ -153,19 +157,11 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     if let Some(notch) = notch {
         push_notch_border(&mut vertices, notch, width_x, width_y);
     }
-    
+
     if !vertices.is_empty() {
-        vertices.resize(
-            frame_context.resources.inset.border_vertex_buffer.len(),
-            ShapeVertex {
-                position: [0.0, 0.0],
-            },
-        );
-        frame_context
-            .resources
-            .inset
-            .border_vertex_buffer
-            .write(&vertices);
+        let buffer = &frame_context.resources.inset.border_vertex_buffer;
+        let slice = buffer.slice(0..vertices.len()).unwrap();
+        slice.write(&vertices);
 
         frame_context
             .resources
@@ -173,7 +169,7 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
             .shape
             .draw(
                 frame_context.surface.borrow_mut().deref_mut(),
-                &frame_context.resources.inset.border_vertex_buffer,
+                slice,
                 NoIndices(PrimitiveType::TrianglesList),
                 &ShapeUniform {
                     color: theme.inset_border_color,
