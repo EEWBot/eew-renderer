@@ -1,4 +1,4 @@
-FROM rust:1.97.1-bookworm AS build-env
+FROM rust:1.97.1-trixie AS build-env
 LABEL maintainer="yanorei32"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -32,7 +32,7 @@ RUN cargo build --release
 COPY . /usr/src/eew-renderer/
 RUN touch  assets/* src/* && cargo build --release
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 WORKDIR /
 
