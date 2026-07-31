@@ -425,8 +425,8 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
             drawer_tsunami_line::draw(&frame_context, inset.region, levels);
         }
         if let Some(buffer) = epicenter_buffer {
-            let icon_ratio =
-                ICON_RATIO_IN_Y_AXIS * (DIMENSION.1 as f32 / inset.viewport.height as f32);
+            let icon_ratio = ICON_RATIO_IN_Y_AXIS
+                * (base.camera.image_size.y() as f32 / inset.viewport.height as f32);
             drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, icon_ratio);
         }
         drawer_inset_frame::draw_border_and_label(
