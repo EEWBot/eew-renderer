@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - 'master'
+      - 'dev'
     tags:
       - v*
 
@@ -22,7 +23,7 @@ env:
 
 jobs:
   release_windows:
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && github.ref_name == 'master' }}
     permissions:
       contents: write
 
@@ -105,7 +106,7 @@ jobs:
             *.zip
 
   release_linux:
-    if: ${{ github.event_name != 'pull_request' }}
+    if: ${{ github.event_name != 'pull_request' && github.ref_name == 'master' }}
     continue-on-error: false
     strategy:
       fail-fast: false
