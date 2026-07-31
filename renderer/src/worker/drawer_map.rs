@@ -1,20 +1,44 @@
+use crate::frame_context::MapLayerConfig;
 use crate::worker::vertex::{BorderLineUniform, MapUniform};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::Surface;
+use renderer_types::InsetRegion;
 use std::ops::DerefMut;
 
 pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
-    has_saibunkuiki: bool,
+    layers: MapLayerConfig,
+    region: Option<InsetRegion>,
 ) {
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
     let resources = frame_context.resources;
-    let scale = frame_context.scale;
-    let aspect_ratio = frame_context.image_size.aspect_ratio();
-    let offset = frame_context.offset.into();
-    let image_size: [f32; 2] = frame_context.image_size.to_f32().into();
+    let scale = frame_context.camera.scale;
+    let aspect_ratio = frame_context.camera.image_size.aspect_ratio();
+    let offset = frame_context.camera.offset.into();
+    let image_size: [f32; 2] = frame_context.camera.image_size.to_f32().into();
+
+    let map_uniform = MapUniform {
+        aspect_ratio,
+        offset,
+        zoom: scale,
+        color: theme.ground_color,
+    };
+
+    if layers.world {
+        resources
+            .shader
+            .map
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.world.vertex,
+                &resources.world.index,
+                &map_uniform,
+                params,
+            )
+            .unwrap();
+    }
 
     resources
         .shader
@@ -22,39 +46,37 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
             &resources.buffer.map_vertex,
-            &resources.buffer.map,
-            &MapUniform {
-                aspect_ratio,
-                offset,
-                zoom: scale,
-                color: theme.ground_color,
-            },
+            resources.buffer.get_map_slice(region),
+            &map_uniform,
             params,
         )
         .unwrap();
 
-    resources
-        .shader
-        .map
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &resources.lake.vertex,
-            &resources.lake.index,
-            &MapUniform {
-                aspect_ratio,
-                offset,
-                zoom: scale,
-                color: [
-                    theme.clear_color[0],
-                    theme.clear_color[1],
-                    theme.clear_color[2],
-                ],
-            },
-            params,
-        )
-        .unwrap();
+    // lakeと県境線は本土のみに存在するため、Main以外のinset描画時はskip
+    let draws_mainland = region.is_none_or(|region| region == InsetRegion::Main);
 
-    if has_saibunkuiki {
+    if draws_mainland {
+        resources
+            .shader
+            .map
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.lake.vertex,
+                &resources.lake.index,
+                &MapUniform {
+                    color: [
+                        theme.clear_color[0],
+                        theme.clear_color[1],
+                        theme.clear_color[2],
+                    ],
+                    ..map_uniform
+                },
+                params,
+            )
+            .unwrap();
+    }
+
+    if layers.saibunkuiki_line {
         resources
             .shader
             .border_line
@@ -74,21 +96,23 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
             .unwrap();
     }
 
-    resources
-        .shader
-        .border_line
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &resources.buffer.map_vertex,
-            resources.buffer.get_pref_line_by_scale(scale).unwrap(),
-            &BorderLineUniform {
-                dimension: image_size,
-                offset,
-                zoom: scale,
-                line_width: theme.prefectural_border_width,
-                color: theme.prefectural_border_color,
-            },
-            params,
-        )
-        .unwrap();
+    if draws_mainland {
+        resources
+            .shader
+            .border_line
+            .draw(
+                frame_context.surface.borrow_mut().deref_mut(),
+                &resources.buffer.map_vertex,
+                resources.buffer.get_pref_line_by_scale(scale).unwrap(),
+                &BorderLineUniform {
+                    dimension: image_size,
+                    offset,
+                    zoom: scale,
+                    line_width: theme.prefectural_border_width,
+                    color: theme.prefectural_border_color,
+                },
+                params,
+            )
+            .unwrap();
+    }
 }

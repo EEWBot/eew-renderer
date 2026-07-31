@@ -36,7 +36,8 @@ where
         .iter()
         .enumerate()
         .for_each(|(i, forecast_level)| {
-            let (shape, text_origin) = calculate_legend_position(frame_context.image_size, i);
+            let (shape, text_origin) =
+                calculate_legend_position(frame_context.camera.image_size, i);
             let shape = VertexBuffer::dynamic(facade, &shape).unwrap();
 
             let color = match forecast_level {
@@ -75,7 +76,7 @@ where
                         text_origin.0,
                         text_origin.1,
                     ),
-                    frame_context.image_size.into(),
+                    frame_context.camera.image_size.into(),
                     resources,
                     facade,
                     frame_context.surface.borrow_mut().deref_mut(),
@@ -91,10 +92,10 @@ fn calculate_legend_position(
     index: usize,
 ) -> ([ShapeVertex; 4], (i32, i32)) {
     let image_size = image_size.to_f32();
-    let text_origin = (-300, -240 - 26 * index as i32);
+    let text_origin = (-300, -76 - 26 * index as i32);
 
     let x_origin = 1.0 - 300.0 / (image_size.x() / 2.0);
-    let y_origin = -1.0 + (240.0 + 26.0 * index as f32) / (image_size.y() / 2.0);
+    let y_origin = -1.0 + (76.0 + 26.0 * index as f32) / (image_size.y() / 2.0);
     let shape_text_gap = 15.0 / (image_size.x() / 2.0);
     let shape_shape_gap = 10.4 / (image_size.y() / 2.0);
     let shape_width = 46.8 / (image_size.x() / 2.0);

@@ -12,6 +12,12 @@ pub struct Theme {
     pub tsunami_width: f32,
     pub tsunami_legend_color: [f32; 4],
     pub occurrence_time_color: [f32; 4],
+    pub inset_background_color: [f32; 4],
+    pub inset_border_color: [f32; 4],
+    pub inset_border_width: f32,
+    pub inset_label_color: [f32; 4],
+    pub inset_label_font_size: f32,
+    pub inset_label_offset_y: i32,
 }
 
 pub const DEFAULT: Theme = Theme {
@@ -31,6 +37,12 @@ pub const DEFAULT: Theme = Theme {
     tsunami_width: 3.0,
     tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
     occurrence_time_color: [0.0, 0.0, 0.0, 0.63],
+    inset_background_color: [130.0 / 255.0, 188.0 / 255.0, 255.0 / 255.0, 1.0],
+    inset_border_color: [150.0 / 255.0, 155.0 / 255.0, 160.0 / 255.0, 1.0],
+    inset_border_width: 3.0,
+    inset_label_color: [0.0, 0.0, 0.0, 0.8],
+    inset_label_font_size: 22.0,
+    inset_label_offset_y: -6,
 };
 
 #[allow(dead_code)]
@@ -50,4 +62,10 @@ pub const DARK_DEMO: Theme = Theme {
     tsunami_width: 8.0,
     tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
     occurrence_time_color: [1.0, 1.0, 1.0, 0.63],
+    inset_background_color: [0.1, 0.12, 0.15, 1.0],
+    inset_border_color: [0.55, 0.55, 0.55, 1.0],
+    inset_border_width: 3.0,
+    inset_label_color: [1.0, 1.0, 1.0, 0.8],
+    inset_label_font_size: 22.0,
+    inset_label_offset_y: -6,
 };

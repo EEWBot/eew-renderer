@@ -9,13 +9,16 @@ use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::{IndexBuffer, Texture2d, VertexBuffer};
+use renderer_types::InsetRegion;
 
 #[derive(Debug)]
 pub struct Resources<'a> {
     pub shader: Shader<'a>,
     pub buffer: Buffer,
     pub lake: Lake,
+    pub world: World,
     pub texture: Texture,
+    pub inset: Inset,
 }
 
 impl Resources<'_> {
@@ -23,13 +26,17 @@ impl Resources<'_> {
         let shader = Shader::load(facade);
         let buffer = Buffer::load(facade);
         let lake = Lake::load(facade);
+        let world = World::load(facade);
         let texture = Texture::load(facade);
+        let inset = Inset::load(facade);
 
         Self {
             shader,
             buffer,
             lake,
+            world,
             texture,
+            inset,
         }
     }
 }
@@ -39,9 +46,10 @@ pub struct Buffer {
     pub map_vertex: VertexBuffer<MapVertex>,
     area_line: Vec<IndexBuffer<u32>>,
     pref_line: Vec<IndexBuffer<u32>>,
-    pub map: IndexBuffer<u32>,
+    map: IndexBuffer<u32>,
+    map_ranges: [std::ops::Range<usize>; InsetRegion::COUNT],
     pub tsunami_vertex: VertexBuffer<TsunamiVertex>,
-    pub tsunami_indices: IndexBuffer<u32>,
+    tsunami_indices: [IndexBuffer<u32>; InsetRegion::COUNT],
 }
 
 impl Buffer {
@@ -59,8 +67,18 @@ impl Buffer {
 
         let vertex = VertexBuffer::new(facade, &vertices).unwrap();
 
-        let map =
-            IndexBuffer::new(facade, PrimitiveType::TrianglesList, geom.map_triangles).unwrap();
+        let mut cursor = 0;
+        let map_ranges = std::array::from_fn(|i| {
+            let start = cursor;
+            cursor += geom.map_triangles[i].len();
+            start..cursor
+        });
+        let map = IndexBuffer::new(
+            facade,
+            PrimitiveType::TrianglesList,
+            &geom.map_triangles.concat(),
+        )
+        .unwrap();
 
         let area_line: Vec<_> = geom
             .area_lines
@@ -83,17 +101,34 @@ impl Buffer {
             })
             .collect::<Vec<_>>();
         let tsunami_vertex = VertexBuffer::immutable(facade, &tsunami_vertex).unwrap();
-        let tsunami_indices =
-            IndexBuffer::immutable(facade, PrimitiveType::LineStrip, tsunami_geom.indices).unwrap();
+        let tsunami_indices = tsunami_geom
+            .indices
+            .map(|i| IndexBuffer::immutable(facade, PrimitiveType::LineStrip, i).unwrap());
 
         Buffer {
             map_vertex: vertex,
             map,
+            map_ranges,
             area_line,
             pref_line,
             tsunami_vertex,
             tsunami_indices,
         }
+    }
+
+    pub fn get_map_slice(
+        &self,
+        region: Option<InsetRegion>,
+    ) -> glium::index::IndexBufferSlice<'_, u32> {
+        let range = match region {
+            Some(region) => self.map_ranges[region.index()].clone(),
+            None => 0..self.map.len(),
+        };
+        self.map.slice(range).unwrap()
+    }
+
+    pub fn get_tsunami_indices_by_region(&self, region: InsetRegion) -> &IndexBuffer<u32> {
+        &self.tsunami_indices[region.index()]
     }
 
     pub fn get_area_line_by_scale(&self, scale: f32) -> Option<&IndexBuffer<u32>> {
@@ -134,13 +169,39 @@ impl Lake {
 }
 
 #[derive(Debug)]
+pub struct World {
+    pub vertex: VertexBuffer<MapVertex>,
+    pub index: IndexBuffer<u32>,
+}
+
+impl World {
+    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
+        let geom = renderer_assets::QueryInterface::world_geometries();
+
+        let vertex: Vec<_> = geom
+            .vertices
+            .iter()
+            .map(|v| MapVertex {
+                position: [v.0, v.1],
+            })
+            .collect();
+        let vertex = VertexBuffer::immutable(facade, &vertex).unwrap();
+
+        let index =
+            IndexBuffer::immutable(facade, PrimitiveType::TrianglesList, geom.indices).unwrap();
+
+        World { vertex, index }
+    }
+}
+
+#[derive(Debug)]
 pub struct Shader<'a> {
     pub border_line: ShaderProgram<BorderLineUniform, MapVertex>,
     pub epicenter: ShaderProgram<EpicenterUniform<'a>, EpicenterVertex>,
     pub intensity_icon: ShaderProgram<IntensityIconUniform<'a>, IntensityIconVertex>,
     pub map: ShaderProgram<MapUniform, MapVertex>,
     pub shape: ShaderProgram<ShapeUniform, ShapeVertex>,
-    pub tsunami: ShaderProgram<TsunamiUniform, TsunamiVertex>,
+    pub tsunami: ShaderProgram<TsunamiUniform<'a>, TsunamiVertex>,
     pub text: ShaderProgram<TextUniform<'a>, TextVertex>,
     pub textured: ShaderProgram<TexturedUniform<'a>, TexturedVertex>,
 }
@@ -258,6 +319,46 @@ impl Texture {
             intensity,
             epicenter,
             overlay,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Inset {
+    pub border_vertex_buffer: VertexBuffer<ShapeVertex>,
+    pub background_vertex_buffer: VertexBuffer<ShapeVertex>,
+    pub notch_mask_vertex_buffer: VertexBuffer<ShapeVertex>,
+}
+
+impl Inset {
+    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
+        let border_vertex_buffer = VertexBuffer::empty_dynamic(facade, 30).unwrap();
+
+        let notch_mask_vertex_buffer = VertexBuffer::empty_dynamic(facade, 5).unwrap();
+
+        let background_vertex_buffer = VertexBuffer::immutable(
+            facade,
+            &[
+                ShapeVertex {
+                    position: [-1.0, -1.0],
+                },
+                ShapeVertex {
+                    position: [1.0, -1.0],
+                },
+                ShapeVertex {
+                    position: [-1.0, 1.0],
+                },
+                ShapeVertex {
+                    position: [1.0, 1.0],
+                },
+            ],
+        )
+        .unwrap();
+
+        Self {
+            border_vertex_buffer,
+            background_vertex_buffer,
+            notch_mask_vertex_buffer,
         }
     }
 }

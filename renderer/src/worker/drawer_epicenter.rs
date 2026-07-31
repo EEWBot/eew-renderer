@@ -4,47 +4,60 @@ use crate::worker::FrameContext;
 use glium::backend::Facade;
 use glium::index::{NoIndices, PrimitiveType};
 use glium::{Surface, VertexBuffer};
+use renderer_types::{GeoDegree, Vertex};
 use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
-    frame_context: &FrameContext<F, S>,
-    rendering_context: &C,
-) {
-    let facade = frame_context.facade;
-    let resources = frame_context.resources;
-    let aspect_ratio = frame_context.image_size.aspect_ratio();
-    let offset = frame_context.offset;
-    let scale = frame_context.scale;
-    let draw_parameters = frame_context.draw_parameters;
-
-    if rendering_context.epicenter().is_empty() {
-        return;
+pub fn create_vertex_buffer<F: ?Sized + Facade>(
+    facade: &F,
+    epicenters: &[Vertex<GeoDegree>],
+) -> Option<VertexBuffer<EpicenterVertex>> {
+    if epicenters.is_empty() {
+        return None;
     }
 
-    let vb = rendering_context
-        .epicenter()
+    let vertices = epicenters
         .iter()
         .map(|epicenter| EpicenterVertex {
             position: (*epicenter).into(),
         })
         .collect::<Vec<_>>();
-    let vb = VertexBuffer::dynamic(facade, &vb).unwrap();
+
+    Some(VertexBuffer::dynamic(facade, &vertices).unwrap())
+}
+
+pub fn draw_vertex_buffer<F: ?Sized + Facade, S: ?Sized + Surface>(
+    frame_context: &FrameContext<F, S>,
+    vertex_buffer: &VertexBuffer<EpicenterVertex>,
+    icon_ratio_in_y_axis: f32,
+) {
+    let resources = frame_context.resources;
 
     resources
         .shader
         .epicenter
         .draw(
             frame_context.surface.borrow_mut().deref_mut(),
-            &vb,
+            vertex_buffer,
             NoIndices(PrimitiveType::Points),
             &EpicenterUniform {
-                aspect_ratio,
-                offset: offset.into(),
-                zoom: scale,
-                icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
+                aspect_ratio: frame_context.camera.image_size.aspect_ratio(),
+                offset: frame_context.camera.offset.into(),
+                zoom: frame_context.camera.scale,
+                icon_ratio_in_y_axis,
                 texture_sampler: &resources.texture.epicenter,
             },
-            draw_parameters,
+            frame_context.draw_parameters,
         )
         .unwrap();
+}
+
+pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
+    frame_context: &FrameContext<F, S>,
+    rendering_context: &C,
+) {
+    if let Some(vertex_buffer) =
+        create_vertex_buffer(frame_context.facade, rendering_context.epicenter())
+    {
+        draw_vertex_buffer(frame_context, &vertex_buffer, super::ICON_RATIO_IN_Y_AXIS);
+    }
 }
