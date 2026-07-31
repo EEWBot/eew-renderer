@@ -50,10 +50,10 @@ pub const OGASAWARA_INSET: InsetPass = InsetPass {
     region: InsetRegion::Ogasawara,
     view_bbox: OGASAWARA_VIEW_BBOX,
     viewport: Rect {
-        left: 834,
+        left: 780,
         bottom: 180,
         width: 180,
-        height: 330,
+        height: 260,
     },
     border_sides: BorderSides::ALL,
     label: "小笠原",
