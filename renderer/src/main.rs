@@ -42,6 +42,12 @@ struct Cli {
     #[clap(long, env)]
     #[clap(default_value_t = 512)]
     image_cache_capacity: u64,
+
+    #[clap(long, env, default_value_t = false)]
+    headless: bool,
+
+    #[clap(long, env, default_value_t = 0)]
+    egl_device_index: usize,
 }
 
 #[tokio::main]
@@ -57,6 +63,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "Minimum Response Interval: {}",
         cli.minimum_response_interval
     );
+    tracing::info!("Headless: {}", cli.headless);
 
     if cli.security_rules.bypass_hmac {
         tracing::warn!("[SECURITY NOTICE] BYPASS HMAC MODE!");
@@ -65,6 +72,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (webe_tx, webe_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
+
+    let (headless, egl_device_index) = (cli.headless, cli.egl_device_index);
 
     tokio::spawn(async move {
         let e = web::run(
@@ -83,7 +92,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     tokio::select! {
-        e = worker::run(rx) => {
+        e = worker::run(rx, headless, egl_device_index) => {
             tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
         }
         e = webe_rx => {

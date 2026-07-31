@@ -37,6 +37,8 @@ mod drawer_overlay;
 mod drawer_tsunami_legends;
 mod drawer_tsunami_line;
 mod fonts;
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+mod headless;
 pub mod image_buffer;
 mod resources;
 mod shader;
@@ -48,7 +50,19 @@ const MAXIMUM_SCALE: f32 = 100.0;
 const SCALE_FACTOR: f32 = 1.2;
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
-pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
+pub async fn run(
+    rx: mpsc::Receiver<Message>,
+    headless: bool,
+    egl_device_index: usize,
+) -> Result<(), Box<dyn Error>> {
+    if headless {
+        run_headless(rx, egl_device_index).await
+    } else {
+        run_windowed(rx).await
+    }
+}
+
+async fn run_windowed(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
     let event_loop = winit::event_loop::EventLoop::<Message>::with_user_event().build()?;
 
     let proxy = event_loop.create_proxy();
@@ -63,6 +77,44 @@ pub async fn run(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> 
     event_loop.run_app(&mut App::default()).unwrap();
 
     Ok(())
+}
+
+async fn run_headless(
+    mut rx: mpsc::Receiver<Message>,
+    egl_device_index: usize,
+) -> Result<(), Box<dyn Error>> {
+    let context = create_headless_context(egl_device_index)?;
+
+    log_gl_info(&context);
+
+    let resources = resources::Resources::load(&context);
+    let mut font_manager = FontManager::new(&context);
+
+    while let Some(message) = rx.recv().await {
+        render_frame(&context, &resources, &mut font_manager, message);
+    }
+
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+fn create_headless_context(
+    egl_device_index: usize,
+) -> Result<Rc<glium::backend::Context>, Box<dyn Error>> {
+    headless::create(egl_device_index)
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn create_headless_context(_: usize) -> Result<Rc<glium::backend::Context>, Box<dyn Error>> {
+    Err("Headless mode requires EGL, which is not available on this platform".into())
+}
+
+fn log_gl_info<F: Facade>(facade: &F) {
+    let context = facade.get_context();
+
+    tracing::info!("GL_VENDOR: {}", context.get_opengl_vendor_string());
+    tracing::info!("GL_RENDERER: {}", context.get_opengl_renderer_string());
+    tracing::info!("GL_VERSION: {}", context.get_opengl_version_string());
 }
 
 pub struct FrameContext<'a, 'b, F: ?Sized + Facade, S: ?Sized + Surface> {
@@ -92,13 +144,7 @@ impl ApplicationHandler<Message> for App<'_> {
 
         let display = create_gl_context(event_loop);
 
-        let gl_vendor = display.get_opengl_vendor_string();
-        let gl_renderer = display.get_opengl_renderer_string();
-        let gl_version = display.get_opengl_version_string();
-
-        tracing::info!("GL_VENDOR: {gl_vendor}");
-        tracing::info!("GL_RENDERER: {gl_renderer}");
-        tracing::info!("GL_VERSION: {gl_version}");
+        log_gl_info(&display);
 
         let resources = resources::Resources::load(&display);
         let font_manager = FontManager::new(&display);
@@ -111,111 +157,121 @@ impl ApplicationHandler<Message> for App<'_> {
     fn resumed(&mut self, _: &ActiveEventLoop) {}
 
     fn user_event(&mut self, _: &ActiveEventLoop, event: Message) {
-        let Message::FrameRequest((request_frame_context, response_socket)) = event;
-
-        let start_at = std::time::Instant::now();
-
         let display = self.display.as_ref().unwrap();
         let resources = self.resources.as_ref().unwrap();
         let font_manager = self.font_manager.as_mut().unwrap();
-        let font_manager = Rc::new(RefCell::new(font_manager));
 
-        let image_size = Size::from(DIMENSION);
-
-        let bounding_box = calculate_bounding_box(&request_frame_context.payload);
-
-        let rendering_bbox = BoundingBox::from_vertices_float(
-            &bounding_box
-                .gl_vertices()
-                .iter()
-                .map(|v| v.to_mercator())
-                .collect::<Vec<_>>(),
-        );
-        let offset = -rendering_bbox.center();
-        let scale = calculate_map_scale(rendering_bbox, image_size);
-
-        let draw_parameters = DrawParameters {
-            multisampling: false,
-            blend: Blend {
-                color: BlendingFunction::Addition {
-                    source: LinearBlendingFactor::SourceAlpha,
-                    destination: LinearBlendingFactor::OneMinusSourceAlpha,
-                },
-                alpha: BlendingFunction::Max,
-                constant_value: (0.0, 0.0, 0.0, 0.0),
-            },
-            ..Default::default()
-        };
-
-        let t_before_alloc = Instant::now();
-
-        let texture = Texture2d::empty(display, image_size.x(), image_size.y()).unwrap();
-        let frame_buffer = SimpleFrameBuffer::new(display, &texture).unwrap();
-        let frame_buffer = Rc::new(RefCell::new(frame_buffer));
-
-        let t_before_render = Instant::now();
-
-        let frame_context = FrameContext {
-            facade: display,
-            surface: frame_buffer.clone(),
-            image_size,
-            theme: &theme::DEFAULT,
-            resources,
-            font_manager,
-            draw_parameters: &draw_parameters,
-            scale,
-            offset,
-        };
-
-        let clear_color = frame_context.theme.clear_color;
-        frame_buffer.borrow_mut().clear_color(
-            clear_color[0],
-            clear_color[1],
-            clear_color[2],
-            clear_color[3],
-        );
-
-        match &request_frame_context.payload {
-            FramePayload::Earthquake(earthquake) => {
-                drawer_map::draw(&frame_context, true);
-                drawer_intensity_icon::draw_all(&frame_context, earthquake);
-                drawer_epicenter::draw(&frame_context, earthquake);
-                drawer_overlay::draw(&frame_context, earthquake);
-            }
-            FramePayload::TsunamiFirst(tsunami) => {
-                drawer_map::draw(&frame_context, false);
-                drawer_tsunami_line::draw(&frame_context, tsunami);
-                drawer_tsunami_legends::draw(&frame_context, tsunami);
-                drawer_epicenter::draw(&frame_context, tsunami);
-                drawer_overlay::draw(&frame_context, tsunami);
-            }
-            FramePayload::TsunamiSecond(tsunami) => {
-                drawer_map::draw(&frame_context, false);
-                drawer_tsunami_legends::draw(&frame_context, tsunami);
-                drawer_epicenter::draw(&frame_context, tsunami);
-                drawer_overlay::draw(&frame_context, tsunami);
-            }
-        }
-
-        let t_before_bufcpy = Instant::now();
-
-        let image: RGBAImageData = texture.read();
-
-        let t_done = Instant::now();
-
-        tracing::info!(
-            "Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?} ({})",
-            t_before_alloc - start_at,
-            t_before_render - t_before_alloc,
-            t_before_bufcpy - t_before_render,
-            t_done - t_before_bufcpy,
-            request_frame_context.request_identity,
-        );
-
-        let _ = response_socket.send(Ok(image));
+        render_frame(display, resources, font_manager, event);
     }
 
     fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, _: WindowEvent) {}
+}
+
+fn render_frame<F: ?Sized + Facade>(
+    facade: &F,
+    resources: &resources::Resources<'_>,
+    font_manager: &mut FontManager<'_>,
+    event: Message,
+) {
+    let Message::FrameRequest((request_frame_context, response_socket)) = event;
+
+    let start_at = std::time::Instant::now();
+
+    let font_manager = Rc::new(RefCell::new(font_manager));
+
+    let image_size = Size::from(DIMENSION);
+
+    let bounding_box = calculate_bounding_box(&request_frame_context.payload);
+
+    let rendering_bbox = BoundingBox::from_vertices_float(
+        &bounding_box
+            .gl_vertices()
+            .iter()
+            .map(|v| v.to_mercator())
+            .collect::<Vec<_>>(),
+    );
+    let offset = -rendering_bbox.center();
+    let scale = calculate_map_scale(rendering_bbox, image_size);
+
+    let draw_parameters = DrawParameters {
+        multisampling: false,
+        blend: Blend {
+            color: BlendingFunction::Addition {
+                source: LinearBlendingFactor::SourceAlpha,
+                destination: LinearBlendingFactor::OneMinusSourceAlpha,
+            },
+            alpha: BlendingFunction::Max,
+            constant_value: (0.0, 0.0, 0.0, 0.0),
+        },
+        ..Default::default()
+    };
+
+    let t_before_alloc = Instant::now();
+
+    let texture = Texture2d::empty(facade, image_size.x(), image_size.y()).unwrap();
+    let frame_buffer = SimpleFrameBuffer::new(facade, &texture).unwrap();
+    let frame_buffer = Rc::new(RefCell::new(frame_buffer));
+
+    let t_before_render = Instant::now();
+
+    let frame_context = FrameContext {
+        facade,
+        surface: frame_buffer.clone(),
+        image_size,
+        theme: &theme::DEFAULT,
+        resources,
+        font_manager,
+        draw_parameters: &draw_parameters,
+        scale,
+        offset,
+    };
+
+    let clear_color = frame_context.theme.clear_color;
+    frame_buffer.borrow_mut().clear_color(
+        clear_color[0],
+        clear_color[1],
+        clear_color[2],
+        clear_color[3],
+    );
+
+    match &request_frame_context.payload {
+        FramePayload::Earthquake(earthquake) => {
+            drawer_map::draw(&frame_context, true);
+            drawer_intensity_icon::draw_all(&frame_context, earthquake);
+            drawer_epicenter::draw(&frame_context, earthquake);
+            drawer_overlay::draw(&frame_context, earthquake);
+        }
+        FramePayload::TsunamiFirst(tsunami) => {
+            drawer_map::draw(&frame_context, false);
+            drawer_tsunami_line::draw(&frame_context, tsunami);
+            drawer_tsunami_legends::draw(&frame_context, tsunami);
+            drawer_epicenter::draw(&frame_context, tsunami);
+            drawer_overlay::draw(&frame_context, tsunami);
+        }
+        FramePayload::TsunamiSecond(tsunami) => {
+            drawer_map::draw(&frame_context, false);
+            drawer_tsunami_legends::draw(&frame_context, tsunami);
+            drawer_epicenter::draw(&frame_context, tsunami);
+            drawer_overlay::draw(&frame_context, tsunami);
+        }
+    }
+
+    let t_before_bufcpy = Instant::now();
+
+    let image: RGBAImageData = texture.read();
+
+    let t_done = Instant::now();
+
+    tracing::info!(
+        "Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?} ({})",
+        t_before_alloc - start_at,
+        t_before_render - t_before_alloc,
+        t_before_bufcpy - t_before_render,
+        t_done - t_before_bufcpy,
+        request_frame_context.request_identity,
+    );
+
+    let _ = response_socket.send(Ok(image));
 }
 
 fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
