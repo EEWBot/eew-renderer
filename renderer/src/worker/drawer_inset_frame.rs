@@ -1,8 +1,10 @@
 use crate::worker::fonts::{Font, Offset, Origin};
 use crate::worker::inset::BorderSides;
+use crate::worker::notch::ResolvedNotch;
 use crate::worker::vertex::{ShapeUniform, ShapeVertex};
 use crate::worker::FrameContext;
 use glium::backend::Facade;
+use glium::draw_parameters::{StencilOperation, StencilTest};
 use glium::index::{NoIndices, PrimitiveType};
 use glium::Surface;
 use rusttype::Scale;
@@ -19,7 +21,7 @@ fn border_vertices(width_x: f32, width_y: f32, sides: &BorderSides) -> Vec<Shape
     let inner_bottom = -1.0 + width_y;
     let inner_top = 1.0 - width_y;
 
-    let mut vertices = Vec::with_capacity(24);
+    let mut vertices = Vec::with_capacity(30);
     if sides.top {
         push_quad(&mut vertices, -1.0, inner_top, 1.0, 1.0);
     }
@@ -33,6 +35,43 @@ fn border_vertices(width_x: f32, width_y: f32, sides: &BorderSides) -> Vec<Shape
         push_quad(&mut vertices, inner_right, -1.0, 1.0, 1.0);
     }
     vertices
+}
+
+pub fn draw_stencil_mask<F: ?Sized + Facade, S: ?Sized + Surface>(
+    frame_context: &FrameContext<F, S>,
+    notch: &ResolvedNotch,
+) {
+    let polygon = crate::worker::notch::kept_polygon(notch);
+
+    let buffer = &frame_context.resources.inset.notch_mask_vertex_buffer;
+    let mut vertices: Vec<_> = polygon
+        .into_iter()
+        .map(|position| ShapeVertex { position })
+        .collect();
+
+    let last = *vertices.last().unwrap();
+    vertices.resize(buffer.len(), last);
+    buffer.write(&vertices);
+
+    let mut draw_parameters = frame_context.draw_parameters.clone();
+    draw_parameters.color_mask = (false, false, false, false);
+    draw_parameters.stencil =
+        crate::worker::stencil_params(StencilTest::AlwaysPass, StencilOperation::Replace);
+
+    frame_context
+        .resources
+        .shader
+        .shape
+        .draw(
+            frame_context.surface.borrow_mut().deref_mut(),
+            buffer,
+            NoIndices(PrimitiveType::TriangleFan),
+            &ShapeUniform {
+                color: [0.0, 0.0, 0.0, 0.0],
+            },
+            &draw_parameters,
+        )
+        .unwrap();
 }
 
 pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
@@ -54,9 +93,54 @@ pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
         .unwrap();
 }
 
+fn push_notch_border(
+    vertices: &mut Vec<ShapeVertex>,
+    notch: &ResolvedNotch,
+    width_x: f32,
+    width_y: f32,
+) {
+    let [ax, ay] = notch.a;
+    let [bx, by] = notch.b;
+
+    let dir = [(bx - ax) / width_x, (by - ay) / width_y];
+    let length = f32::hypot(dir[0], dir[1]);
+    let normal = [-dir[1] / length, dir[0] / length];
+
+    let mut offset = [normal[0] * width_x, normal[1] * width_y];
+    if offset[0] * ax + offset[1] * ay > 0.0 {
+        offset = [-offset[0], -offset[1]];
+    }
+    
+    let inner_a = [ax + offset[0], ay + offset[1]];
+    let inner_b = [bx + offset[0], by + offset[1]];
+
+    let quad = [notch.a, notch.b, inner_b, notch.a, inner_b, inner_a];
+    vertices.extend(quad.map(|position| ShapeVertex { position }));
+}
+
+fn label_offset_x(notch: Option<&ResolvedNotch>, viewport_width: f32) -> i32 {
+    let Some(notch) = notch else {
+        return 0;
+    };
+    const EPSILON: f32 = 1e-3;
+    let bottom_xs: Vec<f32> = crate::worker::notch::kept_polygon(notch)
+        .iter()
+        .filter(|[_, y]| *y <= -1.0 + EPSILON)
+        .map(|[x, _]| *x)
+        .collect();
+    if bottom_xs.len() < 2 {
+        return 0;
+    }
+    let min = bottom_xs.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max = bottom_xs.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+    
+    ((min + max) / 2.0 * viewport_width / 2.0).round() as i32
+}
+
 pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
     sides: &BorderSides,
+    notch: Option<&ResolvedNotch>,
     label: &str,
 ) {
     let theme = frame_context.theme;
@@ -66,6 +150,10 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
     let width_y = 2.0 * theme.inset_border_width / image_size.y();
 
     let mut vertices = border_vertices(width_x, width_y, sides);
+    if let Some(notch) = notch {
+        push_notch_border(&mut vertices, notch, width_x, width_y);
+    }
+    
     if !vertices.is_empty() {
         vertices.resize(
             frame_context.resources.inset.border_vertex_buffer.len(),
@@ -107,7 +195,7 @@ pub fn draw_border_and_label<F: ?Sized + Facade, S: ?Sized + Surface>(
             Offset::new(
                 Origin::CenterDown,
                 Origin::CenterDown,
-                0,
+                label_offset_x(notch, image_size.x()),
                 theme.inset_label_offset_y,
             ),
             frame_context.camera.image_size.into(),

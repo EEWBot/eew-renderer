@@ -54,7 +54,7 @@ pub fn classify_saibunkuiki(code: u32) -> InsetRegion {
 
 /// ((与那国島西, 波照間島南), (北大東島東, 口之島北))
 pub const OKINAWA_VIEW_BBOX: BoundingBox<GeoDegree> =
-    BoundingBox::new(Vertex::new(122.5, 23.9), Vertex::new(131.9, 30.1));
+    BoundingBox::new(Vertex::new(122.5, 23.9), Vertex::new(132.2, 30.1));
 
 /// ((西ノ島西, 南硫黄島南), (東, 聟島列島北))
 pub const OGASAWARA_VIEW_BBOX: BoundingBox<GeoDegree> =

@@ -1,7 +1,7 @@
 use super::camera::Camera;
 use glium::Rect;
 use renderer_types::{
-    BoundingBox, GeoDegree, InsetRegion, Size, OGASAWARA_VIEW_BBOX, OKINAWA_VIEW_BBOX,
+    BoundingBox, GeoDegree, InsetRegion, Size, Vertex, OGASAWARA_VIEW_BBOX, OKINAWA_VIEW_BBOX,
 };
 
 pub struct BorderSides {
@@ -20,11 +20,17 @@ impl BorderSides {
     };
 }
 
+pub struct NotchLine {
+    pub from: Vertex<GeoDegree>,
+    pub to: Vertex<GeoDegree>,
+}
+
 pub struct InsetPass {
     pub region: InsetRegion,
     pub view_bbox: BoundingBox<GeoDegree>,
     pub viewport: Rect,
     pub border_sides: BorderSides,
+    pub notch: Option<NotchLine>,
     pub label: &'static str,
 }
 
@@ -33,9 +39,9 @@ pub const OKINAWA_INSET: InsetPass = InsetPass {
     view_bbox: OKINAWA_VIEW_BBOX,
     viewport: Rect {
         left: 0,
-        bottom: 423,
-        width: 345,
-        height: 345,
+        bottom: 321,
+        width: 447,
+        height: 447,
     },
     border_sides: BorderSides {
         top: false,
@@ -43,6 +49,11 @@ pub const OKINAWA_INSET: InsetPass = InsetPass {
         left: false,
         right: true,
     },
+    // 大東諸島の南東を通る斜め線
+    notch: Some(NotchLine {
+        from: Vertex::new(132.2, 25.9),
+        to: Vertex::new(129.4, 23.9),
+    }),
     label: "沖縄",
 };
 
@@ -56,6 +67,7 @@ pub const OGASAWARA_INSET: InsetPass = InsetPass {
         height: 260,
     },
     border_sides: BorderSides::ALL,
+    notch: None,
     label: "小笠原",
 };
 

@@ -6,14 +6,15 @@ use crate::worker::theme::Theme;
 use glium::backend::Facade;
 use glium::glutin::surface::{GlSurface, SwapInterval};
 use glium::{
-    draw_parameters::{Blend, LinearBlendingFactor},
-    framebuffer::SimpleFrameBuffer,
+    draw_parameters::{Blend, LinearBlendingFactor, Stencil, StencilOperation, StencilTest},
+    framebuffer::{SimpleFrameBuffer, StencilRenderBuffer},
     glutin::{
         config::ConfigTemplateBuilder,
         context::{ContextAttributesBuilder, NotCurrentGlContext},
         display::{GetGlDisplay, GlDisplay},
         surface::{SurfaceAttributesBuilder, WindowSurface},
     },
+    texture::StencilFormat,
     BlendingFunction, Display, DrawParameters, Surface, Texture2d,
 };
 use glutin_winit::DisplayBuilder;
@@ -44,6 +45,7 @@ mod fonts;
 mod headless;
 pub mod image_buffer;
 mod inset;
+mod notch;
 mod resources;
 mod shader;
 mod theme;
@@ -202,7 +204,11 @@ fn render_frame<F: ?Sized + Facade>(
     let t_before_alloc = Instant::now();
 
     let texture = Texture2d::empty(facade, image_size.x(), image_size.y()).unwrap();
-    let frame_buffer = SimpleFrameBuffer::new(facade, &texture).unwrap();
+    let stencil_buffer =
+        StencilRenderBuffer::new(facade, StencilFormat::I8, image_size.x(), image_size.y())
+            .unwrap();
+    let frame_buffer =
+        SimpleFrameBuffer::with_stencil_buffer(facade, &texture, &stencil_buffer).unwrap();
     let frame_buffer = Rc::new(RefCell::new(frame_buffer));
 
     let t_before_render = Instant::now();
@@ -218,11 +224,17 @@ fn render_frame<F: ?Sized + Facade>(
     };
 
     let clear_color = frame_context.theme.clear_color;
-    frame_buffer.borrow_mut().clear_color(
-        clear_color[0],
-        clear_color[1],
-        clear_color[2],
-        clear_color[3],
+    frame_buffer.borrow_mut().clear(
+        None,
+        Some((
+            clear_color[0],
+            clear_color[1],
+            clear_color[2],
+            clear_color[3],
+        )),
+        false,
+        None,
+        Some(0),
     );
 
     let map_layers = request_frame_context.payload.map_layers();
@@ -385,9 +397,14 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
 ) {
     for inset in inset::ALL_INSETS {
         let camera = inset.camera();
+        let notch = inset.notch.as_ref().map(|n| notch::resolve(&camera, n));
 
         let mut draw_parameters = base.draw_parameters.clone();
         draw_parameters.viewport = Some(inset.viewport);
+        if notch.is_some() {
+            draw_parameters.stencil =
+                stencil_params(StencilTest::IfEqual { mask: 0xff }, StencilOperation::Keep);
+        }
 
         let frame_context = FrameContext {
             facade: base.facade,
@@ -399,16 +416,40 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
             camera,
         };
 
+        if let Some(notch) = &notch {
+            drawer_inset_frame::draw_stencil_mask(&frame_context, notch);
+        }
         drawer_inset_frame::draw_background(&frame_context);
         drawer_map::draw(&frame_context, layers, Some(inset.region));
         if let Some(levels) = levels {
             drawer_tsunami_line::draw(&frame_context, inset.region, levels);
         }
-        drawer_inset_frame::draw_border_and_label(&frame_context, &inset.border_sides, inset.label);
         if let Some(buffer) = epicenter_buffer {
             let icon_ratio =
                 ICON_RATIO_IN_Y_AXIS * (DIMENSION.1 as f32 / inset.viewport.height as f32);
             drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, icon_ratio);
         }
+        drawer_inset_frame::draw_border_and_label(
+            &frame_context,
+            &inset.border_sides,
+            notch.as_ref(),
+            inset.label,
+        );
+    }
+}
+
+fn stencil_params(test: StencilTest, operation: StencilOperation) -> Stencil {
+    Stencil {
+        test_clockwise: test,
+        reference_value_clockwise: 1,
+        fail_operation_clockwise: operation,
+        pass_depth_fail_operation_clockwise: operation,
+        depth_pass_operation_clockwise: operation,
+        test_counter_clockwise: test,
+        reference_value_counter_clockwise: 1,
+        fail_operation_counter_clockwise: operation,
+        pass_depth_fail_operation_counter_clockwise: operation,
+        depth_pass_operation_counter_clockwise: operation,
+        ..Default::default()
     }
 }

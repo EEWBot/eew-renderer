@@ -327,11 +327,14 @@ impl Texture {
 pub struct Inset {
     pub border_vertex_buffer: VertexBuffer<ShapeVertex>,
     pub background_vertex_buffer: VertexBuffer<ShapeVertex>,
+    pub notch_mask_vertex_buffer: VertexBuffer<ShapeVertex>,
 }
 
 impl Inset {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let border_vertex_buffer = VertexBuffer::empty_dynamic(facade, 24).unwrap();
+        let border_vertex_buffer = VertexBuffer::empty_dynamic(facade, 30).unwrap();
+
+        let notch_mask_vertex_buffer = VertexBuffer::empty_dynamic(facade, 5).unwrap();
 
         let background_vertex_buffer = VertexBuffer::immutable(
             facade,
@@ -355,6 +358,7 @@ impl Inset {
         Self {
             border_vertex_buffer,
             background_vertex_buffer,
+            notch_mask_vertex_buffer,
         }
     }
 }
