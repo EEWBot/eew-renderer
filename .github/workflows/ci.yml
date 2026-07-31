@@ -23,7 +23,7 @@ env:
 
 jobs:
   release_windows:
-    if: ${{ github.event_name != 'pull_request' && github.ref_name == 'master' }}
+    if: ${{ github.event_name != 'pull_request' && (github.ref_name == 'master' || startsWith(github.ref, 'refs/tags/')) }}
     permissions:
       contents: write
 
