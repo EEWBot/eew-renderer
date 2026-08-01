@@ -62,7 +62,8 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasTime>(
     ];
     let indices = [0_u32, 1, 2, 3, 3, 4, 4, 5, 6, 7];
 
-    let overlay_draw_parameters = super::premultiplied_draw_parameters(draw_parameters);
+    let overlay_draw_parameters =
+        super::resources::PremultipliedTexture2d::with_compatible_blend(draw_parameters);
 
     let vertex_buffer = VertexBuffer::dynamic(facade, &vertices).unwrap();
     let index_buffer =

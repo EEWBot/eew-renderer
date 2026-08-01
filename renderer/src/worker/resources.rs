@@ -8,7 +8,10 @@ use crate::worker::shader::ShaderProgram;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
-use glium::{IndexBuffer, Texture2d, VertexBuffer};
+use glium::uniforms::{AsUniformValue, UniformValue};
+use glium::{
+    BlendingFunction, DrawParameters, IndexBuffer, LinearBlendingFactor, Texture2d, VertexBuffer,
+};
 use renderer_types::InsetRegion;
 
 #[derive(Debug)]
@@ -285,45 +288,75 @@ impl Shader<'_> {
     }
 }
 
+/// ロード時に RGB×A をpremultiply済みの Texture2d
 #[derive(Debug)]
-pub struct Texture {
-    pub intensity: Texture2d,
-    pub epicenter: Texture2d,
-    pub overlay: Texture2d,
-}
+pub(crate) struct PremultipliedTexture2d(Texture2d);
 
-impl Texture {
-    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        use image::ImageFormat;
+impl PremultipliedTexture2d {
+    fn load_png<F: ?Sized + Facade>(facade: &F, buf: &[u8]) -> Self {
+        let image = image::load_from_memory_with_format(buf, image::ImageFormat::Png).unwrap();
+        let mut image = image.into_rgba8();
 
-        let load_png = |buf: &[u8]| -> Texture2d {
-            let image = image::load_from_memory_with_format(buf, ImageFormat::Png).unwrap();
-            let mut image = image.into_rgba8();
+        for pixel in image.pixels_mut() {
+            let a = pixel[3] as u32;
+            pixel[0] = ((pixel[0] as u32 * a + 127) / 255) as u8;
+            pixel[1] = ((pixel[1] as u32 * a + 127) / 255) as u8;
+            pixel[2] = ((pixel[2] as u32 * a + 127) / 255) as u8;
+        }
 
-            // GL_LINEAR で透明部と補間された際に滲みが出ないよう、アルファをプリマルチプライする。
-            // 描画側は premultiplied_draw_parameters (One / OneMinusSrcAlpha) でブレンドすること。
-            for pixel in image.pixels_mut() {
-                let a = pixel[3] as u32;
-                pixel[0] = ((pixel[0] as u32 * a + 127) / 255) as u8;
-                pixel[1] = ((pixel[1] as u32 * a + 127) / 255) as u8;
-                pixel[2] = ((pixel[2] as u32 * a + 127) / 255) as u8;
-            }
+        let dimension = image.dimensions();
+        let image = RawImage2d::from_raw_rgba_reversed(image.as_raw(), dimension);
 
-            let dimension = image.dimensions();
-            let image = RawImage2d::from_raw_rgba_reversed(image.as_raw(), dimension);
-
+        Self(
             Texture2d::with_format(
                 facade,
                 image,
                 UncompressedFloatFormat::U8U8U8U8,
                 MipmapsOption::NoMipmap,
             )
-            .unwrap()
-        };
+            .unwrap(),
+        )
+    }
 
-        let intensity = load_png(include_bytes!("../../../assets/image/intensity.png"));
-        let epicenter = load_png(include_bytes!("../../../assets/image/epicenter.png"));
-        let overlay = load_png(include_bytes!("../../../assets/image/overlay.png"));
+    /// base を複製し、blend だけpremultiplied alpha前提 (One / OneMinusSrcAlpha) に差し替える
+    #[must_use]
+    pub(crate) fn with_compatible_blend<'c>(base: &DrawParameters<'c>) -> DrawParameters<'c> {
+        let mut params = base.clone();
+        params.blend.color = BlendingFunction::Addition {
+            source: LinearBlendingFactor::One,
+            destination: LinearBlendingFactor::OneMinusSourceAlpha,
+        };
+        params
+    }
+}
+
+impl AsUniformValue for &PremultipliedTexture2d {
+    fn as_uniform_value(&self) -> UniformValue<'_> {
+        self.0.as_uniform_value()
+    }
+}
+
+#[derive(Debug)]
+pub struct Texture {
+    pub intensity: PremultipliedTexture2d,
+    pub epicenter: PremultipliedTexture2d,
+    pub overlay: PremultipliedTexture2d,
+}
+
+impl Texture {
+    fn load<F: ?Sized + Facade>(facade: &F) -> Self {
+        let intensity = PremultipliedTexture2d::load_png(
+            facade,
+            include_bytes!("../../../assets/image/intensity.png"),
+        );
+        let epicenter = PremultipliedTexture2d::load_png(
+            facade,
+            include_bytes!("../../../assets/image/epicenter.png"),
+        );
+        let overlay = PremultipliedTexture2d::load_png(
+            facade,
+            include_bytes!("../../../assets/image/overlay.png"),
+        );
 
         Self {
             intensity,

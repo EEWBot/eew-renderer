@@ -1,3 +1,4 @@
+use super::resources::PremultipliedTexture2d;
 use glium::texture::UnsignedTexture1d;
 use glium::uniforms::{
     AsUniformValue, ImageUnitAccess, ImageUnitBehavior, ImageUnitFormat, Sampler, UniformValue,
@@ -36,7 +37,7 @@ pub struct EpicenterUniform<'a> {
     pub offset: [f32; 2],
     pub zoom: f32,
     pub icon_ratio_in_y_axis: f32,
-    pub texture_sampler: &'a Texture2d,
+    pub texture_sampler: &'a PremultipliedTexture2d,
 }
 
 impl Uniforms for EpicenterUniform<'_> {
@@ -65,7 +66,7 @@ pub struct IntensityIconUniform<'a> {
     pub offset: [f32; 2],
     pub zoom: f32,
     pub icon_ratio_in_y_axis: f32,
-    pub texture_sampler: &'a Texture2d,
+    pub texture_sampler: &'a PremultipliedTexture2d,
 }
 
 impl Uniforms for IntensityIconUniform<'_> {
@@ -207,7 +208,7 @@ implement_vertex!(TexturedVertex, position, uv);
 
 #[derive(Debug)]
 pub struct TexturedUniform<'a> {
-    pub texture_sampler: &'a Texture2d,
+    pub texture_sampler: &'a PremultipliedTexture2d,
 }
 
 impl Uniforms for TexturedUniform<'_> {
