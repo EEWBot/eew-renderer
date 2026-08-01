@@ -11,7 +11,7 @@ use glium::glutin::api::egl::display::Display;
 use glium::glutin::api::egl::surface::Surface;
 use glium::glutin::config::{ConfigSurfaceTypes, ConfigTemplateBuilder};
 use glium::glutin::context::{
-    ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentGlContext,
+    ContextApi, ContextAttributesBuilder, NotCurrentGlContext, PossiblyCurrentGlContext, Version,
 };
 use glium::glutin::display::GlDisplay;
 use glium::glutin::surface::{PbufferSurface, SurfaceAttributesBuilder};
@@ -87,7 +87,9 @@ pub fn create(device_index: usize) -> Result<Rc<Context>, Box<dyn Error>> {
         .next()
         .ok_or("No EGL config is available")?;
 
-    let attributes = ContextAttributesBuilder::new().build(None);
+    let attributes = ContextAttributesBuilder::new()
+        .with_context_api(ContextApi::OpenGl(Some(Version::new(4, 5))))
+        .build(None);
 
     let context = unsafe { display.create_context(&config, &attributes)? };
 
