@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::{
     extract::{Request, State},
     http::{header::CONTENT_TYPE, HeaderName, HeaderValue, StatusCode},
@@ -390,7 +390,6 @@ pub async fn run(
             cache,
         })
         .layer(client_ip_source.into_extension());
-
 
     axum::serve(
         listener,

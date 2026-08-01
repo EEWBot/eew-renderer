@@ -105,7 +105,13 @@ async fn run_headless(
     let render_target = RenderTarget::new(&context);
 
     while let Some(message) = rx.recv().await {
-        render_frame(&context, &render_target, &resources, &mut font_manager, message);
+        render_frame(
+            &context,
+            &render_target,
+            &resources,
+            &mut font_manager,
+            message,
+        );
     }
 
     // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
@@ -229,8 +235,7 @@ impl RenderTarget {
     }
 
     fn frame_buffer<F: ?Sized + Facade>(&self, facade: &F) -> SimpleFrameBuffer<'_> {
-        SimpleFrameBuffer::with_stencil_buffer(facade, &self.texture, &self.stencil_buffer)
-            .unwrap()
+        SimpleFrameBuffer::with_stencil_buffer(facade, &self.texture, &self.stencil_buffer).unwrap()
     }
 }
 
