@@ -74,14 +74,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (headless, egl_device_index) = (cli.headless, cli.egl_device_index);
 
-    tokio::spawn(async move {
-        // wait for worker thread initialization for suppress misleading log
-        // e.g. UNRECOVERABLE ERROR (Worker): Err("Failed to enumerate EGL devices (is libEGL installed?): Querying device count failed")
-        //      when Address already in use (os error 98)
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    let listener = tokio::net::TcpListener::bind(&cli.listen).await.unwrap();
+    tracing::info!("Listening on {}", cli.listen);
 
+    tokio::spawn(async move {
         let e = web::run(
-            cli.listen,
+            listener,
             tx,
             &cli.hmac_key,
             &cli.instance_name,
@@ -93,11 +91,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await;
 
         tracing::error!("UNRECOVERABLE ERROR (Web): {e:?}");
-
         std::process::exit(1);
     });
 
-    let e = worker::run(rx, headless, egl_device_index).await;
-    tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
-    std::process::exit(1);
+    if let Err(e) = worker::run(rx, headless, egl_device_index).await {
+        tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
+        std::process::exit(1);
+    }
+
+    Ok(())
 }

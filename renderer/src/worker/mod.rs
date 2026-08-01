@@ -81,9 +81,10 @@ async fn run_windowed(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Err
         // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
         // and the worker thread should keep waiting for the program’s error-handling routine,
         // which is the correct behavior.
-        loop {
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        tracing::error!("An abnormal termination of the web thread was detected!");
+        std::process::exit(1);
     });
 
     event_loop.run_app(&mut App::default()).unwrap();
@@ -110,9 +111,10 @@ async fn run_headless(
     // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
     // and the worker thread should keep waiting for the program’s error-handling routine,
     // which is the correct behavior.
-    loop {
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-    }
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    tracing::error!("An abnormal termination of the web thread was detected!");
+    std::process::exit(1);
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]

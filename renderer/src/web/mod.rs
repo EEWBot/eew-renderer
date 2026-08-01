@@ -360,7 +360,7 @@ async fn root_handler(State(app): State<AppState>, ClientIp(_client_ip): ClientI
 
 #[allow(clippy::too_many_arguments)]
 pub async fn run(
-    listen: SocketAddr,
+    listener: tokio::net::TcpListener,
     request_channel: tokio::sync::mpsc::Sender<crate::Message>,
     hmac_key: &str,
     instance_name: &str,
@@ -391,11 +391,6 @@ pub async fn run(
         })
         .layer(client_ip_source.into_extension());
 
-    let listener = tokio::net::TcpListener::bind(listen)
-        .await
-        .with_context(|| format!("Failed to bind address {listen}"))?;
-
-    tracing::info!("Listening on {listen}");
 
     axum::serve(
         listener,
