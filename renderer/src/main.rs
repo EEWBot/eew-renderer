@@ -70,12 +70,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         tracing::warn!("[SECURITY NOTICE] DO NOT USE THIS OPTION IN PRODUCTION!!");
     }
 
-    let (webe_tx, webe_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
 
     let (headless, egl_device_index) = (cli.headless, cli.egl_device_index);
 
     tokio::spawn(async move {
+        // wait for worker thread initialization for suppress misleading log
+        // e.g. UNRECOVERABLE ERROR (Worker): Err("Failed to enumerate EGL devices (is libEGL installed?): Querying device count failed")
+        //      when Address already in use (os error 98)
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
         let e = web::run(
             cli.listen,
             tx,
@@ -88,17 +92,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .await;
 
-        webe_tx.send(e).unwrap()
+        tracing::error!("UNRECOVERABLE ERROR (Web): {e:?}");
+
+        std::process::exit(1);
     });
 
-    tokio::select! {
-        e = worker::run(rx, headless, egl_device_index) => {
-            tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
-        }
-        e = webe_rx => {
-            tracing::error!("UNRECOVERABLE ERROR (Web): {e:?}");
-        }
-    }
-
-    Ok(())
+    let e = worker::run(rx, headless, egl_device_index).await;
+    tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
+    std::process::exit(1);
 }

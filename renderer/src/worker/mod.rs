@@ -74,9 +74,15 @@ async fn run_windowed(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Err
     let proxy = event_loop.create_proxy();
 
     tokio::spawn(async move {
-        loop {
-            let message = rx.recv().await.unwrap();
+        while let Some(message) = rx.recv().await {
             proxy.send_event(message).unwrap();
+        }
+
+        // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
+        // and the worker thread should keep waiting for the program’s error-handling routine,
+        // which is the correct behavior.
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
         }
     });
 
@@ -101,7 +107,12 @@ async fn run_headless(
         render_frame(&context, &render_target, &resources, &mut font_manager, message);
     }
 
-    Ok(())
+    // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
+    // and the worker thread should keep waiting for the program’s error-handling routine,
+    // which is the correct behavior.
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+    }
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "ios")))]
