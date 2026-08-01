@@ -239,6 +239,18 @@ impl RenderTarget {
     }
 }
 
+/// プリマルチプライ済みテクスチャ用の DrawParameters を派生させる。
+/// resources.rs の load_png がロード時に RGB×A を掛けているため、
+/// それらのテクスチャを描くときはソース係数を One にする必要がある。
+pub(crate) fn premultiplied_draw_parameters<'c>(base: &DrawParameters<'c>) -> DrawParameters<'c> {
+    let mut params = base.clone();
+    params.blend.color = BlendingFunction::Addition {
+        source: LinearBlendingFactor::One,
+        destination: LinearBlendingFactor::OneMinusSourceAlpha,
+    };
+    params
+}
+
 fn render_frame<F: ?Sized + Facade>(
     facade: &F,
     target: &RenderTarget,

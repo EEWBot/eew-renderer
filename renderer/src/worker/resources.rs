@@ -298,7 +298,17 @@ impl Texture {
 
         let load_png = |buf: &[u8]| -> Texture2d {
             let image = image::load_from_memory_with_format(buf, ImageFormat::Png).unwrap();
-            let image = image.as_rgba8().unwrap();
+            let mut image = image.into_rgba8();
+
+            // GL_LINEAR で透明部と補間された際に滲みが出ないよう、アルファをプリマルチプライする。
+            // 描画側は premultiplied_draw_parameters (One / OneMinusSrcAlpha) でブレンドすること。
+            for pixel in image.pixels_mut() {
+                let a = pixel[3] as u32;
+                pixel[0] = ((pixel[0] as u32 * a + 127) / 255) as u8;
+                pixel[1] = ((pixel[1] as u32 * a + 127) / 255) as u8;
+                pixel[2] = ((pixel[2] as u32 * a + 127) / 255) as u8;
+            }
+
             let dimension = image.dimensions();
             let image = RawImage2d::from_raw_rgba_reversed(image.as_raw(), dimension);
 

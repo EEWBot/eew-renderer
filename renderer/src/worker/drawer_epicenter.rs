@@ -31,6 +31,7 @@ pub fn draw_vertex_buffer<F: ?Sized + Facade, S: ?Sized + Surface>(
     icon_ratio_in_y_axis: f32,
 ) {
     let resources = frame_context.resources;
+    let draw_parameters = super::premultiplied_draw_parameters(frame_context.draw_parameters);
 
     resources
         .shader
@@ -46,7 +47,7 @@ pub fn draw_vertex_buffer<F: ?Sized + Facade, S: ?Sized + Surface>(
                 icon_ratio_in_y_axis,
                 texture_sampler: &resources.texture.epicenter,
             },
-            frame_context.draw_parameters,
+            &draw_parameters,
         )
         .unwrap();
 }
