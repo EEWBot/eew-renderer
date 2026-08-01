@@ -70,14 +70,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         tracing::warn!("[SECURITY NOTICE] DO NOT USE THIS OPTION IN PRODUCTION!!");
     }
 
-    let (webe_tx, webe_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
 
     let (headless, egl_device_index) = (cli.headless, cli.egl_device_index);
 
+    let listener = tokio::net::TcpListener::bind(&cli.listen).await.unwrap();
+    tracing::info!("Listening on {}", cli.listen);
+
     tokio::spawn(async move {
         let e = web::run(
-            cli.listen,
+            listener,
             tx,
             &cli.hmac_key,
             &cli.instance_name,
@@ -88,16 +90,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .await;
 
-        webe_tx.send(e).unwrap()
+        tracing::error!("UNRECOVERABLE ERROR (Web): {e:?}");
+        std::process::exit(1);
     });
 
-    tokio::select! {
-        e = worker::run(rx, headless, egl_device_index) => {
-            tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
-        }
-        e = webe_rx => {
-            tracing::error!("UNRECOVERABLE ERROR (Web): {e:?}");
-        }
+    if let Err(e) = worker::run(rx, headless, egl_device_index).await {
+        tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
+        std::process::exit(1);
     }
 
     Ok(())
