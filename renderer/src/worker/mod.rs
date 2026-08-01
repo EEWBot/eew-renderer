@@ -15,6 +15,7 @@ use glium::{
         surface::{SurfaceAttributesBuilder, WindowSurface},
     },
     texture::StencilFormat,
+    uniforms::MagnifySamplerFilter,
     BlendingFunction, Display, DrawParameters, Surface, Texture2d,
 };
 use glutin_winit::DisplayBuilder;
@@ -29,7 +30,7 @@ use tokio::sync::mpsc;
 use winit::application::ApplicationHandler;
 use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
+use winit::window::{Window, WindowId};
 use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
 
 mod camera;
@@ -94,9 +95,10 @@ async fn run_headless(
 
     let resources = resources::Resources::load(&context);
     let mut font_manager = FontManager::new(&context);
+    let render_target = RenderTarget::new(&context);
 
     while let Some(message) = rx.recv().await {
-        render_frame(&context, &resources, &mut font_manager, message);
+        render_frame(&context, &render_target, &resources, &mut font_manager, message);
     }
 
     Ok(())
@@ -135,8 +137,10 @@ pub struct FrameContext<'a, 'b, 'c, F: ?Sized + Facade, S: ?Sized + Surface> {
 #[derive(Default)]
 struct App<'a> {
     display: Option<Display<WindowSurface>>,
+    window: Option<Window>,
     resources: Option<resources::Resources<'a>>,
     font_manager: Option<FontManager<'a>>,
+    render_target: Option<RenderTarget>,
 }
 
 impl ApplicationHandler<Message> for App<'_> {
@@ -145,14 +149,16 @@ impl ApplicationHandler<Message> for App<'_> {
             return;
         }
 
-        let display = create_gl_context(event_loop);
+        let (display, window) = create_gl_context(event_loop);
 
         log_gl_info(&display);
 
         let resources = resources::Resources::load(&display);
         let font_manager = FontManager::new(&display);
 
+        self.render_target = Some(RenderTarget::new(&display));
         self.display = Some(display);
+        self.window = Some(window);
         self.resources = Some(resources);
         self.font_manager = Some(font_manager);
     }
@@ -161,17 +167,63 @@ impl ApplicationHandler<Message> for App<'_> {
 
     fn user_event(&mut self, _: &ActiveEventLoop, event: Message) {
         let display = self.display.as_ref().unwrap();
+        let render_target = self.render_target.as_ref().unwrap();
         let resources = self.resources.as_ref().unwrap();
         let font_manager = self.font_manager.as_mut().unwrap();
 
-        render_frame(display, resources, font_manager, event);
+        render_frame(display, render_target, resources, font_manager, event);
+        present(display, &render_target.texture);
     }
 
-    fn window_event(&mut self, _: &ActiveEventLoop, _: WindowId, _: WindowEvent) {}
+    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        match event {
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(size) => {
+                if let Some(display) = self.display.as_ref() {
+                    display.resize((size.width, size.height));
+                }
+            }
+            WindowEvent::RedrawRequested => {
+                if let (Some(display), Some(render_target)) =
+                    (self.display.as_ref(), self.render_target.as_ref())
+                {
+                    present(display, &render_target.texture);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+struct RenderTarget {
+    texture: Texture2d,
+    stencil_buffer: StencilRenderBuffer,
+}
+
+impl RenderTarget {
+    fn new<F: ?Sized + Facade>(facade: &F) -> Self {
+        let image_size = Size::from(DIMENSION);
+
+        let texture = Texture2d::empty(facade, image_size.x(), image_size.y()).unwrap();
+        let stencil_buffer =
+            StencilRenderBuffer::new(facade, StencilFormat::I8, image_size.x(), image_size.y())
+                .unwrap();
+
+        Self {
+            texture,
+            stencil_buffer,
+        }
+    }
+
+    fn frame_buffer<F: ?Sized + Facade>(&self, facade: &F) -> SimpleFrameBuffer<'_> {
+        SimpleFrameBuffer::with_stencil_buffer(facade, &self.texture, &self.stencil_buffer)
+            .unwrap()
+    }
 }
 
 fn render_frame<F: ?Sized + Facade>(
     facade: &F,
+    target: &RenderTarget,
     resources: &resources::Resources<'_>,
     font_manager: &mut FontManager<'_>,
     event: Message,
@@ -203,13 +255,7 @@ fn render_frame<F: ?Sized + Facade>(
 
     let t_before_alloc = Instant::now();
 
-    let texture = Texture2d::empty(facade, image_size.x(), image_size.y()).unwrap();
-    let stencil_buffer =
-        StencilRenderBuffer::new(facade, StencilFormat::I8, image_size.x(), image_size.y())
-            .unwrap();
-    let frame_buffer =
-        SimpleFrameBuffer::with_stencil_buffer(facade, &texture, &stencil_buffer).unwrap();
-    let frame_buffer = Rc::new(RefCell::new(frame_buffer));
+    let frame_buffer = Rc::new(RefCell::new(target.frame_buffer(facade)));
 
     let t_before_render = Instant::now();
 
@@ -256,7 +302,7 @@ fn render_frame<F: ?Sized + Facade>(
 
     let t_before_bufcpy = Instant::now();
 
-    let image: RGBAImageData = texture.read();
+    let image: RGBAImageData = target.texture.read();
 
     let t_done = Instant::now();
 
@@ -272,9 +318,22 @@ fn render_frame<F: ?Sized + Facade>(
     let _ = response_socket.send(Ok(image));
 }
 
-fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
-    let display_builder =
-        DisplayBuilder::new().with_window_attributes(Some(WindowAttributes::default()));
+fn present(display: &Display<WindowSurface>, texture: &Texture2d) {
+    let frame = display.draw();
+    texture
+        .as_surface()
+        .fill(&frame, MagnifySamplerFilter::Nearest);
+    if let Err(err) = frame.finish() {
+        tracing::warn!("Failed to present frame: {err:?}");
+    }
+}
+
+fn create_gl_context(event_loop: &ActiveEventLoop) -> (Display<WindowSurface>, Window) {
+    let window_attributes = WindowAttributes::default()
+        .with_title("eew-renderer")
+        .with_inner_size(winit::dpi::PhysicalSize::new(DIMENSION.0, DIMENSION.1))
+        .with_resizable(false);
+    let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
 
     let (window, gl_config) = display_builder
         .build(event_loop, ConfigTemplateBuilder::new(), |mut configs| {
@@ -284,10 +343,11 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
 
     let window = window.unwrap();
 
+    let size = window.inner_size();
     let attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
         window.window_handle().unwrap().as_raw(),
-        NonZeroU32::new(1).unwrap(),
-        NonZeroU32::new(1).unwrap(),
+        NonZeroU32::new(size.width).unwrap_or(NonZeroU32::new(1).unwrap()),
+        NonZeroU32::new(size.height).unwrap_or(NonZeroU32::new(1).unwrap()),
     );
 
     let surface = unsafe {
@@ -313,7 +373,10 @@ fn create_gl_context(event_loop: &ActiveEventLoop) -> Display<WindowSurface> {
         .set_swap_interval(&current_context, SwapInterval::DontWait)
         .unwrap();
 
-    Display::from_context_surface(current_context, surface).unwrap()
+    (
+        Display::from_context_surface(current_context, surface).unwrap(),
+        window,
+    )
 }
 
 /// マップの描画範囲を決定する。
