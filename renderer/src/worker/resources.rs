@@ -292,16 +292,23 @@ impl Shader<'_> {
 #[derive(Debug)]
 pub(crate) struct PremultipliedTexture2d(Texture2d);
 
+#[inline(always)]
+fn mul_alpha(c: u8, a: u16) -> u8 {
+    let t = c as u16 * a + 128;
+    ((t + (t >> 8)) >> 8) as u8
+}
+
 impl PremultipliedTexture2d {
     fn load_png<F: ?Sized + Facade>(facade: &F, buf: &[u8]) -> Self {
         let image = image::load_from_memory_with_format(buf, image::ImageFormat::Png).unwrap();
         let mut image = image.into_rgba8();
 
         for pixel in image.pixels_mut() {
-            let a = pixel[3] as u32;
-            pixel[0] = ((pixel[0] as u32 * a + 127) / 255) as u8;
-            pixel[1] = ((pixel[1] as u32 * a + 127) / 255) as u8;
-            pixel[2] = ((pixel[2] as u32 * a + 127) / 255) as u8;
+            let a = pixel[3] as u16;
+
+            pixel[0] = mul_alpha(pixel[0], a);
+            pixel[1] = mul_alpha(pixel[1], a);
+            pixel[2] = mul_alpha(pixel[2], a);
         }
 
         let dimension = image.dimensions();
