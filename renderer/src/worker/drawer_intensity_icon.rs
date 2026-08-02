@@ -34,9 +34,6 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
     let aspect_ratio = frame_context.camera.image_size.aspect_ratio();
     let offset = frame_context.camera.offset;
     let scale = frame_context.camera.scale;
-    let draw_parameters = super::resources::PremultipliedTexture2d::with_compatible_blend(
-        frame_context.draw_parameters,
-    );
 
     let per_icon_data: Vec<_> = earthquake_payload
         .area_intensities
@@ -72,7 +69,7 @@ pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
                 icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
                 texture_sampler: &resources.texture.intensity,
             },
-            &draw_parameters,
+            frame_context.premultiplied_draw_parameters,
         )
         .unwrap();
 }

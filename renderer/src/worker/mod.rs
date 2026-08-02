@@ -143,6 +143,27 @@ fn log_gl_info<F: Facade>(facade: &F) {
     tracing::info!("GL_VERSION: {}", context.get_opengl_version_string());
 }
 
+const STRAIGHT_ALPHA_BLEND: Blend = Blend {
+    color: BlendingFunction::Addition {
+        source: LinearBlendingFactor::SourceAlpha,
+        destination: LinearBlendingFactor::OneMinusSourceAlpha,
+    },
+    alpha: BlendingFunction::Max,
+    constant_value: (0.0, 0.0, 0.0, 0.0),
+};
+
+const PREMULTIPLIED_ALPHA_BLEND: Blend = Blend {
+    color: BlendingFunction::Addition {
+        source: LinearBlendingFactor::One,
+        destination: LinearBlendingFactor::OneMinusSourceAlpha,
+    },
+    alpha: BlendingFunction::Addition {
+        source: LinearBlendingFactor::One,
+        destination: LinearBlendingFactor::OneMinusSourceAlpha,
+    },
+    constant_value: (0.0, 0.0, 0.0, 0.0),
+};
+
 pub struct FrameContext<'a, 'b, 'c, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub facade: &'a F,
     pub surface: Rc<RefCell<S>>,
@@ -150,6 +171,8 @@ pub struct FrameContext<'a, 'b, 'c, F: ?Sized + Facade, S: ?Sized + Surface> {
     pub resources: &'a resources::Resources<'a>,
     pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
     pub draw_parameters: &'c DrawParameters<'c>,
+
+    pub premultiplied_draw_parameters: &'c DrawParameters<'c>,
     pub camera: Camera,
 }
 
@@ -260,15 +283,13 @@ fn render_frame<F: ?Sized + Facade>(
 
     let draw_parameters = DrawParameters {
         multisampling: false,
-        blend: Blend {
-            color: BlendingFunction::Addition {
-                source: LinearBlendingFactor::SourceAlpha,
-                destination: LinearBlendingFactor::OneMinusSourceAlpha,
-            },
-            alpha: BlendingFunction::Max,
-            constant_value: (0.0, 0.0, 0.0, 0.0),
-        },
+        blend: STRAIGHT_ALPHA_BLEND,
         ..Default::default()
+    };
+
+    let premultiplied_draw_parameters = DrawParameters {
+        blend: PREMULTIPLIED_ALPHA_BLEND,
+        ..draw_parameters.clone()
     };
 
     let t_before_alloc = Instant::now();
@@ -284,6 +305,7 @@ fn render_frame<F: ?Sized + Facade>(
         resources,
         font_manager,
         draw_parameters: &draw_parameters,
+        premultiplied_draw_parameters: &premultiplied_draw_parameters,
         camera,
     };
 
@@ -487,6 +509,11 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
                 stencil_params(StencilTest::IfEqual { mask: 0xff }, StencilOperation::Keep);
         }
 
+        let premultiplied_draw_parameters = DrawParameters {
+            blend: PREMULTIPLIED_ALPHA_BLEND,
+            ..draw_parameters.clone()
+        };
+
         let frame_context = FrameContext {
             facade: base.facade,
             surface: base.surface.clone(),
@@ -494,6 +521,7 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
             resources: base.resources,
             font_manager: base.font_manager.clone(),
             draw_parameters: &draw_parameters,
+            premultiplied_draw_parameters: &premultiplied_draw_parameters,
             camera,
         };
 

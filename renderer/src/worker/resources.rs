@@ -9,9 +9,7 @@ use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::uniforms::{AsUniformValue, UniformValue};
-use glium::{
-    BlendingFunction, DrawParameters, IndexBuffer, LinearBlendingFactor, Texture2d, VertexBuffer,
-};
+use glium::{IndexBuffer, Texture2d, VertexBuffer};
 use renderer_types::InsetRegion;
 
 #[derive(Debug)]
@@ -324,17 +322,6 @@ impl PremultipliedTexture2d {
             .unwrap(),
         )
     }
-
-    /// base を複製し、blend だけpremultiplied alpha前提 (One / OneMinusSrcAlpha) に差し替える
-    #[must_use]
-    pub(crate) fn with_compatible_blend<'c>(base: &DrawParameters<'c>) -> DrawParameters<'c> {
-        let mut params = base.clone();
-        params.blend.color = BlendingFunction::Addition {
-            source: LinearBlendingFactor::One,
-            destination: LinearBlendingFactor::OneMinusSourceAlpha,
-        };
-        params
-    }
 }
 
 impl AsUniformValue for &PremultipliedTexture2d {
@@ -352,18 +339,11 @@ pub struct Texture {
 
 impl Texture {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let intensity = PremultipliedTexture2d::load_png(
-            facade,
-            include_bytes!("../../../assets/image/intensity.png"),
-        );
-        let epicenter = PremultipliedTexture2d::load_png(
-            facade,
-            include_bytes!("../../../assets/image/epicenter.png"),
-        );
-        let overlay = PremultipliedTexture2d::load_png(
-            facade,
-            include_bytes!("../../../assets/image/overlay.png"),
-        );
+        let load_png = |buf: &[u8]| PremultipliedTexture2d::load_png(facade, buf);
+
+        let intensity = load_png(include_bytes!("../../../assets/image/intensity.png"));
+        let epicenter = load_png(include_bytes!("../../../assets/image/epicenter.png"));
+        let overlay = load_png(include_bytes!("../../../assets/image/overlay.png"));
 
         Self {
             intensity,
