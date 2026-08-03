@@ -9,9 +9,7 @@ use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::texture::{MipmapsOption, RawImage2d, UncompressedFloatFormat};
 use glium::uniforms::{AsUniformValue, UniformValue};
-use glium::{
-    BlendingFunction, DrawParameters, IndexBuffer, LinearBlendingFactor, Texture2d, VertexBuffer,
-};
+use glium::{IndexBuffer, Texture2d, VertexBuffer};
 use renderer_types::InsetRegion;
 
 #[derive(Debug)]
@@ -292,16 +290,23 @@ impl Shader<'_> {
 #[derive(Debug)]
 pub(crate) struct PremultipliedTexture2d(Texture2d);
 
+#[inline(always)]
+fn mul_alpha(c: u8, a: u16) -> u8 {
+    let t = c as u16 * a + 128;
+    ((t + (t >> 8)) >> 8) as u8
+}
+
 impl PremultipliedTexture2d {
     fn load_png<F: ?Sized + Facade>(facade: &F, buf: &[u8]) -> Self {
         let image = image::load_from_memory_with_format(buf, image::ImageFormat::Png).unwrap();
         let mut image = image.into_rgba8();
 
         for pixel in image.pixels_mut() {
-            let a = pixel[3] as u32;
-            pixel[0] = ((pixel[0] as u32 * a + 127) / 255) as u8;
-            pixel[1] = ((pixel[1] as u32 * a + 127) / 255) as u8;
-            pixel[2] = ((pixel[2] as u32 * a + 127) / 255) as u8;
+            let a = pixel[3] as u16;
+
+            pixel[0] = mul_alpha(pixel[0], a);
+            pixel[1] = mul_alpha(pixel[1], a);
+            pixel[2] = mul_alpha(pixel[2], a);
         }
 
         let dimension = image.dimensions();
@@ -316,17 +321,6 @@ impl PremultipliedTexture2d {
             )
             .unwrap(),
         )
-    }
-
-    /// base を複製し、blend だけpremultiplied alpha前提 (One / OneMinusSrcAlpha) に差し替える
-    #[must_use]
-    pub(crate) fn with_compatible_blend<'c>(base: &DrawParameters<'c>) -> DrawParameters<'c> {
-        let mut params = base.clone();
-        params.blend.color = BlendingFunction::Addition {
-            source: LinearBlendingFactor::One,
-            destination: LinearBlendingFactor::OneMinusSourceAlpha,
-        };
-        params
     }
 }
 
@@ -345,18 +339,11 @@ pub struct Texture {
 
 impl Texture {
     fn load<F: ?Sized + Facade>(facade: &F) -> Self {
-        let intensity = PremultipliedTexture2d::load_png(
-            facade,
-            include_bytes!("../../../assets/image/intensity.png"),
-        );
-        let epicenter = PremultipliedTexture2d::load_png(
-            facade,
-            include_bytes!("../../../assets/image/epicenter.png"),
-        );
-        let overlay = PremultipliedTexture2d::load_png(
-            facade,
-            include_bytes!("../../../assets/image/overlay.png"),
-        );
+        let load_png = |buf: &[u8]| PremultipliedTexture2d::load_png(facade, buf);
+
+        let intensity = load_png(include_bytes!("../../../assets/image/intensity.png"));
+        let epicenter = load_png(include_bytes!("../../../assets/image/epicenter.png"));
+        let overlay = load_png(include_bytes!("../../../assets/image/overlay.png"));
 
         Self {
             intensity,
