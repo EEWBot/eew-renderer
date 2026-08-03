@@ -12,5 +12,5 @@
       "datasourceTemplate": "github-releases"
     }
   ],
-  "baseBranches": ["dev"]
+  "baseBranchPatterns": ["dev"]
 }
