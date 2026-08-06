@@ -45,7 +45,7 @@ jobs:
           awk -F'[ ="]+' '$1 == "channel" { print "toolchain=" $2 }' rust-toolchain >> "$GITHUB_OUTPUT"
 
       - name: cache dependencies
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
 
       - name: install eew-renderer-url
         run: |
