@@ -54,7 +54,7 @@ jobs:
           7z x ./shapefiles_v2.zip -y
           popd
 
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
 
@@ -151,7 +151,7 @@ jobs:
         run: |
           cargo install cargo-license
 
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
 
@@ -252,7 +252,7 @@ jobs:
           toolchain: ${{ steps.toolchain.outputs.toolchain }}
           components: clippy
 
-      - uses: Swatinem/rust-cache@v2.9.1
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           prefix-key: ${{ env.RUST_CACHE_VERSION }}-rust
 
