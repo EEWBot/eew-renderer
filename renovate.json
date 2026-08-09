@@ -11,5 +11,6 @@
       "versioningTemplate": "docker",
       "datasourceTemplate": "github-releases"
     }
-  ]
+  ],
+  "baseBranchPatterns": ["dev"]
 }
