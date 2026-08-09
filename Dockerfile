@@ -45,6 +45,7 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility
+ENV HEADLESS=true
 
 COPY --chown=root:root --from=build-env \
 	/usr/src/eew-renderer/CREDITS \
