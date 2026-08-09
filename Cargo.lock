@@ -2767,6 +2767,7 @@ dependencies = [
  "prost-build",
  "rand 0.10.2",
  "renderer-assets",
+ "renderer-macros",
  "renderer-types",
  "rusttype",
  "sha1 0.11.0",
@@ -2794,6 +2795,14 @@ dependencies = [
  "renderer-types",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "renderer-macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 3.0.2",
 ]
 
 [[package]]

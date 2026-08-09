@@ -1,5 +1,6 @@
 #![allow(clippy::eq_op)]
 use crate::worker::vertex::TsunamiLineColors;
+use renderer_macros::{rgb, rgba};
 
 pub struct Theme {
     pub clear_color: [f32; 4],
@@ -22,25 +23,25 @@ pub struct Theme {
 
 pub const DEFAULT: Theme = Theme {
     #[allow(clippy::eq_op)]
-    clear_color: [130.0 / 255.0, 188.0 / 255.0, 255.0 / 255.0, 1.0],
-    ground_color: [222.0 / 255.0, 226.0 / 255.0, 229.0 / 255.0],
-    prefectural_border_color: [148.0 / 255.0, 151.0 / 255.0, 153.0 / 255.0],
+    clear_color: rgba!("#82BCFF", 1.0),
+    ground_color: rgb!("#DEE2E5"),
+    prefectural_border_color: rgb!("#949799"),
     prefectural_border_width: 2.0,
-    area_border_color: [148.0 / 255.0, 151.0 / 255.0, 153.0 / 255.0],
+    area_border_color: rgb!("#949799"),
     area_border_width: 1.0,
     tsunami_colors: TsunamiLineColors {
-        forecast: [0.0 / 255.0, 191.0 / 255.0, 255.0 / 255.0],
-        advisory: [250.0 / 255.0, 245.0 / 255.0, 0.0 / 255.0],
-        warning: [255.0 / 255.0, 40.0 / 255.0, 0.0 / 255.0],
-        major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
+        forecast: rgb!("#00BFFF"),
+        advisory: rgb!("#FAF500"),
+        warning: rgb!("#FF2800"),
+        major_warning: rgb!("#C800FF"),
     },
     tsunami_width: 3.0,
-    tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
-    occurrence_time_color: [0.0, 0.0, 0.0, 0.63],
-    inset_background_color: [130.0 / 255.0, 188.0 / 255.0, 255.0 / 255.0, 1.0],
-    inset_border_color: [150.0 / 255.0, 155.0 / 255.0, 160.0 / 255.0, 1.0],
+    tsunami_legend_color: rgba!("#000000", 0.8),
+    occurrence_time_color: rgba!("#000000", 0.63),
+    inset_background_color: rgba!("#82BCFF", 1.0),
+    inset_border_color: rgba!("#969BA0", 1.0),
     inset_border_width: 3.0,
-    inset_label_color: [0.0, 0.0, 0.0, 0.8],
+    inset_label_color: rgba!("#000000", 0.8),
     inset_label_font_size: 22.0,
     inset_label_offset_y: -6,
 };
@@ -54,10 +55,10 @@ pub const DARK_DEMO: Theme = Theme {
     area_border_color: [0.6, 0.6, 0.6],
     area_border_width: 2.0,
     tsunami_colors: TsunamiLineColors {
-        forecast: [0.0 / 255.0, 191.0 / 255.0, 255.0 / 255.0],
-        advisory: [250.0 / 255.0, 245.0 / 255.0, 0.0 / 255.0],
-        warning: [255.0 / 255.0, 40.0 / 255.0, 0.0 / 255.0],
-        major_warning: [200.0 / 255.0, 0.0 / 255.0, 255.0 / 255.0],
+        forecast: rgb!("#00BFFF"),
+        advisory: rgb!("#FAF500"),
+        warning: rgb!("#FF2800"),
+        major_warning: rgb!("#C800FF"),
     },
     tsunami_width: 8.0,
     tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
