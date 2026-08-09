@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '*/src/**'
+      - 'assets/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/rendering.yml'
@@ -23,21 +24,6 @@ jobs:
       - name: prepare dependencies
         run: |
           sudo apt-get update -y && sudo apt-get install -y xvfb protobuf-compiler libxkbcommon-x11-dev
-
-      - run: |
-          # depName=rustfs/cli
-          RUSTFS_CLI_VERSION="v0.1.31"
-          RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-amd64-$RUSTFS_CLI_VERSION.tar.gz"
-          wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
-          tar xf "$RUSTFS_CLI_TAR_NAME"
-          rm "$RUSTFS_CLI_TAR_NAME"
-          sudo mv rc /bin/
-
-          rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
-          pushd assets/shapefile/
-          rc cp yr32srv/eewbot/shapefiles_v2.zip ./shapefiles_v2.zip
-          unzip -o ./shapefiles_v2.zip
-          popd
 
       - name: Get Rust toolchain
         id: toolchain

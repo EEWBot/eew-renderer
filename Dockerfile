@@ -50,6 +50,7 @@ ENV HEADLESS=true
 COPY --chown=root:root --from=build-env \
 	/usr/src/eew-renderer/CREDITS \
 	/usr/src/eew-renderer/LICENSE \
+	/usr/src/eew-renderer/THIRD_PARTY_NOTICES.md \
 	/usr/share/licenses/eew-renderer/
 
 COPY --chown=root:root --from=build-env \
