@@ -25,3 +25,11 @@ ProgramCreation(LinkingError("error: Too many vertex shader image uniforms (1 > 
 This is thought to be due to the fact that the Vertex Shader cannot use textures with uniforms, and there are no plans to fix this.
 
 The workaround is to use an alternative GL implementation, such as LIBGL_ALWAYS_SOFTWARE.
+
+## License
+
+EEW Renderer source code is licensed under the [MIT License](LICENSE).
+
+This project also uses geographic data provided by third parties.
+Those datasets and data derived from them are subject to their respective
+terms of use. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for details.
