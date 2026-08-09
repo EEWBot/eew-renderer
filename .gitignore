@@ -6,11 +6,6 @@
 
 /target/
 
-*.dbf
-*.shp
-*.shx
-*.qmd
-*.prj
 screenshot*.png
 log.txt
 *.log
