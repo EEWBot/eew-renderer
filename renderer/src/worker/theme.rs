@@ -45,28 +45,3 @@ pub const DEFAULT: Theme = Theme {
     inset_label_font_size: 22.0,
     inset_label_offset_y: -6,
 };
-
-#[allow(dead_code)]
-pub const DARK_DEMO: Theme = Theme {
-    clear_color: [0.1, 0.12, 0.15, 1.0],
-    ground_color: [0.35, 0.35, 0.35],
-    prefectural_border_color: [0.75, 0.75, 0.75],
-    prefectural_border_width: 5.0,
-    area_border_color: [0.6, 0.6, 0.6],
-    area_border_width: 2.0,
-    tsunami_colors: TsunamiLineColors {
-        forecast: rgb!("#00BFFF"),
-        advisory: rgb!("#FAF500"),
-        warning: rgb!("#FF2800"),
-        major_warning: rgb!("#C800FF"),
-    },
-    tsunami_width: 8.0,
-    tsunami_legend_color: [0.0, 0.0, 0.0, 0.8],
-    occurrence_time_color: [1.0, 1.0, 1.0, 0.63],
-    inset_background_color: [0.1, 0.12, 0.15, 1.0],
-    inset_border_color: [0.55, 0.55, 0.55, 1.0],
-    inset_border_width: 3.0,
-    inset_label_color: [1.0, 1.0, 1.0, 0.8],
-    inset_label_font_size: 22.0,
-    inset_label_offset_y: -6,
-};
