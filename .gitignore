@@ -6,6 +6,11 @@
 
 /target/
 
+# QGIS layer metadata sidecar file
+*.qmd
+# QGIS coordinate reference system metadata
+*.prj
+
 screenshot*.png
 log.txt
 *.log
