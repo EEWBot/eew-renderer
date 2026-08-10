@@ -23,7 +23,7 @@ jobs:
 
       - name: prepare dependencies
         run: |
-          sudo apt-get update -y && sudo apt-get install -y xvfb protobuf-compiler libxkbcommon-x11-dev
+          sudo apt-get update -y && sudo apt-get install -y protobuf-compiler
 
       - name: Get Rust toolchain
         id: toolchain
@@ -48,9 +48,7 @@ jobs:
 
       - name: rendering
         run: |
-          Xvfb :0 -listen tcp -ac -screen 0 1024x768x24 &
-          sleep 1;
-          DISPLAY=:0 cargo run --release &
+          HEADLESS=true cargo run --release &
           sleep 3;
           mkdir images
 
