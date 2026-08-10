@@ -23,7 +23,7 @@ jobs:
 
       - name: prepare dependencies
         run: |
-          sudo apt-get update -y && sudo apt-get install -y protobuf-compiler
+          sudo apt-get update -y && sudo apt-get install -y protobuf-compiler libegl1
 
       - name: Get Rust toolchain
         id: toolchain
