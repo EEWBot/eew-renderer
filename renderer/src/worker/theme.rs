@@ -30,7 +30,7 @@ pub const DEFAULT: Theme = Theme {
     area_border_color: rgb!("#949799"),
     area_border_width: 1.0,
     tsunami_colors: TsunamiLineColors {
-        forecast: rgb!("#00BFFF"),
+        forecast: rgb!("#087FFF"),
         advisory: rgb!("#FAF500"),
         warning: rgb!("#FF2800"),
         major_warning: rgb!("#C800FF"),
