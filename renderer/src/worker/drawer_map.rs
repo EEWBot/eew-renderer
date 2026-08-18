@@ -10,6 +10,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     frame_context: &FrameContext<F, S>,
     layers: MapLayerConfig,
     region: Option<InsetRegion>,
+    is_tsunami_rendering: bool,
 ) {
     let theme = frame_context.theme;
     let params = frame_context.draw_parameters;
@@ -55,6 +56,20 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
     // lakeと県境線は本土のみに存在するため、Main以外のinset描画時はskip
     let draws_mainland = region.is_none_or(|region| region == InsetRegion::Main);
 
+    let color = if is_tsunami_rendering {
+        [
+            theme.tsunami_clear_color[0],
+            theme.tsunami_clear_color[1],
+            theme.tsunami_clear_color[2],
+        ]
+    } else {
+        [
+            theme.clear_color[0],
+            theme.clear_color[1],
+            theme.clear_color[2],
+        ]
+    };
+
     if draws_mainland {
         resources
             .shader
@@ -64,11 +79,7 @@ pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
                 &resources.lake.vertex,
                 &resources.lake.index,
                 &MapUniform {
-                    color: [
-                        theme.clear_color[0],
-                        theme.clear_color[1],
-                        theme.clear_color[2],
-                    ],
+                    color,
                     ..map_uniform
                 },
                 params,

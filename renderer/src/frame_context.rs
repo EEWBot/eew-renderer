@@ -124,6 +124,13 @@ impl FramePayload {
             },
         }
     }
+
+    pub fn is_tsunami_payload(&self) -> bool {
+        match self {
+            FramePayload::Earthquake(_) => false,
+            FramePayload::TsunamiFirst(_) | FramePayload::TsunamiSecond(_) => true,
+        }
+    }
 }
 
 #[derive(Debug)]

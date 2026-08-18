@@ -88,7 +88,7 @@ pub fn draw_background<F: ?Sized + Facade, S: ?Sized + Surface>(
             &frame_context.resources.inset.background_vertex_buffer,
             NoIndices(PrimitiveType::TriangleStrip),
             &ShapeUniform {
-                color: frame_context.theme.inset_background_color,
+                color: frame_context.theme.tsunami_clear_color,
             },
             frame_context.draw_parameters,
         )

@@ -309,7 +309,12 @@ fn render_frame<F: ?Sized + Facade>(
         camera,
     };
 
-    let clear_color = frame_context.theme.clear_color;
+    let clear_color = if request_frame_context.payload.is_tsunami_payload() {
+        frame_context.theme.tsunami_clear_color
+    } else {
+        frame_context.theme.clear_color
+    };
+
     frame_buffer.borrow_mut().clear(
         None,
         Some((
@@ -327,7 +332,7 @@ fn render_frame<F: ?Sized + Facade>(
 
     match &request_frame_context.payload {
         FramePayload::Earthquake(earthquake) => {
-            drawer_map::draw(&frame_context, map_layers, None);
+            drawer_map::draw(&frame_context, map_layers, None, false);
             drawer_intensity_icon::draw_all(&frame_context, earthquake);
             drawer_epicenter::draw(&frame_context, earthquake);
             drawer_overlay::draw(&frame_context, earthquake);
@@ -475,7 +480,7 @@ fn draw_tsunami_frame<F: ?Sized + Facade, S: ?Sized + Surface, T>(
     let epicenter_buffer = drawer_epicenter::create_vertex_buffer(facade, payload.epicenter());
     let levels = with_lines.then(|| drawer_tsunami_line::build_levels_texture(facade, payload));
 
-    drawer_map::draw(frame_context, map_layers, Some(InsetRegion::Main));
+    drawer_map::draw(frame_context, map_layers, Some(InsetRegion::Main), true);
     if let Some(levels) = &levels {
         drawer_tsunami_line::draw(frame_context, InsetRegion::Main, levels);
     }
@@ -529,7 +534,7 @@ fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
             drawer_inset_frame::draw_stencil_mask(&frame_context, notch);
         }
         drawer_inset_frame::draw_background(&frame_context);
-        drawer_map::draw(&frame_context, layers, Some(inset.region));
+        drawer_map::draw(&frame_context, layers, Some(inset.region), true);
         if let Some(levels) = levels {
             drawer_tsunami_line::draw(&frame_context, inset.region, levels);
         }
