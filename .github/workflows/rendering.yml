@@ -5,6 +5,7 @@ on:
     paths:
       - '*/src/**'
       - 'assets/**'
+      - 'rust-toolchain'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/rendering.yml'

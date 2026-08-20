@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '*/src/**'
+      - 'rust-toolchain'
       - 'assets/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
