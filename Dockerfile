@@ -1,4 +1,4 @@
-FROM rust:1.97.1-trixie AS build-env
+FROM rust:1.98.0-trixie AS build-env
 LABEL maintainer="yanorei32"
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
