@@ -6,26 +6,23 @@ use itertools::Itertools;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-struct JsonEntry {
-    #[serde(rename = "lat")]
-    latitude: String,
-    #[serde(rename = "lon")]
-    longitude: Lon,
-    name: String,
-    pref: String,
-    affi: String,
-    area_code: String,
-    city_code: String,
-    station_code: String,
+struct Stations {
+    items: Vec<JsonEntry>,
 }
 
 #[derive(Deserialize)]
-#[serde(untagged)]
-enum Lon {
-    Number(f32),
-    String(String),
+struct CodeOnly {
+    code: String,
+}
+
+#[derive(Deserialize)]
+struct JsonEntry {
+    region: CodeOnly,
+    city: CodeOnly,
+    code: String,
+    status: String,
+    latitude: String,
+    longitude: String,
 }
 
 #[derive(Debug)]
@@ -50,22 +47,21 @@ pub fn read(
     HashMap<u32, usize>,
     HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>,
 ) {
-    let stations: Vec<JsonEntry> = serde_json::from_str(s).unwrap();
+    let stations: Stations = serde_json::from_str(s).unwrap();
 
     let intensity_station_internal: Vec<IntensityStationInternal> = stations
+        .items
         .into_iter()
+        .filter(|v| v.status != "廃止")
         .map(|v| {
             let lat: f32 = v.latitude.parse().unwrap();
-
-            let lon: f32 = match v.longitude {
-                Lon::Number(v) => v,
-                Lon::String(v) => v.parse().unwrap(),
-            };
+            let lon: f32 = v.longitude.parse().unwrap();
+            let pref: u32 = v.city.code[0..2].parse().unwrap();
 
             IntensityStationInternal {
-                area_code: codes::地震情報細分区域(v.area_code.parse().unwrap()),
-                station_code: codes::震度観測点(v.station_code.parse().unwrap()),
-                pref_code: codes::地震情報都道府県等(v.pref.parse().unwrap()),
+                area_code: codes::地震情報細分区域(v.region.code.parse().unwrap()),
+                station_code: codes::震度観測点(v.code.parse().unwrap()),
+                pref_code: codes::地震情報都道府県等(pref),
                 position: (lon, lat),
             }
         })
