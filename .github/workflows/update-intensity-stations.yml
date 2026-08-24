@@ -1,0 +1,101 @@
+name: Update intensity stations
+
+on:
+  schedule:
+    - cron: '0 3 */3 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: update-intensity-stations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ENDPOINT: https://api.dmdata.jp/v2/parameter/earthquake/station
+  TARGET: assets/intensity_stations.json
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: dev
+
+      - name: Fetch station parameter
+        env:
+          DMDATA_API_KEY: ${{ secrets.DMDATA_API_KEY }}
+        run: |
+          curl -sS --fail-with-body --retry 3 --retry-delay 10 \
+            -o fetched.json \
+            "$ENDPOINT" \
+            -K - <<EOF
+          user = "${DMDATA_API_KEY}:"
+          EOF
+
+      - name: Validate response
+        run: |
+          jq -e '.status == "ok"' fetched.json > /dev/null
+          jq -e '.changeTime != null and .version != null' fetched.json > /dev/null
+
+      - name: Compare changeTime
+        id: diff
+        run: |
+          old_change_time="$(jq -r '.changeTime' "$TARGET")"
+          new_change_time="$(jq -r '.changeTime' fetched.json)"
+
+          if [ "$old_change_time" = "$new_change_time" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No update (changeTime: $old_change_time)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          old_version="$(jq -r '.version' "$TARGET")"
+          new_version="$(jq -r '.version' fetched.json)"
+          old_count="$(jq -r '.items | length' "$TARGET")"
+          new_count="$(jq -r '.items | length' fetched.json)"
+
+          jq -r '[.items[].code] | sort' "$TARGET" > old_codes.json
+          jq -r '[.items[].code] | sort' fetched.json > new_codes.json
+          added="$(jq -r --slurpfile o old_codes.json '. - $o[0] | join(", ")' new_codes.json)"
+          removed="$(jq -r --slurpfile n new_codes.json '. - $n[0] | join(", ")' old_codes.json)"
+
+          {
+            echo "| | before | after |"
+            echo "|---|---|---|"
+            echo "| changeTime | \`$old_change_time\` | \`$new_change_time\` |"
+            echo "| version | \`$old_version\` | \`$new_version\` |"
+            echo "| stations | $old_count | $new_count |"
+            echo
+            echo "**Added codes:** ${added:-(none)}"
+            echo
+            echo "**Removed codes:** ${removed:-(none)}"
+            echo
+            echo "Fetched from \`$ENDPOINT\` by [\`${GITHUB_WORKFLOW}\`](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})."
+          } > pr_body.md
+
+          rm -f old_codes.json new_codes.json
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
+          cat pr_body.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply
+        if: steps.diff.outputs.changed == 'true'
+        run: mv fetched.json "$TARGET"
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8.1.1
+        with:
+          token: ${{ secrets.EEWBOT_PR_TOKEN }}
+          base: dev
+          branch: bot/update-intensity-stations
+          add-paths: assets/intensity_stations.json
+          commit-message: 'Update intensity_stations.json (${{ steps.diff.outputs.version }})'
+          title: 'Update intensity_stations.json (${{ steps.diff.outputs.version }})'
+          body-path: pr_body.md
+          delete-branch: true
