@@ -7,7 +7,7 @@ use shapefile::dbase::{FieldValue, Record};
 use shapefile::{Shape, ShapeReader};
 
 use crate::math::*;
-use renderer_types::codes;
+use renderer_types::{classify_tsunami_area, codes, InsetRegion};
 
 struct TsunamiAreaCodeBuffer {
     area_code_to_internal_code: HashMap<u32, u16>,
@@ -145,9 +145,9 @@ Please follow:
 }
 
 pub fn read() -> (
-    Vec<(f32, f32, u16)>, // vertices
-    Vec<u32>,             // indices
-    HashMap<u32, u16>,    // tsunami_area_code_to_internal_code
+    Vec<(f32, f32, u16)>,           // vertices
+    [Vec<u32>; InsetRegion::COUNT], // indices (main / okinawa / ogasawara)
+    HashMap<u32, u16>,              // tsunami_area_code_to_internal_code
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.shp",
@@ -155,10 +155,13 @@ pub fn read() -> (
     );
 
     let mut vertex_buffer = VertexBuffer::new();
-    let mut lines = Vec::new();
+    let mut lines: [Vec<u32>; InsetRegion::COUNT] = Default::default();
     let mut tsunami_area_code_buffer = TsunamiAreaCodeBuffer::new();
 
     for e in shapefile.entries {
+        let region = classify_tsunami_area(e.tsunami_area_code.0);
+        let lines = &mut lines[region.index()];
+
         for line in e.lines {
             let line: Vec<u32> = line
                 .vertices
