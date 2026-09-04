@@ -7,26 +7,38 @@ use tokio::sync::mpsc;
 
 const DEBOUNCE: Duration = Duration::from_millis(300);
 
-pub fn spawn(path: Option<PathBuf>) -> Result<Option<tokio::task::JoinHandle<()>>, notify::Error> {
-    let Some(path) = path else {
-        return Ok(None);
-    };
+pub struct StationWatcher {
+    path: PathBuf,
+    watcher: RecommendedWatcher,
+    rx: mpsc::UnboundedReceiver<()>,
+}
 
+pub fn prepare(path: &Path) -> Result<StationWatcher, notify::Error> {
     let (tx, rx) = mpsc::unbounded_channel();
-    let watcher = watch(&path, tx)?;
+    let watcher = watch(path, tx)?;
 
     tracing::info!("Watching intensity stations file: {}", path.display());
 
-    let handle = tokio::spawn(async move {
-        let _watcher = watcher;
+    Ok(StationWatcher {
+        path: path.to_owned(),
+        watcher,
+        rx,
+    })
+}
 
-        watch_loop(path, rx, |path| {
-            renderer_assets::QueryInterface::reload_intensity_stations(&path)
+impl StationWatcher {
+    pub fn start(self) -> tokio::task::JoinHandle<()> {
+        let Self { path, watcher, rx } = self;
+
+        tokio::spawn(async move {
+            let _watcher = watcher;
+
+            watch_loop(path, rx, |path| {
+                renderer_assets::QueryInterface::reload_intensity_stations(&path)
+            })
+            .await;
         })
-        .await;
-    });
-
-    Ok(Some(handle))
+    }
 }
 
 fn should_reload(event: &notify::Event) -> bool {
