@@ -9,52 +9,6 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/EEWBot/eew-renderer)
 
-## Intensity Station Master
-
-The intensity station master (`intensity_stations.json`) can be supplied at runtime:
-
-| | |
-| --- | --- |
-| `--intensity-stations <PATH>` | Load the station master from an external JSON file. |
-| `INTENSITY_STATIONS=<PATH>` | Same as above, via environment variable. |
-| *(not specified)* | Use the JSON embedded at build time (`assets/intensity_stations.json`). |
-
-Behaviour:
-
-- **Startup failure is fatal.** If an external file is specified and it cannot be
-  read, parsed or validated (malformed JSON, non-finite or out-of-range
-  coordinates, duplicate `stationCode`, or an area present on the map but missing
-  from the master), the renderer exits instead of falling back to the embedded data.
-- **The external file is watched automatically.** Its parent directory is monitored,
-  so both in-place edits and `write temporary file` → `rename` style atomic
-  replacements are picked up. Changes are applied without restarting the process.
-- **Runtime reload failure keeps the last-known-good master.** A reload is
-  transactional: read → parse → validate → resolve must all succeed before the new
-  data is swapped in. On failure the renderer logs the error, keeps serving the
-  previously loaded master, and keeps running. This also covers the moment where the
-  file temporarily does not exist during an atomic replacement.
-- **Only the station master is reloadable.** Map geometry, area boundaries and
-  prefecture boundaries are fixed at build time and are not affected.
-
-Docker bind mount example:
-
-```sh
-docker run \
-  -v /srv/eew/intensity_stations.json:/data/intensity_stations.json:ro \
-  -e INTENSITY_STATIONS=/data/intensity_stations.json \
-  ghcr.io/eewbot/eew-renderer
-```
-
-Note that some tools replace a bind-mounted file in a way the container cannot
-observe; mounting the containing directory instead is the more robust option:
-
-```sh
-docker run \
-  -v /srv/eew:/data:ro \
-  -e INTENSITY_STATIONS=/data/intensity_stations.json \
-  ghcr.io/eewbot/eew-renderer
-```
-
 ## Compatibility
 
 Basically, this project supports GL_VERSION >= 4.5 platforms.

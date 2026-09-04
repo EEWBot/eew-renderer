@@ -77,6 +77,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .unwrap_or_else(|| "[embedded]".to_owned())
     );
 
+    let watcher = match cli.intensity_stations.as_deref() {
+        None => None,
+        Some(path) => match station_watcher::prepare(path) {
+            Ok(watcher) => Some(watcher),
+            Err(e) => {
+                tracing::error!("UNRECOVERABLE ERROR (Assets): {e:?}");
+                std::process::exit(1);
+            }
+        },
+    };
+
     if let Err(e) =
         renderer_assets::QueryInterface::init_intensity_stations(cli.intensity_stations.as_deref())
     {
@@ -84,8 +95,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
 
-    if let Err(e) = station_watcher::spawn(cli.intensity_stations.clone()) {
-        tracing::error!("Failed to watch intensity stations file: {e:?}");
+    if let Some(watcher) = watcher {
+        watcher.start();
     }
 
     if cli.security_rules.bypass_hmac {
