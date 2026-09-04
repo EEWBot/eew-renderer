@@ -11,6 +11,7 @@ mod worker;
 
 use std::error::Error;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 use clap::Parser;
 
@@ -48,6 +49,9 @@ struct Cli {
 
     #[clap(long, env, default_value_t = 0)]
     egl_device_index: usize,
+
+    #[clap(long, env)]
+    intensity_stations: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -64,6 +68,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         cli.minimum_response_interval
     );
     tracing::info!("Headless: {}", cli.headless);
+    tracing::info!(
+        "Intensity Stations: {}",
+        cli.intensity_stations
+            .as_deref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "[embedded]".to_owned())
+    );
+
+    if let Err(e) =
+        renderer_assets::QueryInterface::init_intensity_stations(cli.intensity_stations.as_deref())
+    {
+        tracing::error!("UNRECOVERABLE ERROR (Assets): {e:?}");
+        std::process::exit(1);
+    }
 
     if cli.security_rules.bypass_hmac {
         tracing::warn!("[SECURITY NOTICE] BYPASS HMAC MODE!");
