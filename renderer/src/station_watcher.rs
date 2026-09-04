@@ -7,6 +7,33 @@ use tokio::sync::mpsc;
 
 const DEBOUNCE: Duration = Duration::from_millis(300);
 
+#[derive(Debug, thiserror::Error)]
+pub enum FileLoadError {
+    #[error("{path} を読めない: {source}")]
+    Io {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error(transparent)]
+    Load(#[from] renderer_assets::StationLoadError),
+}
+
+pub fn load(path: &Path) -> Result<Vec<u8>, FileLoadError> {
+    std::fs::read(path).map_err(|source| FileLoadError::Io {
+        path: path.to_owned(),
+        source,
+    })
+}
+
+fn reload(path: &Path) -> Result<(), FileLoadError> {
+    let data = load(path)?;
+    renderer_assets::QueryInterface::replace_intensity_stations(&data)?;
+
+    Ok(())
+}
+
 pub struct StationWatcher {
     path: PathBuf,
     watcher: RecommendedWatcher,
@@ -33,10 +60,7 @@ impl StationWatcher {
         tokio::spawn(async move {
             let _watcher = watcher;
 
-            watch_loop(path, rx, |path| {
-                renderer_assets::QueryInterface::reload_intensity_stations(&path)
-            })
-            .await;
+            watch_loop(path, rx, |path| reload(&path)).await;
         })
     }
 }

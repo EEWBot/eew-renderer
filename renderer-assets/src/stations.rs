@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use renderer_types::*;
 
@@ -9,13 +8,6 @@ use serde::Deserialize;
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum StationLoadError {
-    #[error("intensity_stations.json {path} を読めない")]
-    Io {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-
     #[error("intensity_stations.jsonが不正")]
     Json(#[from] serde_json::Error),
 
@@ -112,8 +104,8 @@ pub struct ParsedStations {
     pub area_to_pref: HashMap<codes::地震情報細分区域, codes::地震情報都道府県等>,
 }
 
-pub fn parse(s: &str) -> Result<ParsedStations, StationLoadError> {
-    let stations: Vec<JsonEntry> = serde_json::from_str(s)?;
+pub fn parse(data: &[u8]) -> Result<ParsedStations, StationLoadError> {
+    let stations: Vec<JsonEntry> = serde_json::from_slice(data)?;
 
     let intensity_station_internal: Vec<IntensityStationInternal> = stations
         .into_iter()

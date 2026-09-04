@@ -6,7 +6,6 @@ include!(concat!(env!("OUT_DIR"), "/data.rs"));
 mod stations;
 
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
 use arc_swap::{ArcSwap, Guard};
@@ -15,8 +14,8 @@ use renderer_types::*;
 use stations::ParsedStations;
 pub use stations::StationLoadError;
 
-const EMBEDDED_INTENSITY_STATIONS: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/intensity_stations.min.json"));
+pub const EMBEDDED_INTENSITY_STATIONS: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/intensity_stations.min.json"));
 
 static INTENSITY_STATIONS: OnceLock<StationStore> = OnceLock::new();
 
@@ -65,31 +64,16 @@ fn resolve(parsed: ParsedStations) -> Result<IntensityStations, StationLoadError
 pub struct StationStore(ArcSwap<IntensityStations>);
 
 impl StationStore {
-    fn build(s: &str) -> Result<IntensityStations, StationLoadError> {
-        resolve(stations::parse(s)?)
+    fn resolve(data: &[u8]) -> Result<IntensityStations, StationLoadError> {
+        resolve(stations::parse(data)?)
     }
 
-    fn build_from_path(path: &Path) -> Result<IntensityStations, StationLoadError> {
-        let s = std::fs::read_to_string(path).map_err(|source| StationLoadError::Io {
-            path: path.to_owned(),
-            source,
-        })?;
-
-        Self::build(&s)
+    pub fn build(data: &[u8]) -> Result<Self, StationLoadError> {
+        Ok(Self(ArcSwap::from_pointee(Self::resolve(data)?)))
     }
 
-    pub fn load_embedded() -> Result<Self, StationLoadError> {
-        Ok(Self(ArcSwap::from_pointee(Self::build(
-            EMBEDDED_INTENSITY_STATIONS,
-        )?)))
-    }
-
-    pub fn load_from_path(path: &Path) -> Result<Self, StationLoadError> {
-        Ok(Self(ArcSwap::from_pointee(Self::build_from_path(path)?)))
-    }
-
-    pub fn reload_from_path(&self, path: &Path) -> Result<(), StationLoadError> {
-        let new = Self::build_from_path(path)?;
+    pub fn replace(&self, data: &[u8]) -> Result<(), StationLoadError> {
+        let new = Self::resolve(data)?;
         self.0.store(Arc::new(new));
 
         Ok(())
@@ -119,8 +103,9 @@ impl StationStore {
 }
 
 fn stations() -> &'static StationStore {
-    INTENSITY_STATIONS
-        .get_or_init(|| StationStore::load_embedded().expect("embedded data must be valid"))
+    INTENSITY_STATIONS.get_or_init(|| {
+        StationStore::build(EMBEDDED_INTENSITY_STATIONS).expect("embedded data must be valid")
+    })
 }
 
 pub struct QueryInterface;
@@ -148,26 +133,21 @@ pub struct TsunamiGeometries {
 }
 
 impl QueryInterface {
-    pub fn init_intensity_stations(path: Option<&Path>) -> Result<(), StationLoadError> {
+    pub fn init_intensity_stations(data: &[u8]) -> Result<(), StationLoadError> {
         if INTENSITY_STATIONS.get().is_some() {
             return Err(StationLoadError::AlreadyInitialized);
         }
 
-        let store = match path {
-            None => StationStore::load_embedded()?,
-            Some(path) => StationStore::load_from_path(path)?,
-        };
-
         INTENSITY_STATIONS
-            .set(store)
+            .set(StationStore::build(data)?)
             .map_err(|_| StationLoadError::AlreadyInitialized)
     }
 
-    pub fn reload_intensity_stations(path: &Path) -> Result<(), StationLoadError> {
+    pub fn replace_intensity_stations(data: &[u8]) -> Result<(), StationLoadError> {
         INTENSITY_STATIONS
             .get()
             .ok_or(StationLoadError::NotInitialized)?
-            .reload_from_path(path)
+            .replace(data)
     }
 
     pub fn geometries() -> Geometries {

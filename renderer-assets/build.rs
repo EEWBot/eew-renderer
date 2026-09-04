@@ -24,9 +24,9 @@ fn main() {
 
     let (world_vertices, world_indices) = parse_world_shapefile::read();
 
-    let s = std::fs::read_to_string("../assets/intensity_stations.json").unwrap();
+    let raw = std::fs::read("../assets/intensity_stations.json").unwrap();
 
-    let minified: serde_json::Value = serde_json::from_str(&s).unwrap();
+    let minified: serde_json::Value = serde_json::from_slice(&raw).unwrap();
     std::fs::write(
         format!(
             "{}/intensity_stations.min.json",
@@ -36,7 +36,7 @@ fn main() {
     )
     .unwrap();
 
-    let parsed = stations::parse(&s).expect("埋め込みのintensity_stations.jsonが不正");
+    let parsed = stations::parse(&raw).expect("埋め込みのintensity_stations.jsonが不正");
 
     #[allow(non_snake_case)]
     let (
