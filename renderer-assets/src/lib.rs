@@ -3,7 +3,110 @@
 
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
+mod stations;
+
+use std::collections::HashMap;
+use std::sync::{Arc, OnceLock};
+
+use arc_swap::{ArcSwap, Guard};
 use renderer_types::*;
+
+use stations::ParsedStations;
+pub use stations::StationLoadError;
+
+pub const EMBEDDED_INTENSITY_STATIONS: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/intensity_stations.min.json"));
+
+static INTENSITY_STATIONS: OnceLock<StationStore> = OnceLock::new();
+
+struct IntensityStations {
+    positions: Vec<(f32, f32)>,
+    station_code_index: HashMap<u32, usize>,
+    area_nearest_station: HashMap<u32, usize>,
+}
+
+fn resolve(parsed: ParsedStations) -> Result<IntensityStations, StationLoadError> {
+    let mut area_nearest_station = HashMap::with_capacity(AREA_BBOXES.len());
+
+    for (area_code, _bbox) in AREA_BBOXES.entries() {
+        let center = AREA_CENTERS
+            .get(area_code)
+            .expect("AREA_BBOXES and AREA_CENTERS must have identical keys");
+        let center = Vertex::<GeoDegree>::new(center.0, center.1);
+
+        let range = parsed
+            .area_ranges
+            .get(&codes::地震情報細分区域(*area_code))
+            .filter(|range| range.n >= 1)
+            .ok_or(StationLoadError::AreaWithoutStation(*area_code))?;
+
+        let nearest = parsed.positions[range.start_i..range.start_i + range.n]
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                let a = center.euclidean_distance(&Vertex::<GeoDegree>::new(a.0, a.1));
+                let b = center.euclidean_distance(&Vertex::<GeoDegree>::new(b.0, b.1));
+                a.partial_cmp(&b).expect("観測点距離が何故かNaN")
+            })
+            .map(|(offset, _)| range.start_i + offset)
+            .ok_or(StationLoadError::AreaWithoutStation(*area_code))?;
+
+        area_nearest_station.insert(*area_code, nearest);
+    }
+
+    Ok(IntensityStations {
+        positions: parsed.positions,
+        station_code_index: parsed.station_code_index,
+        area_nearest_station,
+    })
+}
+
+pub struct StationStore(ArcSwap<IntensityStations>);
+
+impl StationStore {
+    fn resolve(data: &[u8]) -> Result<IntensityStations, StationLoadError> {
+        resolve(stations::parse(data)?)
+    }
+
+    pub fn build(data: &[u8]) -> Result<Self, StationLoadError> {
+        Ok(Self(ArcSwap::from_pointee(Self::resolve(data)?)))
+    }
+
+    pub fn replace(&self, data: &[u8]) -> Result<(), StationLoadError> {
+        let new = Self::resolve(data)?;
+        self.0.store(Arc::new(new));
+
+        Ok(())
+    }
+
+    fn snapshot(&self) -> Guard<Arc<IntensityStations>> {
+        self.0.load()
+    }
+
+    pub fn rendering_center_by_area(
+        &self,
+        area_code: codes::地震情報細分区域,
+    ) -> Option<Vertex<GeoDegree>> {
+        let stations = self.snapshot();
+        Some(stations.positions[*stations.area_nearest_station.get(&area_code.0)?].into())
+    }
+
+    pub fn position_by_station_code(
+        &self,
+        intensity_station_code: codes::震度観測点,
+    ) -> Option<Vertex<GeoDegree>> {
+        let stations = self.snapshot();
+        Some(
+            stations.positions[*stations.station_code_index.get(&intensity_station_code.0)?].into(),
+        )
+    }
+}
+
+fn stations() -> &'static StationStore {
+    INTENSITY_STATIONS.get_or_init(|| {
+        StationStore::build(EMBEDDED_INTENSITY_STATIONS).expect("embedded data must be valid")
+    })
+}
 
 pub struct QueryInterface;
 
@@ -30,6 +133,23 @@ pub struct TsunamiGeometries {
 }
 
 impl QueryInterface {
+    pub fn init_intensity_stations(data: &[u8]) -> Result<(), StationLoadError> {
+        if INTENSITY_STATIONS.get().is_some() {
+            return Err(StationLoadError::AlreadyInitialized);
+        }
+
+        INTENSITY_STATIONS
+            .set(StationStore::build(data)?)
+            .map_err(|_| StationLoadError::AlreadyInitialized)
+    }
+
+    pub fn replace_intensity_stations(data: &[u8]) -> Result<(), StationLoadError> {
+        INTENSITY_STATIONS
+            .get()
+            .ok_or(StationLoadError::NotInitialized)?
+            .replace(data)
+    }
+
     pub fn geometries() -> Geometries {
         Geometries {
             vertices: VERTICES,
@@ -61,7 +181,7 @@ impl QueryInterface {
     }
 
     pub fn is_valid_earthquake_area_code(area_code: codes::地震情報細分区域) -> bool {
-        AREAS.contains_key(&area_code.0)
+        AREA_BBOXES.contains_key(&area_code.0)
     }
 
     pub fn is_valid_tsunami_area_code(area_code: codes::津波予報区) -> bool {
@@ -81,7 +201,7 @@ impl QueryInterface {
     pub fn query_bounding_box_by_area(
         area_code: codes::地震情報細分区域,
     ) -> Option<BoundingBox<GeoDegree>> {
-        let tuple = AREAS.get(&area_code.0)?.1;
+        let tuple = AREA_BBOXES.get(&area_code.0)?;
         let min = Vertex::new(tuple.0, tuple.1);
         let max = Vertex::new(tuple.2, tuple.3);
         Some(BoundingBox::new(min, max))
@@ -90,13 +210,13 @@ impl QueryInterface {
     pub fn query_rendering_center_by_area(
         area_code: codes::地震情報細分区域,
     ) -> Option<Vertex<GeoDegree>> {
-        Some(INTENSITY_STATION_POSITIONS[AREAS.get(&area_code.0)?.0].into())
+        stations().rendering_center_by_area(area_code)
     }
 
     pub fn query_position_by_station_code(
         intensity_station_code: codes::震度観測点,
     ) -> Option<Vertex<GeoDegree>> {
-        Some(INTENSITY_STATION_POSITIONS[*STATION_CODES.get(&intensity_station_code.0)?].into())
+        stations().position_by_station_code(intensity_station_code)
     }
 
     pub fn query_lod_level_by_scale(scale: f32) -> Option<usize> {
