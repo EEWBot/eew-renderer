@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use notify::event::{EventKind, ModifyKind};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 
@@ -28,6 +29,18 @@ pub fn spawn(path: Option<PathBuf>) -> Result<Option<tokio::task::JoinHandle<()>
     Ok(Some(handle))
 }
 
+fn should_reload(event: &notify::Event) -> bool {
+    matches!(
+        event.kind,
+        EventKind::Any
+            | EventKind::Create(_)
+            | EventKind::Remove(_)
+            | EventKind::Modify(ModifyKind::Any)
+            | EventKind::Modify(ModifyKind::Data(_))
+            | EventKind::Modify(ModifyKind::Name(_))
+    )
+}
+
 fn watch(path: &Path, tx: mpsc::UnboundedSender<()>) -> Result<RecommendedWatcher, notify::Error> {
     let target = path.to_owned();
     let file_name = path.file_name().map(|v| v.to_owned());
@@ -35,11 +48,12 @@ fn watch(path: &Path, tx: mpsc::UnboundedSender<()>) -> Result<RecommendedWatche
     let mut watcher =
         notify::recommended_watcher(move |res: notify::Result<notify::Event>| match res {
             Ok(event) => {
-                let related = event.paths.is_empty()
-                    || event
-                        .paths
-                        .iter()
-                        .any(|p| *p == target || p.file_name() == file_name.as_deref());
+                let related = should_reload(&event)
+                    && (event.paths.is_empty()
+                        || event
+                            .paths
+                            .iter()
+                            .any(|p| *p == target || p.file_name() == file_name.as_deref()));
 
                 if related {
                     let _ = tx.send(());
