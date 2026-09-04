@@ -6,6 +6,7 @@ mod frame_context;
 mod model;
 mod namesgenerator;
 mod rendering_context;
+mod station_watcher;
 mod web;
 mod worker;
 
@@ -81,6 +82,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     {
         tracing::error!("UNRECOVERABLE ERROR (Assets): {e:?}");
         std::process::exit(1);
+    }
+
+    if let Err(e) = station_watcher::spawn(cli.intensity_stations.clone()) {
+        tracing::error!("Failed to watch intensity stations file: {e:?}");
     }
 
     if cli.security_rules.bypass_hmac {

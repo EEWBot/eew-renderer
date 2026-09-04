@@ -29,6 +29,9 @@ pub enum StationLoadError {
     #[error("観測点[{index}]の座標が有限でない")]
     NonFiniteCoordinate { index: usize },
 
+    #[error("観測点[{index}]の座標が範囲外: (lat: {lat}, lon: {lon})")]
+    CoordinateOutOfRange { index: usize, lat: f32, lon: f32 },
+
     #[error("stationCode {0} が重複している")]
     DuplicateStationCode(u32),
 
@@ -37,6 +40,9 @@ pub enum StationLoadError {
 
     #[error("intensity_stations.jsonは既に初期化されている")]
     AlreadyInitialized,
+
+    #[error("intensity_stations.jsonがまだ初期化されていない")]
+    NotInitialized,
 }
 
 #[derive(Deserialize)]
@@ -118,6 +124,10 @@ pub fn parse(s: &str) -> Result<ParsedStations, StationLoadError> {
 
             if !lat.is_finite() || !lon.is_finite() {
                 return Err(StationLoadError::NonFiniteCoordinate { index: i });
+            }
+
+            if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
+                return Err(StationLoadError::CoordinateOutOfRange { index: i, lat, lon });
             }
 
             Ok(IntensityStationInternal {
