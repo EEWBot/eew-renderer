@@ -2790,11 +2790,11 @@ dependencies = [
  "asset-preprocessor",
  "const-gen",
  "itertools 0.15.0",
- "ordered-float",
  "phf 0.14.0",
  "renderer-types",
  "serde",
  "serde_json",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
