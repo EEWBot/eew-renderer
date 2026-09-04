@@ -14,7 +14,8 @@ use renderer_types::*;
 use stations::ParsedStations;
 pub use stations::StationLoadError;
 
-const EMBEDDED_INTENSITY_STATIONS: &str = include_str!("../../assets/intensity_stations.json");
+const EMBEDDED_INTENSITY_STATIONS: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/intensity_stations.min.json"));
 
 static INTENSITY_STATIONS: OnceLock<IntensityStations> = OnceLock::new();
 

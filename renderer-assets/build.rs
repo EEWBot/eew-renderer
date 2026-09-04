@@ -26,6 +26,16 @@ fn main() {
 
     let s = std::fs::read_to_string("../assets/intensity_stations.json").unwrap();
 
+    let minified: serde_json::Value = serde_json::from_str(&s).unwrap();
+    std::fs::write(
+        format!(
+            "{}/intensity_stations.min.json",
+            std::env::var("OUT_DIR").unwrap()
+        ),
+        serde_json::to_string(&minified).unwrap(),
+    )
+    .unwrap();
+
     let parsed = stations::parse(&s).expect("埋め込みのintensity_stations.jsonが不正");
 
     #[allow(non_snake_case)]
