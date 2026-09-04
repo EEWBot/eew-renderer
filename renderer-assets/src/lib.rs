@@ -94,6 +94,10 @@ pub struct TsunamiGeometries {
 
 impl QueryInterface {
     pub fn init_intensity_stations(path: Option<&Path>) -> Result<(), StationLoadError> {
+        if INTENSITY_STATIONS.get().is_some() {
+            return Err(StationLoadError::AlreadyInitialized);
+        }
+
         let parsed = match path {
             None => stations::parse(EMBEDDED_INTENSITY_STATIONS)?,
             Some(path) => {
