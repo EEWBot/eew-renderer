@@ -10,7 +10,7 @@ shapefile = { default-features = false, version = "0.9", optional = true }
 num-traits = "0.2.19"
 
 [dev-dependencies]
-rstest = "0.26.1"
+rstest = "0.27.0"
 rstest_reuse = "0.7.0"
 
 [features]
