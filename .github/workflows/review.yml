@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - '*/src/**'
+      - 'rust-toolchain'
+      - 'assets/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/review.yml'
@@ -18,11 +20,9 @@ jobs:
         include:
           - ghimage: ubuntu-24.04
             dockerarch: linux/amd64
-            rustfscliarch: amd64
 
           - ghimage: ubuntu-24.04-arm
             dockerarch: linux/arm64
-            rustfscliarch: arm64
 
     permissions:
       packages: write
@@ -37,20 +37,8 @@ jobs:
         with:
           submodules: true
 
-      - run: |
-          # depName=rustfs/cli
-          RUSTFS_CLI_VERSION="v0.1.30"
-          RUSTFS_CLI_TAR_NAME="rustfs-cli-linux-${{ matrix.rustfscliarch }}-$RUSTFS_CLI_VERSION.tar.gz"
-          wget "https://github.com/rustfs/cli/releases/download/$RUSTFS_CLI_VERSION/$RUSTFS_CLI_TAR_NAME"
-          tar xf "$RUSTFS_CLI_TAR_NAME"
-          rm "$RUSTFS_CLI_TAR_NAME"
-          sudo mv rc /bin/
-
-          rc alias set yr32srv https://rustfs-s3.yr32.net eewbot-ci "${{ secrets.YR32RUSTFS_EEWBOT_CI_SECRET }}"
-          pushd assets/shapefile/
-          rc cp yr32srv/eewbot/shapefiles_v1.zip ./shapefiles_v1.zip
-          unzip -o ./shapefiles_v1.zip
-          popd
+      - name: Install Toolchains
+        run: |
           sudo apt-get update -y
           sudo apt-get install -y protobuf-compiler
 
@@ -66,7 +54,7 @@ jobs:
           components: clippy
 
       - name: cache dependencies
-        uses: Swatinem/rust-cache@v2.9.1
+        uses: Swatinem/rust-cache@v2.9.2
 
       - name: clippy check
         uses: yanorei32/action-clippy@50412b135153ebee7d4b8a5b868c4defdc663683
