@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, LitStr, LitFloat, Token};
-use syn::parse::{Parse, ParseStream};
 use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::{parse_macro_input, LitFloat, LitStr, Token};
 
 struct RgbArgs {
     hex: LitStr,
