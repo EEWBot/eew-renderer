@@ -64,11 +64,10 @@ URL=$(eew-renderer-url encode \
     --epicenter 37.5,137.2 \
     --three 350 --five-plus 380 --seven 390)
 
-curl -o quake-image "$URL"
+curl -o quake.webp "$URL"
 ```
 
-For more exacurl -o quake.webp "$URL"
-ows/rendering.yml`](.github/workflows/rendering.yml).
+For more examples, see [`.github/workflows/rendering.yml`](.github/workflows/rendering.yml).
 
 Requests with an invalid signature are rejected with `401 Unauthorized`.
 For local development, `--bypass-hmac` disables the check. **Never use it in production.**
