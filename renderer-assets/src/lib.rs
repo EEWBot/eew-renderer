@@ -7,8 +7,9 @@ mod stations;
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
+use arc_swap::{ArcSwap, Guard};
 use renderer_types::*;
 
 use stations::ParsedStations;
@@ -17,7 +18,7 @@ pub use stations::StationLoadError;
 const EMBEDDED_INTENSITY_STATIONS: &str =
     include_str!(concat!(env!("OUT_DIR"), "/intensity_stations.min.json"));
 
-static INTENSITY_STATIONS: OnceLock<IntensityStations> = OnceLock::new();
+static INTENSITY_STATIONS: OnceLock<StationStore> = OnceLock::new();
 
 struct IntensityStations {
     positions: Vec<(f32, f32)>,
@@ -61,11 +62,65 @@ fn resolve(parsed: ParsedStations) -> Result<IntensityStations, StationLoadError
     })
 }
 
-fn stations() -> &'static IntensityStations {
-    INTENSITY_STATIONS.get_or_init(|| {
-        resolve(stations::parse(EMBEDDED_INTENSITY_STATIONS).expect("embedded data must be valid"))
-            .expect("embedded data is validated at build time")
-    })
+pub struct StationStore(ArcSwap<IntensityStations>);
+
+impl StationStore {
+    fn build(s: &str) -> Result<IntensityStations, StationLoadError> {
+        resolve(stations::parse(s)?)
+    }
+
+    fn build_from_path(path: &Path) -> Result<IntensityStations, StationLoadError> {
+        let s = std::fs::read_to_string(path).map_err(|source| StationLoadError::Io {
+            path: path.to_owned(),
+            source,
+        })?;
+
+        Self::build(&s)
+    }
+
+    pub fn load_embedded() -> Result<Self, StationLoadError> {
+        Ok(Self(ArcSwap::from_pointee(Self::build(
+            EMBEDDED_INTENSITY_STATIONS,
+        )?)))
+    }
+
+    pub fn load_from_path(path: &Path) -> Result<Self, StationLoadError> {
+        Ok(Self(ArcSwap::from_pointee(Self::build_from_path(path)?)))
+    }
+
+    pub fn reload_from_path(&self, path: &Path) -> Result<(), StationLoadError> {
+        let new = Self::build_from_path(path)?;
+        self.0.store(Arc::new(new));
+
+        Ok(())
+    }
+
+    fn snapshot(&self) -> Guard<Arc<IntensityStations>> {
+        self.0.load()
+    }
+
+    pub fn rendering_center_by_area(
+        &self,
+        area_code: codes::地震情報細分区域,
+    ) -> Option<Vertex<GeoDegree>> {
+        let stations = self.snapshot();
+        Some(stations.positions[*stations.area_nearest_station.get(&area_code.0)?].into())
+    }
+
+    pub fn position_by_station_code(
+        &self,
+        intensity_station_code: codes::震度観測点,
+    ) -> Option<Vertex<GeoDegree>> {
+        let stations = self.snapshot();
+        Some(
+            stations.positions[*stations.station_code_index.get(&intensity_station_code.0)?].into(),
+        )
+    }
+}
+
+fn stations() -> &'static StationStore {
+    INTENSITY_STATIONS
+        .get_or_init(|| StationStore::load_embedded().expect("embedded data must be valid"))
 }
 
 pub struct QueryInterface;
@@ -98,21 +153,21 @@ impl QueryInterface {
             return Err(StationLoadError::AlreadyInitialized);
         }
 
-        let parsed = match path {
-            None => stations::parse(EMBEDDED_INTENSITY_STATIONS)?,
-            Some(path) => {
-                let s = std::fs::read_to_string(path).map_err(|source| StationLoadError::Io {
-                    path: path.to_owned(),
-                    source,
-                })?;
-
-                stations::parse(&s)?
-            }
+        let store = match path {
+            None => StationStore::load_embedded()?,
+            Some(path) => StationStore::load_from_path(path)?,
         };
 
         INTENSITY_STATIONS
-            .set(resolve(parsed)?)
+            .set(store)
             .map_err(|_| StationLoadError::AlreadyInitialized)
+    }
+
+    pub fn reload_intensity_stations(path: &Path) -> Result<(), StationLoadError> {
+        INTENSITY_STATIONS
+            .get()
+            .ok_or(StationLoadError::NotInitialized)?
+            .reload_from_path(path)
     }
 
     pub fn geometries() -> Geometries {
@@ -175,17 +230,13 @@ impl QueryInterface {
     pub fn query_rendering_center_by_area(
         area_code: codes::地震情報細分区域,
     ) -> Option<Vertex<GeoDegree>> {
-        let stations = stations();
-        Some(stations.positions[*stations.area_nearest_station.get(&area_code.0)?].into())
+        stations().rendering_center_by_area(area_code)
     }
 
     pub fn query_position_by_station_code(
         intensity_station_code: codes::震度観測点,
     ) -> Option<Vertex<GeoDegree>> {
-        let stations = stations();
-        Some(
-            stations.positions[*stations.station_code_index.get(&intensity_station_code.0)?].into(),
-        )
+        stations().position_by_station_code(intensity_station_code)
     }
 
     pub fn query_lod_level_by_scale(scale: f32) -> Option<usize> {
