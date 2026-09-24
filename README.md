@@ -1,4 +1,4 @@
-# EEW Renderer
+# eew-renderer
 
 <img width="1024" height="768" alt="image" src="https://github.com/user-attachments/assets/45b3752c-1802-4027-bdfc-a31b8b77510f" />
 
@@ -9,7 +9,7 @@
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/EEWBot/eew-renderer)
 
-EEW Renderer is an HTTP server that renders earthquake intensity maps and tsunami forecast maps as WebP images.
+eew-renderer is an HTTP server that renders earthquake intensity maps and tsunami forecast maps as images.
 All rendering parameters are encoded into the request URL, so an image can be embedded anywhere a URL is accepted.
 
 ## Getting Started
@@ -64,10 +64,11 @@ URL=$(eew-renderer-url encode \
     --epicenter 37.5,137.2 \
     --three 350 --five-plus 380 --seven 390)
 
-curl -o quake.webp "$URL"
+curl -o quake-image "$URL"
 ```
 
-For more examples, see [`.github/workflows/rendering.yml`](.github/workflows/rendering.yml).
+For more exacurl -o quake.webp "$URL"
+ows/rendering.yml`](.github/workflows/rendering.yml).
 
 Requests with an invalid signature are rejected with `401 Unauthorized`.
 For local development, `--bypass-hmac` disables the check. **Never use it in production.**
@@ -133,7 +134,7 @@ The workaround is to use an alternative GL implementation, such as LIBGL_ALWAYS_
 
 ## License
 
-EEW Renderer source code is licensed under the [MIT License](LICENSE).
+eew-renderer source code is licensed under the [MIT License](LICENSE).
 
 This project also uses geographic data provided by third parties.
 Those datasets and data derived from them are subject to their respective
