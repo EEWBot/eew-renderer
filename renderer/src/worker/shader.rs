@@ -1,9 +1,15 @@
 use glium::backend::Facade;
 use glium::index::IndicesSource;
 use glium::uniforms::Uniforms;
+use glium::vertex::{MultiVerticesSource, VertexBufferSlice};
 use glium::{DrawError, DrawParameters, Program, Surface, Vertex, VertexBuffer};
 use std::fmt::{Debug, Display, Formatter};
 use std::marker::PhantomData;
+
+pub trait VertexSource<'a, V: Vertex>: MultiVerticesSource<'a> {}
+
+impl<'a, V: Vertex> VertexSource<'a, V> for &'a VertexBuffer<V> {}
+impl<'a, V: Vertex> VertexSource<'a, V> for VertexBufferSlice<'a, V> {}
 
 #[derive(Debug)]
 pub struct ShaderProgram<U: Uniforms, V: Vertex> {
@@ -32,10 +38,10 @@ impl<U: Uniforms, V: Vertex> ShaderProgram<U, V> {
         Self::from_program(program)
     }
 
-    pub fn draw<'a, S: ?Sized + Surface, I: Into<IndicesSource<'a>>>(
+    pub fn draw<'a, 'b, S: ?Sized + Surface, I: Into<IndicesSource<'a>>, B: VertexSource<'b, V>>(
         &self,
         surface: &mut S,
-        vertex_buffer: &VertexBuffer<V>,
+        vertex_buffer: B,
         index_buffer: I,
         uniform: &U,
         draw_parameters: &DrawParameters,

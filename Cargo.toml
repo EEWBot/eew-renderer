@@ -6,4 +6,5 @@ members = [
 	"renderer",
 	"renderer-assets",
 	"renderer-types",
+	"renderer-macros",
 ]

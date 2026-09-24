@@ -234,6 +234,7 @@ pub enum Origin {
     RightUp,
     RightDown,
     Center,
+    CenterDown,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -270,6 +271,7 @@ impl Offset {
             Origin::RightUp => (x + image_dimension.0, y),
             Origin::RightDown => (x + image_dimension.0, y + image_dimension.1),
             Origin::Center => (x + image_dimension.0 / 2.0, y + image_dimension.1 / 2.0),
+            Origin::CenterDown => (x + image_dimension.0 / 2.0, y + image_dimension.1),
         };
 
         let text_size = (text_size.0, text_size.1);
@@ -279,6 +281,7 @@ impl Offset {
             Origin::RightUp => (offset.0 - text_size.0, offset.1),
             Origin::RightDown => (offset.0 - text_size.0, offset.1 - text_size.1),
             Origin::Center => (offset.0 - text_size.0 / 2.0, offset.1 - text_size.1 / 2.0),
+            Origin::CenterDown => (offset.0 - text_size.0 / 2.0, offset.1 - text_size.1),
         };
 
         point(offset.0, offset.1 + ascent)

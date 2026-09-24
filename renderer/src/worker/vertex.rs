@@ -1,3 +1,4 @@
+use super::resources::PremultipliedTexture2d;
 use glium::texture::UnsignedTexture1d;
 use glium::uniforms::{
     AsUniformValue, ImageUnitAccess, ImageUnitBehavior, ImageUnitFormat, Sampler, UniformValue,
@@ -36,7 +37,7 @@ pub struct EpicenterUniform<'a> {
     pub offset: [f32; 2],
     pub zoom: f32,
     pub icon_ratio_in_y_axis: f32,
-    pub texture_sampler: &'a Texture2d,
+    pub texture_sampler: &'a PremultipliedTexture2d,
 }
 
 impl Uniforms for EpicenterUniform<'_> {
@@ -65,7 +66,7 @@ pub struct IntensityIconUniform<'a> {
     pub offset: [f32; 2],
     pub zoom: f32,
     pub icon_ratio_in_y_axis: f32,
-    pub texture_sampler: &'a Texture2d,
+    pub texture_sampler: &'a PremultipliedTexture2d,
 }
 
 impl Uniforms for IntensityIconUniform<'_> {
@@ -129,16 +130,16 @@ pub struct TsunamiVertex {
 implement_vertex!(TsunamiVertex, position, code);
 
 #[derive(Debug)]
-pub struct TsunamiUniform {
+pub struct TsunamiUniform<'a> {
     pub dimension: [f32; 2],
     pub offset: [f32; 2],
     pub zoom: f32,
     pub colors: TsunamiLineColors,
-    pub levels: UnsignedTexture1d,
+    pub levels: &'a UnsignedTexture1d,
     pub line_width: f32,
 }
 
-impl Uniforms for TsunamiUniform {
+impl Uniforms for TsunamiUniform<'_> {
     fn visit_values<'a, Fn: FnMut(&str, UniformValue<'a>)>(&'a self, mut visitor: Fn) {
         visitor("dimension", self.dimension.as_uniform_value());
         visitor("offset", self.offset.as_uniform_value());
@@ -156,7 +157,7 @@ impl Uniforms for TsunamiUniform {
         behavior.format = ImageUnitFormat::R8UI;
         visitor(
             "levels",
-            UniformValue::UnsignedImage1d(&self.levels, Some(behavior)),
+            UniformValue::UnsignedImage1d(self.levels, Some(behavior)),
         );
         visitor("line_width", self.line_width.as_uniform_value());
         // meow
@@ -207,7 +208,7 @@ implement_vertex!(TexturedVertex, position, uv);
 
 #[derive(Debug)]
 pub struct TexturedUniform<'a> {
-    pub texture_sampler: &'a Texture2d,
+    pub texture_sampler: &'a PremultipliedTexture2d,
 }
 
 impl Uniforms for TexturedUniform<'_> {
