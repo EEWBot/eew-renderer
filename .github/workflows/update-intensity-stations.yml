@@ -20,11 +20,21 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: dev-worktree
     steps:
-      - uses: actions/checkout@v7.0.1
+      - name: Check out updater from workflow revision
+        uses: actions/checkout@v7.0.1
+        with:
+          path: updater-source
+
+      - name: Check out dev
+        uses: actions/checkout@v7.0.1
         with:
           ref: dev
           fetch-depth: 0
+          path: dev-worktree
 
       - name: Start update branch from dev
         shell: bash
@@ -51,7 +61,7 @@ jobs:
             git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
             git show "refs/remotes/origin/$branch:assets/intensity_stations.json" \
               > "$RUNNER_TEMP/previous-intensity-stations.json"
-            python3 .github/scripts/update_intensity_stations.py \
+            python3 ../updater-source/.github/scripts/update_intensity_stations.py \
               --asset "$RUNNER_TEMP/previous-intensity-stations.json" \
               --report-out "$RUNNER_TEMP/intensity-report.json" \
               --body-out "$RUNNER_TEMP/intensity-pr.md" \
@@ -61,7 +71,7 @@ jobs:
               exit 0
             fi
           fi
-          python3 .github/scripts/update_intensity_stations.py \
+          python3 ../updater-source/.github/scripts/update_intensity_stations.py \
             --asset assets/intensity_stations.json \
             --report-out "$RUNNER_TEMP/intensity-report.json" \
             --body-out "$RUNNER_TEMP/intensity-pr.md" \
