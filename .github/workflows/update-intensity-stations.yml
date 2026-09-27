@@ -5,6 +5,9 @@ on:
     # 12:17 JST on days 1, 4, 7, ... of each month.
     - cron: '17 3 */3 * *'
   workflow_dispatch:
+  push:
+    branches:
+      - feat/new-station-master-schema
 
 permissions:
   contents: write
