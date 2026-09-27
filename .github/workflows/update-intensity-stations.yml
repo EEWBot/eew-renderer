@@ -1,0 +1,113 @@
+name: Update intensity stations
+
+on:
+  schedule:
+    # 12:17 JST on days 1, 4, 7, ... of each month.
+    - cron: '17 3 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-intensity-stations
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Start update branch from dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin dev
+          git switch -C update/intensity-stations origin/dev
+
+      - name: Generate station master
+        id: generate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=update/intensity-stations
+          pr_numbers="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f head="$GITHUB_REPOSITORY_OWNER:$branch" \
+            -f per_page=100 \
+            --jq '.[].number')"
+          remote_ref="$(git ls-remote --heads origin "refs/heads/$branch")"
+          if [[ -n "$pr_numbers" && -n "$remote_ref" ]]; then
+            git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            git show "refs/remotes/origin/$branch:assets/intensity_stations.json" \
+              > "$RUNNER_TEMP/previous-intensity-stations.json"
+            python3 .github/scripts/update_intensity_stations.py \
+              --asset "$RUNNER_TEMP/previous-intensity-stations.json" \
+              --report-out "$RUNNER_TEMP/intensity-report.json" \
+              --body-out "$RUNNER_TEMP/intensity-pr.md" \
+              --github-output "$RUNNER_TEMP/intensity-compare-output"
+            if grep -qx 'changed=false' "$RUNNER_TEMP/intensity-compare-output"; then
+              echo 'changed=false' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          python3 .github/scripts/update_intensity_stations.py \
+            --asset assets/intensity_stations.json \
+            --report-out "$RUNNER_TEMP/intensity-report.json" \
+            --body-out "$RUNNER_TEMP/intensity-pr.md" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Save full update report
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: intensity-stations-report
+          path: ${{ runner.temp }}/intensity-report.json
+          if-no-files-found: error
+
+      - name: Close previous update PRs and delete branch
+        if: steps.generate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=update/intensity-stations
+          pr_numbers="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f head="$GITHUB_REPOSITORY_OWNER:$branch" \
+            -f per_page=100 \
+            --jq '.[].number')"
+          while IFS= read -r pr_number; do
+            if [[ -n "$pr_number" ]]; then
+              gh pr close "$pr_number"
+            fi
+          done <<< "$pr_numbers"
+          remote_ref="$(git ls-remote --heads origin "refs/heads/$branch")"
+          if [[ -n "$remote_ref" ]]; then
+            git push origin --delete "$branch"
+          fi
+
+      - name: Commit and open pull request
+        if: steps.generate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- assets/intensity_stations.json
+          git commit -m 'Update intensity stations from JMA public feeds'
+          git push origin HEAD:update/intensity-stations
+          gh pr create \
+            --base dev \
+            --head update/intensity-stations \
+            --title 'Update intensity stations from JMA public feeds' \
+            --body-file "$RUNNER_TEMP/intensity-pr.md"
