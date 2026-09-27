@@ -10,10 +10,13 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
+import time
 import unicodedata
 from urllib.parse import urljoin, urlparse
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import zipfile
 from datetime import datetime
@@ -31,11 +34,24 @@ def download(url: str, *, token: str | None = None) -> bytes:
     if token:
         headers["Authorization"] = f"Bearer {token}"
         headers["Accept"] = "application/vnd.github+json"
-    with urlopen(Request(url, headers=headers), timeout=60) as response:
-        data = response.read(MAX_DOWNLOAD_BYTES + 1)
-    if len(data) > MAX_DOWNLOAD_BYTES:
-        raise ValueError(f"download exceeds {MAX_DOWNLOAD_BYTES} bytes: {url}")
-    return data
+    request = Request(url, headers=headers)
+    for attempt in range(4):
+        try:
+            with urlopen(request, timeout=60) as response:
+                data = response.read(MAX_DOWNLOAD_BYTES + 1)
+            if len(data) > MAX_DOWNLOAD_BYTES:
+                raise ValueError(f"download exceeds {MAX_DOWNLOAD_BYTES} bytes: {url}")
+            return data
+        except HTTPError as error:
+            if error.code not in (408, 429, 500, 502, 503, 504) or attempt == 3:
+                raise
+        except (URLError, TimeoutError, ConnectionError):
+            if attempt == 3:
+                raise
+        delay = (5, 10, 20)[attempt]
+        print(f"Retrying download after {delay}s: {url}", file=sys.stderr, flush=True)
+        time.sleep(delay)
+    raise AssertionError("download retry loop ended unexpectedly")
 
 
 class CodeTableLinkParser(html.parser.HTMLParser):
