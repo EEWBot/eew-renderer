@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 
 
 RELEASE_API = "https://api.github.com/repos/EEWBot/jma-station-master/releases/latest"
-STATIONS_URL = "https://www.data.jma.go.jp/svd/eqev/data/intens-st/stations.json"
+STATIONS_URL = "https://www.jma.go.jp/jma/kishou/know/jishin/intens-st/stations.json"
 CODE_TABLE_PAGE = "https://xml.kishou.go.jp/tec_material.html"
 MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024
 
