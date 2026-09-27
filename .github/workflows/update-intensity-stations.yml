@@ -18,7 +18,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  code_table:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Download current JMA code table
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".github/scripts")
+          from update_intensity_stations import CODE_TABLE_PAGE, code_table_url, download
+
+          page = download(CODE_TABLE_PAGE)
+          url = code_table_url(page)
+          artifact = Path(os.environ["RUNNER_TEMP"]) / "jma-code-table"
+          artifact.mkdir(parents=True, exist_ok=True)
+          (artifact / "page.html").write_bytes(page)
+          (artifact / "code-table.zip").write_bytes(download(url))
+          print(url)
+          PY
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: jma-code-table
+          path: ${{ runner.temp }}/jma-code-table/
+          if-no-files-found: error
+          retention-days: 1
+
   update:
+    needs: code_table
     runs-on: ubuntu-24.04
     defaults:
       run:
@@ -35,6 +72,12 @@ jobs:
           ref: dev
           fetch-depth: 0
           path: dev-worktree
+
+      - name: Retrieve JMA code table
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: jma-code-table
+          path: ${{ runner.temp }}/jma-code-table
 
       - name: Start update branch from dev
         shell: bash
@@ -63,6 +106,8 @@ jobs:
               > "$RUNNER_TEMP/previous-intensity-stations.json"
             python3 ../updater-source/.github/scripts/update_intensity_stations.py \
               --asset "$RUNNER_TEMP/previous-intensity-stations.json" \
+              --code-table-page "$RUNNER_TEMP/jma-code-table/page.html" \
+              --code-table-zip "$RUNNER_TEMP/jma-code-table/code-table.zip" \
               --report-out "$RUNNER_TEMP/intensity-report.json" \
               --body-out "$RUNNER_TEMP/intensity-pr.md" \
               --github-output "$RUNNER_TEMP/intensity-compare-output"
@@ -73,6 +118,8 @@ jobs:
           fi
           python3 ../updater-source/.github/scripts/update_intensity_stations.py \
             --asset assets/intensity_stations.json \
+            --code-table-page "$RUNNER_TEMP/jma-code-table/page.html" \
+            --code-table-zip "$RUNNER_TEMP/jma-code-table/code-table.zip" \
             --report-out "$RUNNER_TEMP/intensity-report.json" \
             --body-out "$RUNNER_TEMP/intensity-pr.md" \
             --github-output "$GITHUB_OUTPUT"

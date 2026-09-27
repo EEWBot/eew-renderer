@@ -225,7 +225,14 @@ def pr_body(report: dict, tag: str, code_url: str, run_url: str) -> str:
     )
 
 
-def update(asset: Path, report_out: Path, body_out: Path, github_output: Path) -> bool:
+def update(
+    asset: Path,
+    report_out: Path,
+    body_out: Path,
+    github_output: Path,
+    code_table_page: Path | None = None,
+    code_table_zip: Path | None = None,
+) -> bool:
     release = json.loads(download(RELEASE_API, token=os.environ.get("GH_TOKEN")))
     tag, cli_asset, sums_asset = release_assets(release)
     cli_archive = download_asset(cli_asset)
@@ -236,8 +243,14 @@ def update(asset: Path, report_out: Path, body_out: Path, github_output: Path) -
     raw_stations = json.loads(stations)
     if not isinstance(raw_stations, list) or not raw_stations:
         raise ValueError("public stations.json is empty or not an array")
-    code_url = code_table_url(download(CODE_TABLE_PAGE))
-    spreadsheet = code_table_xlsx(download(code_url))
+    if (code_table_page is None) != (code_table_zip is None):
+        raise ValueError("code-table page and ZIP must be supplied together")
+    if code_table_page is None:
+        code_url = code_table_url(download(CODE_TABLE_PAGE))
+        spreadsheet = code_table_xlsx(download(code_url))
+    else:
+        code_url = code_table_url(code_table_page.read_bytes())
+        spreadsheet = code_table_xlsx(code_table_zip.read_bytes())
 
     mode = master_mode(asset)
     detected_at = datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -302,8 +315,17 @@ def main() -> None:
     parser.add_argument("--report-out", required=True, type=Path)
     parser.add_argument("--body-out", required=True, type=Path)
     parser.add_argument("--github-output", required=True, type=Path)
+    parser.add_argument("--code-table-page", type=Path)
+    parser.add_argument("--code-table-zip", type=Path)
     args = parser.parse_args()
-    update(args.asset, args.report_out, args.body_out, args.github_output)
+    update(
+        args.asset,
+        args.report_out,
+        args.body_out,
+        args.github_output,
+        args.code_table_page,
+        args.code_table_zip,
+    )
 
 
 if __name__ == "__main__":
