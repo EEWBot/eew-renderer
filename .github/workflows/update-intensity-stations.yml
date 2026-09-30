@@ -16,6 +16,8 @@ concurrency:
 
 jobs:
   code_table:
+    # JMA downloads repeatedly hit 60-second timeouts on Ubuntu runners,
+    # but succeeded on macOS; keep the download job here as a workaround.
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7.0.1
