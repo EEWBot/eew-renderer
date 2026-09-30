@@ -101,18 +101,26 @@ jobs:
           remote_ref="$(git ls-remote --heads origin "refs/heads/$branch")"
           if [[ -n "$pr_numbers" && -n "$remote_ref" ]]; then
             git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
-            git show "refs/remotes/origin/$branch:assets/intensity_stations.json" \
-              > "$RUNNER_TEMP/previous-intensity-stations.json"
-            python3 ../updater-source/.github/scripts/update_intensity_stations.py \
-              --asset "$RUNNER_TEMP/previous-intensity-stations.json" \
-              --code-table-page "$RUNNER_TEMP/jma-code-table/page.html" \
-              --code-table-zip "$RUNNER_TEMP/jma-code-table/code-table.zip" \
-              --report-out "$RUNNER_TEMP/intensity-report.json" \
-              --body-out "$RUNNER_TEMP/intensity-pr.md" \
-              --github-output "$RUNNER_TEMP/intensity-compare-output"
-            if grep -qx 'changed=false' "$RUNNER_TEMP/intensity-compare-output"; then
-              echo 'changed=false' >> "$GITHUB_OUTPUT"
-              exit 0
+            update_ref="refs/remotes/origin/$branch"
+            merge_base="$(git merge-base origin/dev "$update_ref")"
+            if git diff --quiet "$merge_base" origin/dev -- assets/intensity_stations.json; then
+              git show "$update_ref:assets/intensity_stations.json" \
+                > "$RUNNER_TEMP/previous-intensity-stations.json"
+              python3 ../updater-source/.github/scripts/update_intensity_stations.py \
+                --asset "$RUNNER_TEMP/previous-intensity-stations.json" \
+                --code-table-page "$RUNNER_TEMP/jma-code-table/page.html" \
+                --code-table-zip "$RUNNER_TEMP/jma-code-table/code-table.zip" \
+                --report-out "$RUNNER_TEMP/intensity-report.json" \
+                --body-out "$RUNNER_TEMP/intensity-pr.md" \
+                --github-output "$RUNNER_TEMP/intensity-compare-output"
+              if grep -qx 'changed=false' "$RUNNER_TEMP/intensity-compare-output"; then
+                echo 'changed=false' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            else
+              # dev changed this asset after the update branch diverged. Rebuild from
+              # dev instead of treating the stale update branch as the source of truth.
+              echo 'superseded=true' >> "$GITHUB_OUTPUT"
             fi
           fi
           python3 ../updater-source/.github/scripts/update_intensity_stations.py \
@@ -131,7 +139,7 @@ jobs:
           if-no-files-found: error
 
       - name: Close previous update PRs and delete branch
-        if: steps.generate.outputs.changed == 'true'
+        if: steps.generate.outputs.changed == 'true' || steps.generate.outputs.superseded == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
