@@ -285,7 +285,10 @@ def update(
         ]
         if mode == "update":
             command.extend(("--previous", str(asset)))
-        subprocess.run(command, check=True)
+        child_env = os.environ.copy()
+        child_env.pop("GH_TOKEN", None)
+        child_env.pop("GITHUB_TOKEN", None)
+        subprocess.run(command, check=True, env=child_env)
 
         report = json.loads(report_path.read_text(encoding="utf-8"))
         validate_master(output, release_id, report)
