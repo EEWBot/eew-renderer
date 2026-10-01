@@ -1,0 +1,180 @@
+name: Update intensity stations
+
+on:
+  schedule:
+    # 12:17 JST on days 1, 4, 7, ... of each month.
+    - cron: '17 3 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-intensity-stations
+  cancel-in-progress: false
+
+jobs:
+  code_table:
+    # JMA downloads repeatedly hit 60-second timeouts on Ubuntu runners,
+    # but succeeded on macOS; keep the download job here as a workaround.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-python@v6.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Download current JMA code table
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, ".github/scripts")
+          from update_intensity_stations import CODE_TABLE_PAGE, code_table_url, download
+
+          page = download(CODE_TABLE_PAGE)
+          url = code_table_url(page)
+          artifact = Path(os.environ["RUNNER_TEMP"]) / "jma-code-table"
+          artifact.mkdir(parents=True, exist_ok=True)
+          (artifact / "page.html").write_bytes(page)
+          (artifact / "code-table.zip").write_bytes(download(url))
+          print(url)
+          PY
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: jma-code-table
+          path: ${{ runner.temp }}/jma-code-table/
+          if-no-files-found: error
+          retention-days: 1
+
+  update:
+    needs: code_table
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: dev-worktree
+    steps:
+      - name: Check out updater from workflow revision
+        uses: actions/checkout@v7.0.1
+        with:
+          path: updater-source
+
+      - name: Check out dev
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: dev
+          fetch-depth: 0
+          path: dev-worktree
+
+      - name: Retrieve JMA code table
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: jma-code-table
+          path: ${{ runner.temp }}/jma-code-table
+
+      - name: Start update branch from dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin dev
+          git switch -C update/intensity-stations origin/dev
+
+      - name: Generate station master
+        id: generate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=update/intensity-stations
+          pr_numbers="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f head="$GITHUB_REPOSITORY_OWNER:$branch" \
+            -f per_page=100 \
+            --jq '.[].number')"
+          remote_ref="$(git ls-remote --heads origin "refs/heads/$branch")"
+          if [[ -n "$pr_numbers" && -n "$remote_ref" ]]; then
+            git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            update_ref="refs/remotes/origin/$branch"
+            merge_base="$(git merge-base origin/dev "$update_ref")"
+            if git diff --quiet "$merge_base" origin/dev -- assets/intensity_stations.json; then
+              git show "$update_ref:assets/intensity_stations.json" \
+                > "$RUNNER_TEMP/previous-intensity-stations.json"
+              python3 ../updater-source/.github/scripts/update_intensity_stations.py \
+                --asset "$RUNNER_TEMP/previous-intensity-stations.json" \
+                --code-table-page "$RUNNER_TEMP/jma-code-table/page.html" \
+                --code-table-zip "$RUNNER_TEMP/jma-code-table/code-table.zip" \
+                --report-out "$RUNNER_TEMP/intensity-report.json" \
+                --body-out "$RUNNER_TEMP/intensity-pr.md" \
+                --github-output "$RUNNER_TEMP/intensity-compare-output"
+              if grep -qx 'changed=false' "$RUNNER_TEMP/intensity-compare-output"; then
+                echo 'changed=false' >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            else
+              # dev changed this asset after the update branch diverged. Rebuild from
+              # dev instead of treating the stale update branch as the source of truth.
+              echo 'superseded=true' >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          python3 ../updater-source/.github/scripts/update_intensity_stations.py \
+            --asset assets/intensity_stations.json \
+            --code-table-page "$RUNNER_TEMP/jma-code-table/page.html" \
+            --code-table-zip "$RUNNER_TEMP/jma-code-table/code-table.zip" \
+            --report-out "$RUNNER_TEMP/intensity-report.json" \
+            --body-out "$RUNNER_TEMP/intensity-pr.md" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Save full update report
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: intensity-stations-report
+          path: ${{ runner.temp }}/intensity-report.json
+          if-no-files-found: error
+
+      - name: Close previous update PRs and delete branch
+        if: steps.generate.outputs.changed == 'true' || steps.generate.outputs.superseded == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch=update/intensity-stations
+          pr_numbers="$(gh api --method GET "repos/$GITHUB_REPOSITORY/pulls" \
+            -f state=open \
+            -f head="$GITHUB_REPOSITORY_OWNER:$branch" \
+            -f per_page=100 \
+            --jq '.[].number')"
+          while IFS= read -r pr_number; do
+            if [[ -n "$pr_number" ]]; then
+              gh pr close "$pr_number"
+            fi
+          done <<< "$pr_numbers"
+          remote_ref="$(git ls-remote --heads origin "refs/heads/$branch")"
+          if [[ -n "$remote_ref" ]]; then
+            git push origin --delete "$branch"
+          fi
+
+      - name: Commit and open pull request
+        if: steps.generate.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- assets/intensity_stations.json
+          git commit -m 'Update intensity stations from JMA public feeds'
+          git push origin HEAD:update/intensity-stations
+          gh pr create \
+            --base dev \
+            --head update/intensity-stations \
+            --title 'Update intensity stations from JMA public feeds' \
+            --body-file "$RUNNER_TEMP/intensity-pr.md"
