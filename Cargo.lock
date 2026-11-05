@@ -3130,7 +3130,7 @@ checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
 
 [[package]]
 name = "renderer"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "array-const-fn-init",
@@ -3183,6 +3183,7 @@ version = "0.1.0"
 dependencies = [
  "arc-swap",
  "asset-preprocessor",
+ "chrono",
  "const-gen",
  "itertools 0.15.0",
  "phf 0.14.0",

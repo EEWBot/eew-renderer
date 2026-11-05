@@ -106,7 +106,8 @@ The list of seismic intensity stations can be replaced without rebuilding.
 - `file:<PATH>`: loads the file at startup and reloads it automatically when it changes.
 - `http(s)://<URL>`: fetches the file at startup and polls it periodically (using `ETag` when available).
 
-The file must be in the same JSON format as `assets/intensity_stations.json`.
+The file must use the
+[`jma-station-master` schema version 1](https://github.com/EEWBot/jma-station-master#%E5%87%BA%E5%8A%9B).
 If the initial load fails, the server exits.
 
 ## Compatibility
