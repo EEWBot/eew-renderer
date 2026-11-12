@@ -76,8 +76,15 @@ async fn composite_image(
             let mut image = DynamicImage::ImageRgba8(image);
             image.apply_orientation(image::metadata::Orientation::FlipVertical);
 
+            let mut config = webp::WebPConfig::new().unwrap();
+            config.lossless = 1;
+            config.alpha_compression = 0;
+            // In lossless mode, quality and method trade compression effort for speed.
+            config.quality = 0.0;
+            config.method = 0;
+
             let encoder = webp::Encoder::from_image(&image).unwrap();
-            let bin = encoder.encode_lossless().to_vec();
+            let bin = encoder.encode_advanced(&config).unwrap().to_vec();
 
             let encode_time = Instant::now() - start_at;
 
