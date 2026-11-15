@@ -1,82 +1,45 @@
-use crate::worker::vertex::TsunamiUniform;
-use crate::worker::FrameContext;
-use glium::backend::Facade;
-use glium::texture::{
-    ClientFormat, MipmapsOption, RawImage1d, UncompressedUintFormat, UnsignedTexture1d,
-};
-use glium::Surface;
+use crate::worker::frame::Frame;
+use crate::worker::pipelines::{TsunamiUniform, TSUNAMI_LEVEL_CAPACITY};
+use crate::worker::theme::Theme;
 use renderer_assets::QueryInterface;
 use renderer_types::InsetRegion;
-use std::borrow::Cow;
-use std::ops::DerefMut;
 
-pub fn build_levels_texture<F: ?Sized + Facade, T>(
-    facade: &F,
-    tsunami_payload: &T,
-) -> UnsignedTexture1d
+/// 予報区ごとの発表レベルと線の色を、シェーダーに渡す形にまとめる。
+pub fn build_uniform<T>(theme: &Theme, tsunami_payload: &T) -> TsunamiUniform
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
-    let area_code_count = QueryInterface::tsunami_area_code_count();
+    assert!(
+        QueryInterface::tsunami_area_code_count() <= TSUNAMI_LEVEL_CAPACITY,
+        "津波予報区の数がシェーダーの上限を超えている"
+    );
 
-    let mut levels = vec![0_u8; area_code_count];
+    let mut levels = [0_u32; TSUNAMI_LEVEL_CAPACITY];
 
-    tsunami_payload
-        .forecast_levels()
-        .iter()
-        .for_each(|(level, areas)| {
-            areas.iter().for_each(|area| {
-                levels
-                    [QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap() as usize] =
-                    level as u8
-            })
-        });
+    for (level, areas) in tsunami_payload.forecast_levels().iter() {
+        for area in areas {
+            let code = QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap();
+            levels[code as usize] = level as u32;
+        }
+    }
 
-    let levels = RawImage1d {
-        data: Cow::from(&levels),
-        width: levels.len() as u32,
-        format: ClientFormat::U8,
-    };
+    let opaque = |color: [f32; 3]| [color[0], color[1], color[2], 1.0];
 
-    UnsignedTexture1d::with_format(
-        facade,
+    TsunamiUniform {
+        colors: [
+            [0.0; 4],
+            opaque(theme.tsunami_colors.forecast),
+            opaque(theme.tsunami_colors.advisory),
+            opaque(theme.tsunami_colors.warning),
+            opaque(theme.tsunami_colors.major_warning),
+        ],
         levels,
-        UncompressedUintFormat::U8,
-        MipmapsOption::NoMipmap,
-    )
-    .unwrap()
+    }
 }
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
-    frame_context: &FrameContext<F, S>,
-    region: InsetRegion,
-    levels: &UnsignedTexture1d,
-) {
-    let resources = frame_context.resources;
-    let offset = frame_context.camera.offset;
-    let scale = frame_context.camera.scale;
-    let draw_parameters = frame_context.draw_parameters;
-    let theme = frame_context.theme;
-
-    resources
-        .shader
-        .tsunami
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &frame_context.resources.buffer.tsunami_vertex,
-            frame_context
-                .resources
-                .buffer
-                .get_tsunami_indices_by_region(region),
-            &TsunamiUniform {
-                dimension: frame_context.camera.image_size.to_f32().into(),
-                offset: offset.into(),
-                zoom: scale,
-                colors: theme.tsunami_colors,
-                levels,
-                line_width: theme.tsunami_width,
-            },
-            draw_parameters,
-        )
-        .unwrap();
+pub fn draw(frame: &mut Frame, region: InsetRegion) {
+    frame.tsunami_lines(
+        frame.resources.tsunami_range(region),
+        frame.theme.tsunami_width,
+    );
 }

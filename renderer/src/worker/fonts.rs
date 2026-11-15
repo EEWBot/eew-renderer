@@ -1,17 +1,8 @@
-use crate::worker::resources::Resources;
-use crate::worker::vertex::{TextUniform, TextVertex};
-use glium::backend::Facade;
-use glium::index::PrimitiveType;
-use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
-use glium::uniforms::MagnifySamplerFilter;
-use glium::{DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
-use rusttype::gpu_cache::{Cache, CacheBuilder};
-use rusttype::{point, Point, Scale};
-use std::borrow::Cow;
+use ab_glyph::{point, Font as _, FontRef, GlyphId, OutlinedGlyph, Point, ScaleFont};
 use std::cmp::{max, min};
 use strum::{EnumIter, IntoEnumIterator};
 
-const FONT_CACHE_SIZE: u32 = 512;
+pub const GLYPH_ATLAS_SIZE: u32 = 512;
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Font {
@@ -38,191 +29,167 @@ impl FontInfo for Font {
     }
 }
 
-pub struct FontManager<'a> {
-    fonts: Vec<rusttype::Font<'a>>,
-    font_cache: Cache<'a>,
-    font_cache_texture: Texture2d,
+pub struct Fonts {
+    fonts: Vec<FontRef<'static>>,
 }
 
-impl FontManager<'_> {
-    pub fn new<F: ?Sized + Facade>(facade: &F) -> Self {
-        let fonts: Vec<_> = Font::iter()
-            .map(|f| rusttype::Font::try_from_bytes(f.font_binary()).unwrap())
+impl Fonts {
+    pub fn new() -> Self {
+        let fonts = Font::iter()
+            .map(|f| FontRef::try_from_slice(f.font_binary()).unwrap())
             .collect();
-        let font_cache = CacheBuilder::default()
-            .dimensions(FONT_CACHE_SIZE, FONT_CACHE_SIZE)
-            .multithread(true)
-            .build();
-        let image = RawImage2d {
-            data: Cow::Owned(vec![0u8; (FONT_CACHE_SIZE * FONT_CACHE_SIZE) as usize]),
-            width: FONT_CACHE_SIZE,
-            height: FONT_CACHE_SIZE,
-            format: ClientFormat::U8,
-        };
-        let font_cache_texture = Texture2d::with_format(
-            facade,
-            image,
-            UncompressedFloatFormat::U8,
-            MipmapsOption::NoMipmap,
-        )
-        .unwrap();
 
-        Self {
-            fonts,
-            font_cache,
-            font_cache_texture,
-        }
+        Self { fonts }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw_text<F: ?Sized + Facade, S: ?Sized + Surface>(
-        &mut self,
+    pub fn layout(
+        &self,
         text: &str,
         font: Font,
-        color: [f32; 4],
-        scale: Scale,
+        size: f32,
         offset: Offset,
         image_dimension: (u32, u32),
-        resources: &Resources,
-        facade: &F,
-        surface: &mut S,
-        draw_params: &DrawParameters,
-    ) {
-        let font_id = font.font_id();
-        let font = &self.fonts[font_id];
-        let v_metrics = font.v_metrics(scale);
-        let lines = text.lines();
+    ) -> Vec<OutlinedGlyph> {
+        let font = self.fonts[font.font_id()].as_scaled(size);
+        let ascent = font.ascent();
+        let descent = font.descent();
+        let line_gap = font.line_gap();
+
+        let layout_line = |line: &str, origin: Point| -> Vec<OutlinedGlyph> {
+            let mut caret = origin.x;
+            let mut previous: Option<GlyphId> = None;
+            let mut glyphs = Vec::new();
+
+            for c in line.chars() {
+                let id = font.glyph_id(c);
+                if let Some(previous) = previous {
+                    caret += font.kern(previous, id);
+                }
+
+                let glyph = id.with_scale_and_position(size, point(caret, origin.y));
+                caret += font.h_advance(id);
+                previous = Some(id);
+
+                glyphs.extend(font.outline_glyph(glyph));
+            }
+
+            glyphs
+        };
+
+        let lines: Vec<&str> = text.lines().collect();
 
         let text_width = lines
-            .clone()
-            .map(|l| {
-                font.layout(l, scale, point(0.0, v_metrics.ascent))
-                    .collect::<Vec<_>>()
-            })
-            .map(|v| {
+            .iter()
+            .map(|line| {
                 let mut min_x = i32::MAX;
                 let mut max_x = i32::MIN;
 
-                v.iter()
-                    .filter_map(|glyph| glyph.pixel_bounding_box())
-                    .for_each(|rect| {
-                        min_x = min(min_x, rect.min.x);
-                        max_x = max(max_x, rect.max.x);
-                    });
+                for glyph in layout_line(line, point(0.0, ascent)) {
+                    let bounds = glyph.px_bounds();
+                    min_x = min(min_x, bounds.min.x as i32);
+                    max_x = max(max_x, bounds.max.x as i32);
+                }
 
                 max_x - min_x
             })
             .max()
-            .unwrap();
+            .unwrap_or(0);
 
-        let line_count = lines.clone().count();
-        let glyphs: Vec<_> = lines
+        let line_height = ascent - descent;
+
+        lines
+            .iter()
             .enumerate()
-            .flat_map(|(i, l)| {
-                let line_height = v_metrics.ascent - v_metrics.descent;
-                let glyph_offset = offset.glyph_offset(
+            .flat_map(|(i, line)| {
+                let origin = offset.glyph_offset(
                     image_dimension,
                     (text_width as f32, line_height),
-                    v_metrics.ascent
-                        + (line_height + v_metrics.line_gap) * (i as f32 - line_count as f32 + 1.0),
+                    ascent + (line_height + line_gap) * (i as f32 - lines.len() as f32 + 1.0),
                 );
 
-                font.layout(l, scale, glyph_offset).collect::<Vec<_>>()
+                layout_line(line, origin)
             })
-            .collect();
+            .collect()
+    }
+}
 
-        for glyph in &glyphs {
-            self.font_cache.queue_glyph(font_id, glyph.clone())
+pub struct GlyphAtlas {
+    pixels: Vec<u8>,
+    cursor_x: u32,
+    cursor_y: u32,
+    row_height: u32,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct AtlasRect {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl GlyphAtlas {
+    const PADDING: u32 = 1;
+
+    pub fn new() -> Self {
+        Self {
+            pixels: vec![0; (GLYPH_ATLAS_SIZE * GLYPH_ATLAS_SIZE * 4) as usize],
+            cursor_x: 0,
+            cursor_y: 0,
+            row_height: 0,
         }
-        self.font_cache
-            .cache_queued(|rect, data| {
-                self.font_cache_texture.main_level().write(
-                    glium::Rect {
-                        left: rect.min.x,
-                        bottom: rect.min.y,
-                        width: rect.width(),
-                        height: rect.height(),
-                    },
-                    RawImage2d {
-                        data: Cow::Borrowed(data),
-                        width: rect.width(),
-                        height: rect.height(),
-                        format: ClientFormat::U8,
-                    },
-                );
-            })
-            .unwrap();
+    }
 
-        let glyph_rects: Vec<_> = glyphs
-            .iter()
-            .filter_map(|glyph| self.font_cache.rect_for(font_id, glyph).ok().flatten())
-            .collect();
-        let vertices: Vec<TextVertex> = glyph_rects
-            .into_iter()
-            .flat_map(|(uv_rect, screen_rect)| {
-                let min = (
-                    screen_rect.min.x as f32 / image_dimension.0 as f32 * 2.0 - 1.0,
-                    screen_rect.min.y as f32 / image_dimension.1 as f32 * -2.0 + 1.0,
-                );
-                let max = (
-                    screen_rect.max.x as f32 / image_dimension.0 as f32 * 2.0 - 1.0,
-                    screen_rect.max.y as f32 / image_dimension.1 as f32 * -2.0 + 1.0,
-                );
+    /// グリフをラスタライズしてアトラスに置く。入りきらない場合は `None`。
+    pub fn insert(&mut self, glyph: &OutlinedGlyph) -> Option<AtlasRect> {
+        let bounds = glyph.px_bounds();
+        let width = bounds.width() as u32;
+        let height = bounds.height() as u32;
 
-                vec![
-                    TextVertex {
-                        position: [min.0, min.1],
-                        uv: [uv_rect.min.x, uv_rect.min.y],
-                    },
-                    TextVertex {
-                        position: [max.0, min.1],
-                        uv: [uv_rect.max.x, uv_rect.min.y],
-                    },
-                    TextVertex {
-                        position: [min.0, max.1],
-                        uv: [uv_rect.min.x, uv_rect.max.y],
-                    },
-                    TextVertex {
-                        position: [max.0, max.1],
-                        uv: [uv_rect.max.x, uv_rect.max.y],
-                    },
-                ]
-            })
-            .collect();
-        let indices: Vec<_> = (0..vertices.len() as u32 / 4)
-            .map(|v| v * 4)
-            .scan(true, |first_time, v| {
-                if *first_time {
-                    *first_time = false;
-                    Some(vec![v, v + 1, v + 2, v + 3])
-                } else {
-                    Some(vec![v - 1, v, v, v + 1, v + 2, v + 3])
-                }
-            })
-            .flatten()
-            .collect();
+        if width == 0 || height == 0 || width > GLYPH_ATLAS_SIZE {
+            return None;
+        }
 
-        let vertex_buffer = VertexBuffer::dynamic(facade, &vertices).unwrap();
-        let index_buffer =
-            IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
+        if self.cursor_x + width > GLYPH_ATLAS_SIZE {
+            self.cursor_x = 0;
+            self.cursor_y += self.row_height + Self::PADDING;
+            self.row_height = 0;
+        }
 
-        resources
-            .shader
-            .text
-            .draw(
-                surface,
-                &vertex_buffer,
-                &index_buffer,
-                &TextUniform {
-                    font_texture: &self
-                        .font_cache_texture
-                        .sampled()
-                        .magnify_filter(MagnifySamplerFilter::Nearest),
-                    color,
-                },
-                draw_params,
-            )
-            .unwrap();
+        if self.cursor_y + height > GLYPH_ATLAS_SIZE {
+            return None;
+        }
+
+        let rect = AtlasRect {
+            x: self.cursor_x,
+            y: self.cursor_y,
+            width,
+            height,
+        };
+
+        glyph.draw(|x, y, coverage| {
+            if x >= width || y >= height {
+                return;
+            }
+
+            let value = (coverage.clamp(0.0, 1.0) * 255.0).round() as u8;
+            let index = (((rect.y + y) * GLYPH_ATLAS_SIZE + rect.x + x) * 4) as usize;
+            self.pixels[index..index + 4].fill(value);
+        });
+
+        self.cursor_x += width + Self::PADDING;
+        self.row_height = max(self.row_height, height);
+
+        Some(rect)
+    }
+
+    pub fn used(&self) -> Option<(u32, &[u8])> {
+        let rows = self.cursor_y + self.row_height;
+        if rows == 0 {
+            return None;
+        }
+
+        Some((rows, &self.pixels[..(rows * GLYPH_ATLAS_SIZE * 4) as usize]))
     }
 }
 
@@ -260,7 +227,7 @@ impl Offset {
         image_dimension: (u32, u32),
         text_size: (f32, f32),
         ascent: f32,
-    ) -> Point<f32> {
+    ) -> Point {
         let x = self.x as f32;
         let y = self.y as f32;
 
@@ -290,8 +257,7 @@ impl Offset {
 
 #[cfg(test)]
 mod tests {
-    use crate::worker::fonts::{Offset, Origin};
-    use rusttype::point;
+    use super::*;
 
     #[test]
     fn test_offset() {
@@ -324,5 +290,55 @@ mod tests {
             offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(45.0, 45.0)
         );
+    }
+
+    #[test]
+    fn layout_places_text_at_the_anchor() {
+        let fonts = Fonts::new();
+        let glyphs = fonts.layout(
+            "2024年01月01日",
+            Font::BizUDPGothicBold,
+            20.0,
+            Offset::new(Origin::RightDown, Origin::RightDown, -20, -20),
+            (1024, 768),
+        );
+
+        assert_eq!(glyphs.len(), 11);
+
+        let max_x = glyphs
+            .iter()
+            .map(|g| g.px_bounds().max.x)
+            .fold(f32::MIN, f32::max);
+        let max_y = glyphs
+            .iter()
+            .map(|g| g.px_bounds().max.y)
+            .fold(f32::MIN, f32::max);
+
+        assert!((1000.0..=1005.0).contains(&max_x), "max_x = {max_x}");
+        assert!((735.0..=748.0).contains(&max_y), "max_y = {max_y}");
+    }
+
+    #[test]
+    fn atlas_packs_glyphs_without_overlap() {
+        let fonts = Fonts::new();
+        let glyphs = fonts.layout(
+            "津波注意報",
+            Font::BizUDPGothicBold,
+            22.0,
+            Offset::new(Origin::LeftUp, Origin::LeftUp, 0, 0),
+            (1024, 768),
+        );
+
+        let mut atlas = GlyphAtlas::new();
+        let rects: Vec<_> = glyphs.iter().filter_map(|g| atlas.insert(g)).collect();
+
+        assert_eq!(rects.len(), 5);
+        for pair in rects.windows(2) {
+            assert!(pair[0].x + pair[0].width < pair[1].x || pair[0].y != pair[1].y);
+        }
+
+        let (rows, pixels) = atlas.used().unwrap();
+        assert!(rows > 0);
+        assert!(pixels.contains(&255));
     }
 }

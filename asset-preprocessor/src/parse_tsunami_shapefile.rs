@@ -37,39 +37,6 @@ impl TsunamiAreaCodeBuffer {
     }
 }
 
-struct VertexBuffer {
-    buffer: Vec<(Of32, Of32, u16)>,
-    dict: HashMap<(Of32, Of32, u16), usize>,
-}
-
-impl VertexBuffer {
-    fn new() -> Self {
-        Self {
-            buffer: Default::default(),
-            dict: Default::default(),
-        }
-    }
-
-    fn insert(&mut self, v: (Of32, Of32, u16)) -> usize {
-        match self.dict.get(&v) {
-            Some(index) => *index,
-            None => {
-                self.buffer.push(v);
-                let index = self.buffer.len() - 1;
-                self.dict.insert(v, index);
-                index
-            }
-        }
-    }
-
-    fn into_buffer(self) -> Vec<(f32, f32, u16)> {
-        self.buffer
-            .into_iter()
-            .map(|(x, y, code)| (x.0, y.0, code))
-            .collect()
-    }
-}
-
 struct AreaLines {
     lines: Vec<Line>,
     tsunami_area_code: codes::津波予報区,
@@ -145,46 +112,35 @@ Please follow:
 }
 
 pub fn read() -> (
-    Vec<(f32, f32, u16)>,           // vertices
-    [Vec<u32>; InsetRegion::COUNT], // indices (main / okinawa / ogasawara)
-    HashMap<u32, u16>,              // tsunami_area_code_to_internal_code
+    // 線分 (mercator) と予報区の内部コード (main / okinawa / ogasawara)
+    [Vec<(f32, f32, f32, f32, u16)>; InsetRegion::COUNT],
+    HashMap<u32, u16>, // tsunami_area_code_to_internal_code
 ) {
     let shapefile = Shapefile::new(
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.shp",
         "../assets/shapefile/tsunami_forecast/tsunami_forecast_simplified.dbf",
     );
 
-    let mut vertex_buffer = VertexBuffer::new();
-    let mut lines: [Vec<u32>; InsetRegion::COUNT] = Default::default();
+    let mut segments: [Vec<(f32, f32, f32, f32, u16)>; InsetRegion::COUNT] = Default::default();
     let mut tsunami_area_code_buffer = TsunamiAreaCodeBuffer::new();
 
     for e in shapefile.entries {
         let region = classify_tsunami_area(e.tsunami_area_code.0);
-        let lines = &mut lines[region.index()];
+        let internal_code = tsunami_area_code_buffer.insert(e.tsunami_area_code.0);
 
         for line in e.lines {
-            let line: Vec<u32> = line
+            let line = line
                 .vertices
                 .into_iter()
-                .map(|v| {
-                    vertex_buffer.insert((
-                        Of32::from(v.longitude),
-                        Of32::from(v.latitude),
-                        tsunami_area_code_buffer.insert(e.tsunami_area_code.0),
-                    )) as u32
-                })
-                .collect();
+                .map(|v| (f32::from(v.longitude), f32::from(v.latitude)));
 
-            lines.extend_from_slice(&line);
-
-            // append NUL vertex
-            lines.push(0);
+            segments[region.index()].extend(
+                crate::projection::to_mercator_segments(line)
+                    .into_iter()
+                    .map(|(x0, y0, x1, y1)| (x0, y0, x1, y1, internal_code)),
+            );
         }
     }
 
-    (
-        vertex_buffer.into_buffer(),
-        lines,
-        tsunami_area_code_buffer.into_buffer(),
-    )
+    (segments, tsunami_area_code_buffer.into_buffer())
 }

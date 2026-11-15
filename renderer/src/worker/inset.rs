@@ -1,8 +1,16 @@
 use super::camera::Camera;
-use glium::Rect;
 use renderer_types::{
     BoundingBox, GeoDegree, InsetRegion, Size, Vertex, OGASAWARA_VIEW_BBOX, OKINAWA_VIEW_BBOX,
 };
+
+/// 画像上の描画先の矩形 (px)。原点は画像の左下。
+#[derive(Copy, Clone, Debug)]
+pub struct Viewport {
+    pub left: u32,
+    pub bottom: u32,
+    pub width: u32,
+    pub height: u32,
+}
 
 pub struct BorderSides {
     pub top: bool,
@@ -28,7 +36,7 @@ pub struct NotchLine {
 pub struct InsetPass {
     pub region: InsetRegion,
     pub view_bbox: BoundingBox<GeoDegree>,
-    pub viewport: Rect,
+    pub viewport: Viewport,
     pub border_sides: BorderSides,
     pub notch: Option<NotchLine>,
     pub label: &'static str,
@@ -37,7 +45,7 @@ pub struct InsetPass {
 pub const OKINAWA_INSET: InsetPass = InsetPass {
     region: InsetRegion::Okinawa,
     view_bbox: OKINAWA_VIEW_BBOX,
-    viewport: Rect {
+    viewport: Viewport {
         left: 0,
         bottom: 321,
         width: 447,
@@ -60,7 +68,7 @@ pub const OKINAWA_INSET: InsetPass = InsetPass {
 pub const OGASAWARA_INSET: InsetPass = InsetPass {
     region: InsetRegion::Ogasawara,
     view_bbox: OGASAWARA_VIEW_BBOX,
-    viewport: Rect {
+    viewport: Viewport {
         left: 750,
         bottom: 180,
         width: 180,

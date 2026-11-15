@@ -73,8 +73,7 @@ async fn composite_image(
             let start_at = Instant::now();
             let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
 
-            let mut image = DynamicImage::ImageRgba8(image);
-            image.apply_orientation(image::metadata::Orientation::FlipVertical);
+            let image = DynamicImage::ImageRgba8(image);
 
             let encoder = webp::Encoder::from_image(&image).unwrap();
             let bin = encoder.encode_lossless().to_vec();
@@ -106,8 +105,7 @@ async fn composite_image(
                 let image = rx.await.unwrap()?;
 
                 let image = RgbaImage::from_raw(image.width, image.height, image.data).unwrap();
-                let mut image = DynamicImage::ImageRgba8(image);
-                image.apply_orientation(image::metadata::Orientation::FlipVertical);
+                let image = DynamicImage::ImageRgba8(image);
 
                 frames.push(image);
             }

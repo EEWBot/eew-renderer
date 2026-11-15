@@ -110,11 +110,20 @@ fn stations() -> &'static StationStore {
 
 pub struct QueryInterface;
 
+/// 線分 `(x0, y0, x1, y1)`。座標は投影済み (メルカトル)。
+pub type Segment = (f32, f32, f32, f32);
+
+/// 津波予報区の線分 `(x0, y0, x1, y1, 予報区の内部コード)`。座標は投影済み (メルカトル)。
+pub type TsunamiSegment = (f32, f32, f32, f32, u16);
+
+/// 頂点はすべて投影済み (メルカトル)。
 pub struct Geometries {
     pub vertices: &'static [(f32, f32)],
     pub map_triangles: [&'static [u32]; InsetRegion::COUNT],
-    pub area_lines: &'static [&'static [u32]],
-    pub pref_lines: &'static [&'static [u32]],
+    /// LODごとの線分列
+    pub area_lines: &'static [&'static [Segment]],
+    /// LODごとの線分列
+    pub pref_lines: &'static [&'static [Segment]],
 }
 
 pub struct LakeGeometries {
@@ -128,8 +137,7 @@ pub struct WorldGeometries {
 }
 
 pub struct TsunamiGeometries {
-    pub vertices: &'static [(f32, f32, u16)],
-    pub indices: [&'static [u32]; InsetRegion::COUNT],
+    pub segments: [&'static [TsunamiSegment]; InsetRegion::COUNT],
 }
 
 impl QueryInterface {
@@ -175,8 +183,7 @@ impl QueryInterface {
 
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
-            vertices: TSUNAMI_VERTICES,
-            indices: TSUNAMI_INDICES,
+            segments: TSUNAMI_SEGMENTS,
         }
     }
 

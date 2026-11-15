@@ -1,6 +1,13 @@
 #![allow(clippy::eq_op)]
-use crate::worker::vertex::TsunamiLineColors;
 use renderer_macros::{rgb, rgba};
+
+#[derive(Copy, Clone, Debug)]
+pub struct TsunamiLineColors {
+    pub forecast: [f32; 3],
+    pub advisory: [f32; 3],
+    pub warning: [f32; 3],
+    pub major_warning: [f32; 3],
+}
 
 pub struct Theme {
     pub clear_color: [f32; 4],

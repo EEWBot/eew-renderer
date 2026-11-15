@@ -17,8 +17,7 @@ fn main() {
     println!("cargo::rerun-if-changed=../assets/intensity_stations.json");
     println!("cargo::rerun-if-changed=../assets/shapefile");
 
-    let (tsunami_vertices, tsunami_indices, tsunami_area_code_to_internal_code) =
-        parse_tsunami_shapefile::read();
+    let (tsunami_segments, tsunami_area_code_to_internal_code) = parse_tsunami_shapefile::read();
 
     let (lake_vertices, lake_indices) = parse_lake_shapefile::read();
 
@@ -88,8 +87,7 @@ fn main() {
         const_declaration!(LAKE_INDICES = lake_indices),
         const_declaration!(WORLD_VERTICES = world_vertices),
         const_declaration!(WORLD_INDICES = world_indices),
-        const_declaration!(TSUNAMI_VERTICES = tsunami_vertices),
-        const_declaration!(TSUNAMI_INDICES = tsunami_indices),
+        const_declaration!(TSUNAMI_SEGMENTS = tsunami_segments),
         const_declaration!(TSUNAMI_AREA_CODE_TO_INTERNAL_CODE = tsunami_area_code_to_internal_code),
     ]
     .join("\n");

@@ -1,75 +1,66 @@
-use crate::worker::vertex::{IntensityIconUniform, IntensityIconVertex};
-use crate::worker::FrameContext;
-use array_const_fn_init::array_const_fn_init;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::{Surface, VertexBuffer};
-use std::ops::DerefMut;
+use crate::worker::frame::Frame;
+use crate::worker::pipelines::SpriteInstance;
 
-const fn 震度_to_uv_offset_fn(震度_i: usize) -> [f32; 2] {
-    use const_soft_float::soft_f32::SoftF32;
+/// アイコン画像を 64x64 の格子とみなしたときの、アイコン1つ分の間隔
+const ICON_PITCH: f32 = 21.0 / 64.0;
+/// 隣のアイコンがにじまないよう、各アイコンの外周を切り落とす幅
+const ICON_MARGIN: f32 = 1.0 / 64.0;
 
-    let virtual_texture_size = SoftF32(64.0);
-    let icon_size_in_virtual_texture_size = SoftF32(21.0);
+/// 震度アイコンは画像の左上から3列で並んでいる。(左, 上, 右, 下) を返す。
+fn 震度_to_uv_rect(震度_i: usize) -> [f32; 4] {
+    let column = (震度_i % 3) as f32;
+    let row = (震度_i / 3) as f32;
 
-    let uv_normalized_icon_size = icon_size_in_virtual_texture_size.div(virtual_texture_size);
-
-    let col_i = SoftF32((震度_i % 3) as f32);
-    let offset_x = uv_normalized_icon_size.mul(col_i);
-
-    let row_i = SoftF32((震度_i / 3) as f32);
-    let offset_y = SoftF32(1.0).sub(uv_normalized_icon_size.mul(row_i));
-
-    [offset_x.to_f32(), offset_y.to_f32()]
+    [
+        ICON_PITCH * column + ICON_MARGIN,
+        ICON_PITCH * row + ICON_MARGIN,
+        ICON_PITCH * (column + 1.0),
+        ICON_PITCH * (row + 1.0),
+    ]
 }
 
-const 震度_TO_UV_OFFSET: [[f32; 2]; 9] = array_const_fn_init![震度_to_uv_offset_fn; 9];
-
-pub fn draw_all<F: ?Sized + Facade, S: ?Sized + Surface>(
-    frame_context: &FrameContext<F, S>,
-    earthquake_payload: &crate::frame_context::EarthquakePayload,
-) {
-    let facade = frame_context.facade;
-    let resources = frame_context.resources;
-    let aspect_ratio = frame_context.camera.image_size.aspect_ratio();
-    let offset = frame_context.camera.offset;
-    let scale = frame_context.camera.scale;
-
-    let per_icon_data: Vec<_> = earthquake_payload
+pub fn draw_all(frame: &mut Frame, earthquake_payload: &crate::frame_context::EarthquakePayload) {
+    // 震度の小さい順に描くので、大きい震度のアイコンが上に重なる
+    let instances: Vec<_> = earthquake_payload
         .area_intensities
         .iter()
         .flat_map(|(震度, area_codes)| {
-            let uv_offset = &震度_TO_UV_OFFSET[震度 as usize];
+            let uv_rect = 震度_to_uv_rect(震度 as usize);
 
-            area_codes.iter().filter_map(|code| {
+            area_codes.iter().filter_map(move |code| {
                 let nearest_station_coord =
                     renderer_assets::QueryInterface::query_rendering_center_by_area(*code)?;
 
-                Some(IntensityIconVertex {
-                    position: nearest_station_coord.into(),
-                    uv_offset: uv_offset.to_owned(),
+                Some(SpriteInstance {
+                    center: nearest_station_coord.to_mercator().into(),
+                    uv_rect,
                 })
             })
         })
         .collect();
 
-    let per_icon_data = VertexBuffer::dynamic(facade, &per_icon_data).unwrap();
+    let half_size = [
+        super::ICON_RATIO_IN_Y_AXIS * frame.view.aspect_ratio(),
+        super::ICON_RATIO_IN_Y_AXIS,
+    ];
 
-    resources
-        .shader
-        .intensity_icon
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &per_icon_data,
-            NoIndices(PrimitiveType::Points),
-            &IntensityIconUniform {
-                aspect_ratio,
-                offset: offset.into(),
-                zoom: scale,
-                icon_ratio_in_y_axis: super::ICON_RATIO_IN_Y_AXIS,
-                texture_sampler: &resources.texture.intensity,
-            },
-            frame_context.premultiplied_draw_parameters,
-        )
-        .unwrap();
+    frame.sprites(&frame.resources.intensity_texture, &instances, half_size);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uv_rect_follows_the_grid() {
+        assert_eq!(
+            震度_to_uv_rect(0),
+            [1.0 / 64.0, 1.0 / 64.0, 21.0 / 64.0, 21.0 / 64.0]
+        );
+        // 震度5強: 2行目の3列目
+        assert_eq!(
+            震度_to_uv_rect(5),
+            [43.0 / 64.0, 22.0 / 64.0, 63.0 / 64.0, 42.0 / 64.0]
+        );
+    }
 }

@@ -1,63 +1,21 @@
-use crate::frame_context::HasEpicenter;
-use crate::worker::vertex::{EpicenterUniform, EpicenterVertex};
-use crate::worker::FrameContext;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::{Surface, VertexBuffer};
+use crate::worker::frame::Frame;
+use crate::worker::pipelines::SpriteInstance;
 use renderer_types::{GeoDegree, Vertex};
-use std::ops::DerefMut;
 
-pub fn create_vertex_buffer<F: ?Sized + Facade>(
-    facade: &F,
-    epicenters: &[Vertex<GeoDegree>],
-) -> Option<VertexBuffer<EpicenterVertex>> {
-    if epicenters.is_empty() {
-        return None;
-    }
-
-    let vertices = epicenters
+/// 震央のマーカーを描く。`icon_ratio_in_y_axis` は、ビューポートの高さの半分に対するアイコンの半分の高さ。
+pub fn draw(frame: &mut Frame, epicenters: &[Vertex<GeoDegree>], icon_ratio_in_y_axis: f32) {
+    let instances: Vec<_> = epicenters
         .iter()
-        .map(|epicenter| EpicenterVertex {
-            position: (*epicenter).into(),
+        .map(|epicenter| SpriteInstance {
+            center: epicenter.to_mercator().into(),
+            uv_rect: [0.0, 0.0, 1.0, 1.0],
         })
-        .collect::<Vec<_>>();
+        .collect();
 
-    Some(VertexBuffer::dynamic(facade, &vertices).unwrap())
-}
+    let half_size = [
+        icon_ratio_in_y_axis * frame.view.aspect_ratio(),
+        icon_ratio_in_y_axis,
+    ];
 
-pub fn draw_vertex_buffer<F: ?Sized + Facade, S: ?Sized + Surface>(
-    frame_context: &FrameContext<F, S>,
-    vertex_buffer: &VertexBuffer<EpicenterVertex>,
-    icon_ratio_in_y_axis: f32,
-) {
-    let resources = frame_context.resources;
-
-    resources
-        .shader
-        .epicenter
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            vertex_buffer,
-            NoIndices(PrimitiveType::Points),
-            &EpicenterUniform {
-                aspect_ratio: frame_context.camera.image_size.aspect_ratio(),
-                offset: frame_context.camera.offset.into(),
-                zoom: frame_context.camera.scale,
-                icon_ratio_in_y_axis,
-                texture_sampler: &resources.texture.epicenter,
-            },
-            frame_context.premultiplied_draw_parameters,
-        )
-        .unwrap();
-}
-
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, C: HasEpicenter>(
-    frame_context: &FrameContext<F, S>,
-    rendering_context: &C,
-) {
-    if let Some(vertex_buffer) =
-        create_vertex_buffer(frame_context.facade, rendering_context.epicenter())
-    {
-        draw_vertex_buffer(frame_context, &vertex_buffer, super::ICON_RATIO_IN_Y_AXIS);
-    }
+    frame.sprites(&frame.resources.epicenter_texture, &instances, half_size);
 }
