@@ -20,8 +20,11 @@ All rendering parameters are encoded into the request URL, so an image can be em
 docker run --rm -p 3000:3000 -e HMAC_KEY=your-secret ghcr.io/eewbot/eew-renderer:master
 ```
 
-The container runs in headless mode (EGL) by default.
+Rendering is done off-screen on a GPU through Vulkan, so the container needs access to one.
 To use an NVIDIA GPU, add `--gpus all` (requires the NVIDIA Container Toolkit).
+
+If no hardware GPU is available, the server refuses to start.
+To render on the CPU instead (slower), add `-e ALLOW_SOFTWARE_RENDERING=true`.
 
 ### Build from source
 
@@ -37,8 +40,8 @@ cd eew-renderer
 cargo run --release -- --hmac-key your-secret
 ```
 
-Without `--headless`, a window is opened and rendering is done in it.
-Headless mode requires EGL.
+Rendering is done off-screen; no window is opened.
+The GPU adapters found are logged at startup, and the most suitable one is selected automatically.
 
 Open `http://localhost:3000/` to check that the server is running.
 
@@ -81,8 +84,8 @@ Every option can be given as a command line flag or as an environment variable.
 | `--hmac-key` / `HMAC_KEY` | (empty) | Key used to verify request signatures |
 | `--listen` / `LISTEN` | `0.0.0.0:3000` | Address to listen on |
 | `--instance-name` / `INSTANCE_NAME` | `[not specified]` | Name returned in the `X-Instance-Name` response header |
-| `--headless` / `HEADLESS` | `false` | Render with EGL without opening a window |
-| `--egl-device-index` / `EGL_DEVICE_INDEX` | `0` | EGL device to use in headless mode |
+| `--gpu-adapter-index` / `GPU_ADAPTER_INDEX` | (automatic) | Index of the GPU adapter to use, as listed in the startup log |
+| `--allow-software-rendering` / `ALLOW_SOFTWARE_RENDERING` | `false` | Allow CPU renderers such as lavapipe. Without this, the server exits if no hardware GPU is found |
 | `--image-cache-capacity` / `IMAGE_CACHE_CAPACITY` | `512` | Number of rendered images kept in memory |
 | `--minimum-response-interval` / `MINIMUM_RESPONSE_INTERVAL` | `200ms` | Minimum interval between responses |
 | `--client-ip-source` / `CLIENT_IP_SOURCE` | `ConnectInfo` | Where to read the client IP from. Set e.g. `CfConnectingIp` behind a proxy ([details](https://docs.rs/axum-client-ip/1.0.0/axum_client_ip/index.html#configurable-vs-specific-extractors)) |
@@ -112,25 +115,16 @@ If the initial load fails, the server exits.
 
 ## Compatibility
 
-Basically, this project supports GL_VERSION >= 4.5 platforms.
+Rendering uses [wgpu](https://wgpu.rs/), and a hardware GPU is required by default.
 
-macOS is not supported, because its OpenGL implementation only goes up to 4.1.
+| Platform | Backend | Status |
+|----------|---------|--------|
+| Linux | Vulkan | Supported |
+| Windows | Direct3D 12, Vulkan | Supported |
+| macOS | Metal | Expected to work, but not tested |
 
-The following environments are known to cause crashes due to errors:
-
-```
-GL_VENDOR: Intel
-GL_RENDERER: Mesa Intel(R) Iris(R) Graphics 5100 (HSW GT3)
-GL_VERSION: 4.6 (Core Profile) Mesa 26.0.1-arch1.1
-```
-
-```
-ProgramCreation(LinkingError("error: Too many vertex shader image uniforms (1 > 0)\n"))
-```
-
-This is thought to be due to the fact that the Vertex Shader cannot use textures with uniforms, and there are no plans to fix this.
-
-The workaround is to use an alternative GL implementation, such as LIBGL_ALWAYS_SOFTWARE.
+OpenGL is used only as a last resort when no other backend is available.
+The backends to consider can be restricted with the `WGPU_BACKEND` environment variable (e.g. `WGPU_BACKEND=vulkan`).
 
 ## License
 
