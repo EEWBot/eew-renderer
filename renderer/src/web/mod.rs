@@ -321,8 +321,8 @@ async fn render_handler(
     let image_binary = match image_binary {
         Ok(image_binary) => image_binary,
         Err(e) => {
-            tracing::error!("Request {short_hash} is errored. Code: {e}");
-            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+            tracing::warn!("Request {short_hash} is rejected. Code: {e}");
+            return (StatusCode::UNPROCESSABLE_ENTITY, e.to_string()).into_response();
         }
     };
 
