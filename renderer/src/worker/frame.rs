@@ -275,8 +275,8 @@ impl<'a> Frame<'a> {
         self.pass.draw(0..SEGMENT_VERTEX_COUNT, segments);
     }
 
-    /// 津波予報区の線を、発表レベルに応じた色で描く。発表のない予報区は描かれない。
-    pub fn tsunami_lines(&mut self, segments: Range<u32>, width: f32) {
+    /// 津波予報区の線のうち、発表レベルが `level` (1以上) のものだけを、そのレベルの色で描く。
+    pub fn tsunami_lines(&mut self, segments: Range<u32>, width: f32, level: u32) {
         if segments.is_empty() {
             return;
         }
@@ -284,7 +284,7 @@ impl<'a> Frame<'a> {
         if !self.bind_draw(
             self.view.offset,
             self.view.map_scale(),
-            [width, 0.0],
+            [width, level as f32],
             [0.0; 4],
         ) {
             return;

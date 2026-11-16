@@ -1,3 +1,4 @@
+use crate::model::津波情報;
 use crate::worker::frame::Frame;
 use crate::worker::pipelines::{TsunamiUniform, TSUNAMI_LEVEL_CAPACITY};
 use crate::worker::theme::Theme;
@@ -37,9 +38,20 @@ where
     }
 }
 
+/// 重大なレベルの線が隠れないよう、軽いレベルから順に描いて重ねる。
 pub fn draw(frame: &mut Frame, region: InsetRegion) {
-    frame.tsunami_lines(
-        frame.resources.tsunami_range(region),
-        frame.theme.tsunami_width,
-    );
+    for level in DRAW_ORDER {
+        frame.tsunami_lines(
+            frame.resources.tsunami_range(region),
+            frame.theme.tsunami_width,
+            level as u32,
+        );
+    }
 }
+
+const DRAW_ORDER: [津波情報; 4] = [
+    津波情報::津波予報,
+    津波情報::津波注意報,
+    津波情報::津波警報,
+    津波情報::大津波警報,
+];

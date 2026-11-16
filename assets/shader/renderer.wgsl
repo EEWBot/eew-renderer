@@ -131,8 +131,8 @@ fn vs_tsunami_line(
 
     var out: ColorVertex;
     out.color = tsunami.colors[level];
-    if level == 0u {
-        // 発表のない予報区は面積 0 にして描かない
+    if level != u32(draw.param.y) {
+        // 今回描くレベルではない予報区 (発表のない予報区を含む) は面積 0 にして描かない
         out.position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     } else {
         out.position = segment_vertex(vertex_index, segment);
