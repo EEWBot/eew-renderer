@@ -128,6 +128,9 @@ pub struct AtlasRect {
     pub height: u32,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct AtlasFull;
+
 impl GlyphAtlas {
     const PADDING: u32 = 1;
 
@@ -140,14 +143,17 @@ impl GlyphAtlas {
         }
     }
 
-    /// グリフをラスタライズしてアトラスに置く。入りきらない場合は `None`。
-    pub fn insert(&mut self, glyph: &OutlinedGlyph) -> Option<AtlasRect> {
+    pub fn insert(&mut self, glyph: &OutlinedGlyph) -> Result<Option<AtlasRect>, AtlasFull> {
         let bounds = glyph.px_bounds();
         let width = bounds.width() as u32;
         let height = bounds.height() as u32;
 
-        if width == 0 || height == 0 || width > GLYPH_ATLAS_SIZE {
-            return None;
+        if width == 0 || height == 0 {
+            return Ok(None);
+        }
+
+        if width > GLYPH_ATLAS_SIZE {
+            return Err(AtlasFull);
         }
 
         if self.cursor_x + width > GLYPH_ATLAS_SIZE {
@@ -157,7 +163,7 @@ impl GlyphAtlas {
         }
 
         if self.cursor_y + height > GLYPH_ATLAS_SIZE {
-            return None;
+            return Err(AtlasFull);
         }
 
         let rect = AtlasRect {
@@ -180,7 +186,7 @@ impl GlyphAtlas {
         self.cursor_x += width + Self::PADDING;
         self.row_height = max(self.row_height, height);
 
-        Some(rect)
+        Ok(Some(rect))
     }
 
     pub fn used(&self) -> Option<(u32, &[u8])> {
@@ -330,7 +336,10 @@ mod tests {
         );
 
         let mut atlas = GlyphAtlas::new();
-        let rects: Vec<_> = glyphs.iter().filter_map(|g| atlas.insert(g)).collect();
+        let rects: Vec<_> = glyphs
+            .iter()
+            .filter_map(|g| atlas.insert(g).unwrap())
+            .collect();
 
         assert_eq!(rects.len(), 5);
         for pair in rects.windows(2) {

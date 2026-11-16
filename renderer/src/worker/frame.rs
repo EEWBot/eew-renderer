@@ -6,6 +6,7 @@ use super::pipelines::{
 };
 use super::resources::{Mesh, Resources};
 use super::theme::Theme;
+use crate::model::RenderingError;
 use renderer_types::Size;
 use std::ops::Range;
 
@@ -70,9 +71,57 @@ pub struct Frame<'a> {
     pass: wgpu::RenderPass<'a>,
     target_size: Size<u32>,
 
+    staging: Staging,
+    glyphs: GlyphAtlas,
+}
+
+#[derive(Default)]
+struct Staging {
     uniforms: Vec<u8>,
     vertices: Vec<u8>,
-    glyphs: GlyphAtlas,
+    error: Option<RenderingError>,
+}
+
+impl Staging {
+    fn fail(&mut self, error: RenderingError) {
+        self.error.get_or_insert(error);
+    }
+
+    /// 描画1回分のパラメータを積み、uniformバッファ上のオフセットを返す。
+    fn push_uniform(&mut self, uniform: &DrawUniform) -> Option<u32> {
+        if self.error.is_some() {
+            return None;
+        }
+
+        let at = self.uniforms.len();
+        if at + UNIFORM_STRIDE > UNIFORM_CAPACITY {
+            self.fail(RenderingError::TooManyDraws);
+            return None;
+        }
+
+        self.uniforms.extend_from_slice(bytemuck::bytes_of(uniform));
+        self.uniforms.resize(at + UNIFORM_STRIDE, 0);
+
+        Some(at as u32)
+    }
+
+    /// 頂点・インスタンスデータを積み、頂点バッファ上の範囲を返す。
+    fn push_vertices<T: bytemuck::Pod>(&mut self, data: &[T]) -> Option<Range<u64>> {
+        if self.error.is_some() {
+            return None;
+        }
+
+        let bytes: &[u8] = bytemuck::cast_slice(data);
+        let start = self.vertices.len();
+        if start + bytes.len() > VERTEX_CAPACITY {
+            self.fail(RenderingError::TooMuchGeometry);
+            return None;
+        }
+
+        self.vertices.extend_from_slice(bytes);
+
+        Some(start as u64..self.vertices.len() as u64)
+    }
 }
 
 pub struct FrameData {
@@ -101,8 +150,7 @@ impl<'a> Frame<'a> {
             fonts,
             pass,
             target_size: view.size,
-            uniforms: Vec::new(),
-            vertices: Vec::new(),
+            staging: Staging::default(),
             glyphs: GlyphAtlas::new(),
         };
 
@@ -111,12 +159,16 @@ impl<'a> Frame<'a> {
         frame
     }
 
-    pub fn finish(self) -> FrameData {
-        FrameData {
-            uniforms: self.uniforms,
-            vertices: self.vertices,
-            glyphs: self.glyphs,
+    pub fn finish(self) -> Result<FrameData, RenderingError> {
+        if let Some(error) = self.staging.error {
+            return Err(error);
         }
+
+        Ok(FrameData {
+            uniforms: self.staging.uniforms,
+            vertices: self.staging.vertices,
+            glyphs: self.glyphs,
+        })
     }
 
     /// 以降の描画に使うカメラと描画先の矩形を切り替える。`None` なら画像全体。
@@ -151,12 +203,14 @@ impl<'a> Frame<'a> {
             return;
         }
 
-        self.bind_draw(
+        if !self.bind_draw(
             self.view.offset,
             self.view.map_scale(),
             [0.0; 2],
             opaque(color),
-        );
+        ) {
+            return;
+        }
         self.pass.set_pipeline(&self.pipelines.fill);
         self.pass.set_vertex_buffer(0, mesh.vertices.slice(..));
         self.pass
@@ -184,9 +238,13 @@ impl<'a> Frame<'a> {
             .iter()
             .map(|&position| PositionVertex { position })
             .collect();
-        let range = self.push_vertices(&vertices);
+        let Some(range) = self.staging.push_vertices(&vertices) else {
+            return;
+        };
 
-        self.bind_draw([0.0; 2], [1.0; 2], [0.0; 2], color);
+        if !self.bind_draw([0.0; 2], [1.0; 2], [0.0; 2], color) {
+            return;
+        }
         self.pass.set_pipeline(if stencil_only {
             &self.pipelines.mask
         } else {
@@ -203,12 +261,14 @@ impl<'a> Frame<'a> {
             return;
         }
 
-        self.bind_draw(
+        if !self.bind_draw(
             self.view.offset,
             self.view.map_scale(),
             [width, 0.0],
             opaque(color),
-        );
+        ) {
+            return;
+        }
         self.pass.set_pipeline(&self.pipelines.line);
         self.pass
             .set_vertex_buffer(0, self.resources.border_segments.slice(..));
@@ -221,12 +281,14 @@ impl<'a> Frame<'a> {
             return;
         }
 
-        self.bind_draw(
+        if !self.bind_draw(
             self.view.offset,
             self.view.map_scale(),
             [width, 0.0],
             [0.0; 4],
-        );
+        ) {
+            return;
+        }
         self.pass.set_pipeline(&self.pipelines.tsunami_line);
         self.pass
             .set_bind_group(1, &self.dynamic.tsunami_bind_group, &[]);
@@ -247,9 +309,13 @@ impl<'a> Frame<'a> {
             return;
         }
 
-        let range = self.push_vertices(instances);
+        let Some(range) = self.staging.push_vertices(instances) else {
+            return;
+        };
 
-        self.bind_draw(self.view.offset, self.view.map_scale(), half_size, [1.0; 4]);
+        if !self.bind_draw(self.view.offset, self.view.map_scale(), half_size, [1.0; 4]) {
+            return;
+        }
         self.pass.set_pipeline(&self.pipelines.sprite);
         self.pass.set_bind_group(1, texture, &[]);
         self.pass
@@ -269,9 +335,13 @@ impl<'a> Frame<'a> {
             return;
         }
 
-        let range = self.push_vertices(vertices);
+        let Some(range) = self.staging.push_vertices(vertices) else {
+            return;
+        };
 
-        self.bind_draw([0.0; 2], [1.0; 2], [0.0; 2], tint);
+        if !self.bind_draw([0.0; 2], [1.0; 2], [0.0; 2], tint) {
+            return;
+        }
         self.pass.set_pipeline(&self.pipelines.textured);
         self.pass.set_bind_group(1, texture, &[]);
         self.pass
@@ -294,8 +364,13 @@ impl<'a> Frame<'a> {
 
         let mut vertices = Vec::with_capacity(glyphs.len() * 6);
         for glyph in &glyphs {
-            let Some(rect) = self.glyphs.insert(glyph) else {
-                continue;
+            let rect = match self.glyphs.insert(glyph) {
+                Ok(Some(rect)) => rect,
+                Ok(None) => continue,
+                Err(_) => {
+                    self.staging.fail(RenderingError::TooMuchText);
+                    return;
+                }
             };
             let bounds = glyph.px_bounds();
 
@@ -333,38 +408,28 @@ impl<'a> Frame<'a> {
         self.textured(&self.dynamic.glyph_bind_group, &vertices, tint);
     }
 
-    fn bind_draw(&mut self, offset: [f32; 2], scale: [f32; 2], param: [f32; 2], color: [f32; 4]) {
-        let at = self.uniforms.len();
-        assert!(
-            at + UNIFORM_STRIDE <= UNIFORM_CAPACITY,
-            "1フレームの描画数が上限を超えた"
-        );
-
-        self.uniforms
-            .extend_from_slice(bytemuck::bytes_of(&DrawUniform {
-                offset,
-                scale,
-                viewport: self.view.size_f32(),
-                param,
-                color,
-            }));
-        self.uniforms.resize(at + UNIFORM_STRIDE, 0);
+    #[must_use]
+    fn bind_draw(
+        &mut self,
+        offset: [f32; 2],
+        scale: [f32; 2],
+        param: [f32; 2],
+        color: [f32; 4],
+    ) -> bool {
+        let Some(at) = self.staging.push_uniform(&DrawUniform {
+            offset,
+            scale,
+            viewport: self.view.size_f32(),
+            param,
+            color,
+        }) else {
+            return false;
+        };
 
         self.pass
-            .set_bind_group(0, &self.dynamic.draw_bind_group, &[at as u32]);
-    }
+            .set_bind_group(0, &self.dynamic.draw_bind_group, &[at]);
 
-    fn push_vertices<T: bytemuck::Pod>(&mut self, data: &[T]) -> Range<u64> {
-        let bytes: &[u8] = bytemuck::cast_slice(data);
-        let start = self.vertices.len();
-        assert!(
-            start + bytes.len() <= VERTEX_CAPACITY,
-            "1フレームの動的な頂点データが上限を超えた"
-        );
-
-        self.vertices.extend_from_slice(bytes);
-
-        start as u64..self.vertices.len() as u64
+        true
     }
 }
 

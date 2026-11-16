@@ -1,7 +1,7 @@
 use crate::frame_context::{
     FramePayload, HasEpicenter, HasTime, HasTsunamiForecastLevels, MapLayerConfig,
 };
-use crate::model::Message;
+use crate::model::{Message, RenderingError};
 use crate::worker::fonts::{Fonts, GLYPH_ATLAS_SIZE};
 use crate::worker::frame::{DynamicBuffers, Frame, View, UNIFORM_CAPACITY, VERTEX_CAPACITY};
 use crate::worker::gpu::Gpu;
@@ -47,9 +47,19 @@ pub async fn run(
     while let Some(message) = rx.recv().await {
         let Message::FrameRequest((frame_context, response_socket)) = message;
 
-        let image = renderer.render(&frame_context)?;
+        let result = match renderer.render(&frame_context) {
+            Ok(image) => Ok(image),
+            Err(RenderError::Request(e)) => {
+                tracing::warn!(
+                    "Rejected a request: {e} ({})",
+                    frame_context.request_identity
+                );
+                Err(e)
+            }
+            Err(RenderError::Readback(e)) => return Err(e.into()),
+        };
 
-        let _ = response_socket.send(Ok(image));
+        let _ = response_socket.send(result);
     }
 
     // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
@@ -58,6 +68,16 @@ pub async fn run(
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     Err("An abnormal termination of the web thread was detected!".into())
+}
+
+#[derive(thiserror::Error, Debug)]
+enum RenderError {
+    /// リクエストの内容が原因で描画できなかった。レンダラは使い続けられる。
+    #[error(transparent)]
+    Request(#[from] RenderingError),
+    /// GPUからの読み戻しに失敗した。回復できない。
+    #[error(transparent)]
+    Readback(#[from] target::ReadError),
 }
 
 struct Renderer {
@@ -91,7 +111,7 @@ impl Renderer {
     fn render(
         &self,
         frame_context: &crate::frame_context::FrameContext,
-    ) -> Result<RGBAImageData, target::ReadError> {
+    ) -> Result<RGBAImageData, RenderError> {
         let start_at = Instant::now();
 
         let theme = &theme::DEFAULT;
@@ -147,7 +167,7 @@ impl Renderer {
                 }
             }
 
-            frame.finish()
+            frame.finish()?
         };
 
         // 動的なデータは、描画命令を送信する前に書き込んでおけば反映される

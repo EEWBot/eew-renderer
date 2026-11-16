@@ -4,8 +4,16 @@ use crate::worker::image_buffer::RGBAImageData;
 use enum_map::Enum;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum RenderingError {}
+#[allow(clippy::enum_variant_names)]
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderingError {
+    #[error("The request requires too many draw calls to render")]
+    TooManyDraws,
+    #[error("The request requires too much geometry to render")]
+    TooMuchGeometry,
+    #[error("The request requires too much text to render")]
+    TooMuchText,
+}
 
 #[allow(clippy::type_complexity)]
 #[derive(Debug)]
