@@ -147,8 +147,9 @@ fn select_adapter(candidates: &[Candidate], options: &GpuOptions) -> Result<usiz
         .filter(|(_, candidate)| options.allow_software_rendering || !candidate.is_software())
         .min_by_key(|(_, candidate)| {
             (
-                device_type_rank(candidate.device_type),
+                candidate.is_software(),
                 backend_rank(candidate.backend),
+                device_type_rank(candidate.device_type),
             )
         })
         .map(|(index, _)| index)
