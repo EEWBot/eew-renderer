@@ -35,6 +35,12 @@ pub enum GpuError {
 
     #[error("デバイスの作成に失敗: {0}")]
     RequestDevice(#[from] wgpu::RequestDeviceError),
+
+    #[error("{attempted} 個のGPUアダプタすべてでデバイスの作成に失敗 (最後のエラー: {last})")]
+    AllAdaptersFailed {
+        attempted: usize,
+        last: wgpu::RequestDeviceError,
+    },
 }
 
 pub struct Gpu {
@@ -73,20 +79,49 @@ impl Gpu {
             })
             .collect();
 
-        let index = select_adapter(&candidates, options)?;
-        let adapter = &adapters[index];
+        let order = select_adapters(&candidates, options)?;
+        let explicit = options.gpu_adapter_index.is_some();
 
-        tracing::info!("GPU Adapter: #{index} ({})", adapter.get_info().name);
+        let mut last_error = None;
+        let mut selected = None;
 
-        // GLバックエンドでも動かせるよう、downlevel相当の制限に収める
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: Some("eew-renderer"),
-                required_features: wgpu::Features::empty(),
-                required_limits: wgpu::Limits::downlevel_defaults(),
-                ..Default::default()
-            })
-            .await?;
+        for &index in &order {
+            let adapter = &adapters[index];
+            let name = &candidates[index].name;
+
+            // GLバックエンドでも動かせるよう、downlevel相当の制限に収める
+            let result = adapter
+                .request_device(&wgpu::DeviceDescriptor {
+                    label: Some("eew-renderer"),
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::downlevel_defaults(),
+                    ..Default::default()
+                })
+                .await;
+
+            match result {
+                Ok(pair) => {
+                    tracing::info!("GPU Adapter: #{index} ({name})");
+                    selected = Some(pair);
+                    break;
+                }
+                Err(error) if explicit => return Err(error.into()),
+                Err(error) => {
+                    tracing::warn!("GPU Adapter #{index} ({name}): デバイスの作成に失敗: {error}");
+                    last_error = Some(error);
+                }
+            }
+        }
+
+        let (device, queue) = match selected {
+            Some(pair) => pair,
+            None => {
+                return Err(GpuError::AllAdaptersFailed {
+                    attempted: order.len(),
+                    last: last_error.expect("at least one adapter was attempted"),
+                });
+            }
+        };
 
         device.on_uncaptured_error(Arc::new(|error| {
             tracing::error!("UNRECOVERABLE ERROR (GPU): {error}");
@@ -118,7 +153,7 @@ impl Candidate {
     }
 }
 
-fn select_adapter(candidates: &[Candidate], options: &GpuOptions) -> Result<usize, GpuError> {
+fn select_adapters(candidates: &[Candidate], options: &GpuOptions) -> Result<Vec<usize>, GpuError> {
     if candidates.is_empty() {
         return Err(GpuError::NoAdapter);
     }
@@ -138,22 +173,30 @@ fn select_adapter(candidates: &[Candidate], options: &GpuOptions) -> Result<usiz
             });
         }
 
-        return Ok(index);
+        return Ok(vec![index]);
     }
 
-    candidates
+    let mut order: Vec<usize> = candidates
         .iter()
         .enumerate()
         .filter(|(_, candidate)| options.allow_software_rendering || !candidate.is_software())
-        .min_by_key(|(_, candidate)| {
-            (
-                candidate.is_software(),
-                backend_rank(candidate.backend),
-                device_type_rank(candidate.device_type),
-            )
-        })
         .map(|(index, _)| index)
-        .ok_or(GpuError::NoHardwareAdapter)
+        .collect();
+
+    if order.is_empty() {
+        return Err(GpuError::NoHardwareAdapter);
+    }
+
+    order.sort_by_key(|&index| {
+        let candidate = &candidates[index];
+        (
+            candidate.is_software(),
+            backend_rank(candidate.backend),
+            device_type_rank(candidate.device_type),
+        )
+    });
+
+    Ok(order)
 }
 
 fn device_type_rank(device_type: DeviceType) -> u8 {
@@ -197,7 +240,7 @@ mod tests {
     #[test]
     fn no_adapter() {
         assert!(matches!(
-            select_adapter(&[], &options(None, true)),
+            select_adapters(&[], &options(None, true)),
             Err(GpuError::NoAdapter)
         ));
     }
@@ -210,7 +253,7 @@ mod tests {
         ];
 
         assert!(matches!(
-            select_adapter(&candidates, &options(None, false)),
+            select_adapters(&candidates, &options(None, false)),
             Err(GpuError::NoHardwareAdapter)
         ));
     }
@@ -223,8 +266,8 @@ mod tests {
         ];
 
         assert_eq!(
-            select_adapter(&candidates, &options(None, true)).unwrap(),
-            1
+            select_adapters(&candidates, &options(None, true)).unwrap(),
+            vec![1, 0]
         );
     }
 
@@ -239,8 +282,8 @@ mod tests {
         ];
 
         assert_eq!(
-            select_adapter(&candidates, &options(None, true)).unwrap(),
-            4
+            select_adapters(&candidates, &options(None, true)).unwrap(),
+            vec![4, 2, 3, 1, 0]
         );
     }
 
@@ -252,15 +295,15 @@ mod tests {
         ];
 
         assert!(matches!(
-            select_adapter(&candidates, &options(Some(1), false)),
+            select_adapters(&candidates, &options(Some(1), false)),
             Err(GpuError::SoftwareAdapterNotAllowed { index: 1, .. })
         ));
         assert_eq!(
-            select_adapter(&candidates, &options(Some(1), true)).unwrap(),
-            1
+            select_adapters(&candidates, &options(Some(1), true)).unwrap(),
+            vec![1]
         );
         assert!(matches!(
-            select_adapter(&candidates, &options(Some(2), true)),
+            select_adapters(&candidates, &options(Some(2), true)),
             Err(GpuError::AdapterIndexOutOfRange { index: 2, count: 2 })
         ));
     }
