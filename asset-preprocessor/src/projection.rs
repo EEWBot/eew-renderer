@@ -1,5 +1,7 @@
 use std::f64::consts::PI;
 
+use itertools::Itertools;
+
 /// GRS80 の離心率。renderer-types の `to_mercator` と同じ値。
 const E: f64 = 0.081_819_191_042_815_79;
 
@@ -22,15 +24,11 @@ pub(crate) fn to_mercator(longitude: f32, latitude: f32) -> (f32, f32) {
 pub(crate) fn to_mercator_segments(
     line: impl IntoIterator<Item = (f32, f32)>,
 ) -> Vec<(f32, f32, f32, f32)> {
-    let points: Vec<_> = line
-        .into_iter()
+    line.into_iter()
         .map(|(longitude, latitude)| to_mercator(longitude, latitude))
-        .collect();
-
-    points
-        .windows(2)
-        .filter(|w| w[0] != w[1])
-        .map(|w| (w[0].0, w[0].1, w[1].0, w[1].1))
+        .tuple_windows()
+        .filter(|(a, b)| a != b)
+        .map(|(a, b)| (a.0, a.1, b.0, b.1))
         .collect()
 }
 
