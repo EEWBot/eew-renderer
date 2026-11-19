@@ -108,26 +108,30 @@ impl Fonts {
 
         let lines: Vec<&str> = text.lines().collect();
 
-        let text_width = lines
-            .iter()
-            .map(|line| {
-                let mut min_x = i32::MAX;
-                let mut max_x = i32::MIN;
+        let text_width = if !offset.text_origin.uses_width() {
+            0
+        } else {
+            lines
+                .iter()
+                .map(|line| {
+                    let mut min_x = i32::MAX;
+                    let mut max_x = i32::MIN;
 
-                for (id, position) in layout_line(line, point(0.0, ascent)) {
-                    let glyph = id.with_scale_and_position(size, position);
-                    let Some(outlined) = font.outline_glyph(glyph) else {
-                        continue;
-                    };
-                    let bounds = outlined.px_bounds();
-                    min_x = min(min_x, bounds.min.x as i32);
-                    max_x = max(max_x, bounds.max.x as i32);
-                }
+                    for (id, position) in layout_line(line, point(0.0, ascent)) {
+                        let glyph = id.with_scale_and_position(size, position);
+                        let Some(outlined) = font.outline_glyph(glyph) else {
+                            continue;
+                        };
+                        let bounds = outlined.px_bounds();
+                        min_x = min(min_x, bounds.min.x as i32);
+                        max_x = max(max_x, bounds.max.x as i32);
+                    }
 
-                max_x - min_x
-            })
-            .max()
-            .unwrap_or(0);
+                    max_x - min_x
+                })
+                .max()
+                .unwrap_or(0)
+        };
 
         let line_height = ascent - descent;
 
@@ -332,6 +336,15 @@ pub enum Origin {
     RightDown,
     Center,
     CenterDown,
+}
+
+impl Origin {
+    fn uses_width(self) -> bool {
+        match self {
+            Origin::LeftUp | Origin::LeftDown => false,
+            Origin::RightUp | Origin::RightDown | Origin::Center | Origin::CenterDown => true,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
