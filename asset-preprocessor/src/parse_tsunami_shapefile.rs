@@ -111,9 +111,12 @@ Please follow:
     }
 }
 
+pub type TsunamiAreaRange = (u16, u32, u32);
+
 pub fn read() -> (
     // 線分 (mercator) と予報区の内部コード (main / okinawa / ogasawara)
     [Vec<(f32, f32, f32, f32, u16)>; InsetRegion::COUNT],
+    [Vec<TsunamiAreaRange>; InsetRegion::COUNT],
     HashMap<u32, u16>, // tsunami_area_code_to_internal_code
 ) {
     let shapefile = Shapefile::new(
@@ -142,5 +145,21 @@ pub fn read() -> (
         }
     }
 
-    (segments, tsunami_area_code_buffer.into_buffer())
+    for region_segments in &mut segments {
+        region_segments.sort_by_key(|&(_, _, _, _, code)| code);
+    }
+
+    let ranges = segments.each_ref().map(|region_segments| {
+        let mut ranges: Vec<TsunamiAreaRange> = Vec::new();
+        for (i, &(_, _, _, _, code)) in region_segments.iter().enumerate() {
+            let i = i as u32;
+            match ranges.last_mut() {
+                Some((last, _, end)) if *last == code => *end = i + 1,
+                _ => ranges.push((code, i, i + 1)),
+            }
+        }
+        ranges
+    });
+
+    (segments, ranges, tsunami_area_code_buffer.into_buffer())
 }

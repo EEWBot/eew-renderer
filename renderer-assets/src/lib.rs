@@ -136,8 +136,11 @@ pub struct WorldGeometries {
     pub indices: &'static [u32],
 }
 
+pub type TsunamiAreaRange = (u16, u32, u32);
+
 pub struct TsunamiGeometries {
     pub segments: [&'static [TsunamiSegment]; InsetRegion::COUNT],
+    pub area_ranges: [&'static [TsunamiAreaRange]; InsetRegion::COUNT],
 }
 
 impl QueryInterface {
@@ -184,6 +187,7 @@ impl QueryInterface {
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
             segments: TSUNAMI_SEGMENTS,
+            area_ranges: TSUNAMI_AREA_RANGES,
         }
     }
 
