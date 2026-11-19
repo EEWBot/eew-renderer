@@ -4,7 +4,8 @@ use crate::frame_context::{
 use crate::model::{Message, RenderingError};
 use crate::worker::fonts::{Fonts, GlyphCache, GLYPH_ATLAS_SIZE};
 use crate::worker::frame::{
-    DynamicBuffers, Frame, FrameData, FrameError, View, UNIFORM_CAPACITY, VERTEX_CAPACITY,
+    DynamicBuffers, Frame, FrameData, FrameError, StagedSprites, View, UNIFORM_CAPACITY,
+    VERTEX_CAPACITY,
 };
 use crate::worker::gpu::Gpu;
 use crate::worker::pipelines::{DrawUniform, Pipelines, TsunamiUniform};
@@ -204,11 +205,8 @@ impl Renderer {
                 FramePayload::Earthquake(earthquake) => {
                     drawer_map::draw(&mut frame, map_layers, None);
                     drawer_intensity_icon::draw_all(&mut frame, earthquake);
-                    drawer_epicenter::draw(
-                        &mut frame,
-                        earthquake.epicenter(),
-                        ICON_RATIO_IN_Y_AXIS,
-                    );
+                    let epicenters = drawer_epicenter::prepare(&mut frame, earthquake.epicenter());
+                    drawer_epicenter::draw(&mut frame, epicenters.as_ref(), ICON_RATIO_IN_Y_AXIS);
                     drawer_overlay::draw(&mut frame, earthquake);
                 }
                 FramePayload::TsunamiFirst(tsunami) => {
@@ -356,9 +354,10 @@ fn draw_tsunami_frame<T>(
         drawer_tsunami_line::draw(frame, InsetRegion::Main, levels);
     }
     drawer_tsunami_legends::draw(frame, payload);
-    drawer_epicenter::draw(frame, payload.epicenter(), ICON_RATIO_IN_Y_AXIS);
+    let epicenters = drawer_epicenter::prepare(frame, payload.epicenter());
+    drawer_epicenter::draw(frame, epicenters.as_ref(), ICON_RATIO_IN_Y_AXIS);
 
-    draw_insets(frame, payload.epicenter(), map_layers, lines);
+    draw_insets(frame, epicenters.as_ref(), map_layers, lines);
 
     frame.set_view(main_view, None);
     drawer_overlay::draw(frame, payload);
@@ -366,7 +365,7 @@ fn draw_tsunami_frame<T>(
 
 fn draw_insets(
     frame: &mut Frame,
-    epicenters: &[Vertex<GeoDegree>],
+    epicenters: Option<&StagedSprites>,
     layers: MapLayerConfig,
     lines: Option<&drawer_tsunami_line::AreaLevels>,
 ) {

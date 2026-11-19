@@ -125,6 +125,11 @@ impl Staging {
     }
 }
 
+pub struct StagedSprites {
+    range: Range<u64>,
+    count: u32,
+}
+
 pub struct FrameData {
     pub uniforms: Vec<u8>,
     pub vertices: Vec<u8>,
@@ -323,29 +328,45 @@ impl<'a> Frame<'a> {
     }
 
     /// 地図上の位置を中心に、画面上で一定の大きさのスプライトを描く。
-    /// `half_size` はクリップ座標での半分の大きさ。
     pub fn sprites(
         &mut self,
         texture: &'a wgpu::BindGroup,
         instances: &[SpriteInstance],
         half_size: [f32; 2],
     ) {
+        if let Some(staged) = self.stage_sprites(instances) {
+            self.draw_sprites(texture, &staged, half_size);
+        }
+    }
+
+    pub fn stage_sprites(&mut self, instances: &[SpriteInstance]) -> Option<StagedSprites> {
         if instances.is_empty() {
-            return;
+            return None;
         }
 
-        let Some(range) = self.staging.push_vertices(instances) else {
-            return;
-        };
+        let range = self.staging.push_vertices(instances)?;
 
+        Some(StagedSprites {
+            range,
+            count: instances.len() as u32,
+        })
+    }
+
+    /// `half_size` はクリップ座標での半分の大きさ。
+    pub fn draw_sprites(
+        &mut self,
+        texture: &'a wgpu::BindGroup,
+        staged: &StagedSprites,
+        half_size: [f32; 2],
+    ) {
         if !self.bind_draw(self.view.offset, self.view.map_scale(), half_size, [1.0; 4]) {
             return;
         }
         self.pass.set_pipeline(&self.pipelines.sprite);
         self.pass.set_bind_group(1, texture, &[]);
         self.pass
-            .set_vertex_buffer(0, self.dynamic.vertices.slice(range));
-        self.pass.draw(0..6, 0..instances.len() as u32);
+            .set_vertex_buffer(0, self.dynamic.vertices.slice(staged.range.clone()));
+        self.pass.draw(0..6, 0..staged.count);
     }
 
     /// ビューポート内のクリップ座標で与えた三角形リストにテクスチャを貼る。

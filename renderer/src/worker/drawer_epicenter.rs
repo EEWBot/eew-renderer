@@ -1,9 +1,8 @@
-use crate::worker::frame::Frame;
+use crate::worker::frame::{Frame, StagedSprites};
 use crate::worker::pipelines::SpriteInstance;
 use renderer_types::{GeoDegree, Vertex};
 
-/// 震央のマーカーを描く。`icon_ratio_in_y_axis` は、ビューポートの高さの半分に対するアイコンの半分の高さ。
-pub fn draw(frame: &mut Frame, epicenters: &[Vertex<GeoDegree>], icon_ratio_in_y_axis: f32) {
+pub fn prepare(frame: &mut Frame, epicenters: &[Vertex<GeoDegree>]) -> Option<StagedSprites> {
     let instances: Vec<_> = epicenters
         .iter()
         .map(|epicenter| SpriteInstance {
@@ -12,10 +11,18 @@ pub fn draw(frame: &mut Frame, epicenters: &[Vertex<GeoDegree>], icon_ratio_in_y
         })
         .collect();
 
+    frame.stage_sprites(&instances)
+}
+
+pub fn draw(frame: &mut Frame, markers: Option<&StagedSprites>, icon_ratio_in_y_axis: f32) {
+    let Some(markers) = markers else {
+        return;
+    };
+
     let half_size = [
         icon_ratio_in_y_axis * frame.view.aspect_ratio(),
         icon_ratio_in_y_axis,
     ];
 
-    frame.sprites(&frame.resources.epicenter_texture, &instances, half_size);
+    frame.draw_sprites(&frame.resources.epicenter_texture, markers, half_size);
 }
