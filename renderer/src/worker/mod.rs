@@ -3,7 +3,9 @@ use crate::frame_context::{
 };
 use crate::model::{Message, RenderingError};
 use crate::worker::fonts::{Fonts, GLYPH_ATLAS_SIZE};
-use crate::worker::frame::{DynamicBuffers, Frame, View, UNIFORM_CAPACITY, VERTEX_CAPACITY};
+use crate::worker::frame::{
+    DynamicBuffers, Frame, FrameData, View, UNIFORM_CAPACITY, VERTEX_CAPACITY,
+};
 use crate::worker::gpu::Gpu;
 use crate::worker::pipelines::{DrawUniform, Pipelines, TsunamiUniform};
 use crate::worker::resources::Resources;
@@ -122,54 +124,7 @@ impl Renderer {
         let camera = camera::Camera::fit(&bounding_box, Size::from(DIMENSION))
             .with_margin(MAP_MARGIN_FACTOR);
 
-        let mut encoder = self
-            .gpu
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("frame"),
-            });
-
-        let frame_data = {
-            let pass = self.target.begin_pass(&mut encoder, theme.clear_color);
-            let mut frame = Frame::new(
-                &self.resources,
-                &self.pipelines,
-                &self.dynamic,
-                &self.fonts,
-                theme,
-                pass,
-                View::from_camera(&camera),
-            );
-
-            let map_layers = payload.map_layers();
-
-            match payload {
-                FramePayload::Earthquake(earthquake) => {
-                    drawer_map::draw(&mut frame, map_layers, None);
-                    drawer_intensity_icon::draw_all(&mut frame, earthquake);
-                    drawer_epicenter::draw(
-                        &mut frame,
-                        earthquake.epicenter(),
-                        ICON_RATIO_IN_Y_AXIS,
-                    );
-                    drawer_overlay::draw(&mut frame, earthquake);
-                }
-                FramePayload::TsunamiFirst(tsunami) => {
-                    let levels = drawer_tsunami_line::area_levels(tsunami);
-                    queue.write_buffer(
-                        &self.dynamic.tsunami,
-                        0,
-                        bytemuck::bytes_of(&drawer_tsunami_line::build_uniform(theme, &levels)),
-                    );
-                    draw_tsunami_frame(&mut frame, tsunami, map_layers, Some(&levels));
-                }
-                FramePayload::TsunamiSecond(tsunami) => {
-                    draw_tsunami_frame(&mut frame, tsunami, map_layers, None);
-                }
-            }
-
-            frame.finish()?
-        };
+        let (mut encoder, frame_data) = self.record(theme, payload, &camera)?;
 
         // 動的なデータは、描画命令を送信する前に書き込んでおけば反映される
         queue.write_buffer(&self.dynamic.uniforms, 0, &frame_data.uniforms);
@@ -204,6 +159,64 @@ impl Renderer {
         );
 
         Ok(image)
+    }
+
+    fn record(
+        &self,
+        theme: &theme::Theme,
+        payload: &FramePayload,
+        camera: &camera::Camera,
+    ) -> Result<(wgpu::CommandEncoder, FrameData), RenderingError> {
+        let mut encoder = self
+            .gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("frame"),
+            });
+
+        let frame_data = {
+            let pass = self.target.begin_pass(&mut encoder, theme.clear_color);
+            let mut frame = Frame::new(
+                &self.resources,
+                &self.pipelines,
+                &self.dynamic,
+                &self.fonts,
+                theme,
+                pass,
+                View::from_camera(camera),
+            );
+
+            let map_layers = payload.map_layers();
+
+            match payload {
+                FramePayload::Earthquake(earthquake) => {
+                    drawer_map::draw(&mut frame, map_layers, None);
+                    drawer_intensity_icon::draw_all(&mut frame, earthquake);
+                    drawer_epicenter::draw(
+                        &mut frame,
+                        earthquake.epicenter(),
+                        ICON_RATIO_IN_Y_AXIS,
+                    );
+                    drawer_overlay::draw(&mut frame, earthquake);
+                }
+                FramePayload::TsunamiFirst(tsunami) => {
+                    let levels = drawer_tsunami_line::area_levels(tsunami);
+                    self.gpu.queue.write_buffer(
+                        &self.dynamic.tsunami,
+                        0,
+                        bytemuck::bytes_of(&drawer_tsunami_line::build_uniform(theme, &levels)),
+                    );
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, Some(&levels));
+                }
+                FramePayload::TsunamiSecond(tsunami) => {
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, None);
+                }
+            }
+
+            frame.finish()?
+        };
+
+        Ok((encoder, frame_data))
     }
 }
 
