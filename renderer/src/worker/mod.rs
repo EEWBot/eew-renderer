@@ -2,9 +2,9 @@ use crate::frame_context::{
     FramePayload, HasEpicenter, HasTime, HasTsunamiForecastLevels, MapLayerConfig,
 };
 use crate::model::{Message, RenderingError};
-use crate::worker::fonts::{Fonts, GLYPH_ATLAS_SIZE};
+use crate::worker::fonts::{Fonts, GlyphCache, GLYPH_ATLAS_SIZE};
 use crate::worker::frame::{
-    DynamicBuffers, Frame, FrameData, View, UNIFORM_CAPACITY, VERTEX_CAPACITY,
+    DynamicBuffers, Frame, FrameData, FrameError, View, UNIFORM_CAPACITY, VERTEX_CAPACITY,
 };
 use crate::worker::gpu::Gpu;
 use crate::worker::pipelines::{DrawUniform, Pipelines, TsunamiUniform};
@@ -44,7 +44,7 @@ pub async fn run(
     mut rx: mpsc::Receiver<Message>,
     gpu_options: gpu::GpuOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let renderer = Renderer::new(Gpu::new(&gpu_options).await?);
+    let mut renderer = Renderer::new(Gpu::new(&gpu_options).await?);
 
     while let Some(message) = rx.recv().await {
         let Message::FrameRequest((frame_context, response_socket)) = message;
@@ -89,6 +89,7 @@ struct Renderer {
     resources: Resources,
     dynamic: DynamicBuffers,
     fonts: Fonts,
+    glyphs: GlyphCache,
 }
 
 impl Renderer {
@@ -107,34 +108,44 @@ impl Renderer {
             resources,
             dynamic,
             fonts: Fonts::new(),
+            glyphs: GlyphCache::new(),
         }
     }
 
     fn render(
-        &self,
+        &mut self,
         frame_context: &crate::frame_context::FrameContext,
     ) -> Result<RGBAImageData, RenderError> {
         let start_at = Instant::now();
 
         let theme = &theme::DEFAULT;
-        let queue = &self.gpu.queue;
         let payload = &frame_context.payload;
 
         let bounding_box = calculate_bounding_box(payload);
         let camera = camera::Camera::fit(&bounding_box, Size::from(DIMENSION))
             .with_margin(MAP_MARGIN_FACTOR);
 
-        let (mut encoder, frame_data) = self.record(theme, payload, &camera)?;
+        let had_glyphs = !self.glyphs.is_empty();
+        let (mut encoder, frame_data) = match self.record(theme, payload, &camera) {
+            Err(FrameError::GlyphAtlasFull) if had_glyphs => {
+                self.glyphs.clear();
+                self.record(theme, payload, &camera)
+            }
+            result => result,
+        }
+        .map_err(RenderingError::from)?;
+
+        let queue = &self.gpu.queue;
 
         // 動的なデータは、描画命令を送信する前に書き込んでおけば反映される
         queue.write_buffer(&self.dynamic.uniforms, 0, &frame_data.uniforms);
         queue.write_buffer(&self.dynamic.vertices, 0, &frame_data.vertices);
-        if let Some((rows, pixels)) = frame_data.glyphs.used() {
+        if let Some((y, rows, pixels)) = self.glyphs.take_dirty() {
             resources::write_texture(
                 queue,
                 &self.dynamic.glyph_texture,
                 0,
-                0,
+                y,
                 GLYPH_ATLAS_SIZE,
                 rows,
                 pixels,
@@ -162,11 +173,11 @@ impl Renderer {
     }
 
     fn record(
-        &self,
+        &mut self,
         theme: &theme::Theme,
         payload: &FramePayload,
         camera: &camera::Camera,
-    ) -> Result<(wgpu::CommandEncoder, FrameData), RenderingError> {
+    ) -> Result<(wgpu::CommandEncoder, FrameData), FrameError> {
         let mut encoder = self
             .gpu
             .device
@@ -181,6 +192,7 @@ impl Renderer {
                 &self.pipelines,
                 &self.dynamic,
                 &self.fonts,
+                &mut self.glyphs,
                 theme,
                 pass,
                 View::from_camera(camera),

@@ -1,5 +1,5 @@
 use super::camera::Camera;
-use super::fonts::{Font, Fonts, GlyphAtlas, Offset, GLYPH_ATLAS_SIZE};
+use super::fonts::{Font, Fonts, GlyphCache, Offset, GLYPH_ATLAS_SIZE};
 use super::inset::Viewport;
 use super::pipelines::{
     DrawUniform, Pipelines, PositionVertex, SpriteInstance, TexturedVertex, SEGMENT_VERTEX_COUNT,
@@ -72,7 +72,8 @@ pub struct Frame<'a> {
     target_size: Size<u32>,
 
     staging: Staging,
-    glyphs: GlyphAtlas,
+    glyphs: &'a mut GlyphCache,
+    glyph_atlas_full: bool,
 }
 
 #[derive(Default)]
@@ -127,7 +128,21 @@ impl Staging {
 pub struct FrameData {
     pub uniforms: Vec<u8>,
     pub vertices: Vec<u8>,
-    pub glyphs: GlyphAtlas,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrameError {
+    Rendering(RenderingError),
+    GlyphAtlasFull,
+}
+
+impl From<FrameError> for RenderingError {
+    fn from(error: FrameError) -> Self {
+        match error {
+            FrameError::Rendering(e) => e,
+            FrameError::GlyphAtlasFull => RenderingError::TooMuchText,
+        }
+    }
 }
 
 impl<'a> Frame<'a> {
@@ -137,6 +152,7 @@ impl<'a> Frame<'a> {
         pipelines: &'a Pipelines,
         dynamic: &'a DynamicBuffers,
         fonts: &'a Fonts,
+        glyphs: &'a mut GlyphCache,
         theme: &'a Theme,
         pass: wgpu::RenderPass<'a>,
         view: View,
@@ -151,7 +167,8 @@ impl<'a> Frame<'a> {
             pass,
             target_size: view.size,
             staging: Staging::default(),
-            glyphs: GlyphAtlas::new(),
+            glyphs,
+            glyph_atlas_full: false,
         };
 
         frame.set_view(view, None);
@@ -159,15 +176,18 @@ impl<'a> Frame<'a> {
         frame
     }
 
-    pub fn finish(self) -> Result<FrameData, RenderingError> {
-        if let Some(error) = self.staging.error {
-            return Err(error);
+    pub fn finish(self) -> Result<FrameData, FrameError> {
+        match self.staging.error {
+            Some(RenderingError::TooMuchText) if self.glyph_atlas_full => {
+                return Err(FrameError::GlyphAtlasFull)
+            }
+            Some(error) => return Err(FrameError::Rendering(error)),
+            None => {}
         }
 
         Ok(FrameData {
             uniforms: self.staging.uniforms,
             vertices: self.staging.vertices,
-            glyphs: self.glyphs,
         })
     }
 
@@ -369,15 +389,21 @@ impl<'a> Frame<'a> {
 
         let mut vertices = Vec::with_capacity(glyphs.len() * 6);
         for glyph in &glyphs {
-            let rect = match self.glyphs.insert(glyph) {
-                Ok(Some(rect)) => rect,
+            let cached = match self.glyphs.get_or_insert(self.fonts, glyph.key) {
+                Ok(Some(cached)) => cached,
                 Ok(None) => continue,
                 Err(_) => {
+                    if self.staging.error.is_none() {
+                        self.glyph_atlas_full = true;
+                    }
                     self.staging.fail(RenderingError::TooMuchText);
                     return;
                 }
             };
-            let bounds = glyph.px_bounds();
+            let rect = cached.rect;
+            let min_x = (glyph.origin[0] + cached.offset[0]) as f32;
+            let min_y = (glyph.origin[1] + cached.offset[1]) as f32;
+            let (max_x, max_y) = (min_x + rect.width as f32, min_y + rect.height as f32);
 
             let (left, top) = (rect.x as f32 / atlas_size, rect.y as f32 / atlas_size);
             let (right, bottom) = (
@@ -389,10 +415,10 @@ impl<'a> Frame<'a> {
                 position: to_clip(x, y),
                 uv: [u, v],
             };
-            let left_top = corner(bounds.min.x, bounds.min.y, left, top);
-            let right_top = corner(bounds.max.x, bounds.min.y, right, top);
-            let left_bottom = corner(bounds.min.x, bounds.max.y, left, bottom);
-            let right_bottom = corner(bounds.max.x, bounds.max.y, right, bottom);
+            let left_top = corner(min_x, min_y, left, top);
+            let right_top = corner(max_x, min_y, right, top);
+            let left_bottom = corner(min_x, max_y, left, bottom);
+            let right_bottom = corner(max_x, max_y, right, bottom);
 
             vertices.extend([
                 left_top,
