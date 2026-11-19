@@ -132,7 +132,7 @@ fn vs_tsunami_line(
     var out: ColorVertex;
     out.color = tsunami.colors[level];
     if level != u32(draw.param.y) {
-        // 今回描くレベルではない予報区 (発表のない予報区を含む) は面積 0 にして描かない
+        // CPU側で今回のレベルの予報区だけを描くので通常は通らないが、念のため面積 0 にして描かない
         out.position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     } else {
         out.position = segment_vertex(vertex_index, segment);

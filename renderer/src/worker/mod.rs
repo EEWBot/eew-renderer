@@ -155,15 +155,16 @@ impl Renderer {
                     drawer_overlay::draw(&mut frame, earthquake);
                 }
                 FramePayload::TsunamiFirst(tsunami) => {
+                    let levels = drawer_tsunami_line::area_levels(tsunami);
                     queue.write_buffer(
                         &self.dynamic.tsunami,
                         0,
-                        bytemuck::bytes_of(&drawer_tsunami_line::build_uniform(theme, tsunami)),
+                        bytemuck::bytes_of(&drawer_tsunami_line::build_uniform(theme, &levels)),
                     );
-                    draw_tsunami_frame(&mut frame, tsunami, map_layers, true);
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, Some(&levels));
                 }
                 FramePayload::TsunamiSecond(tsunami) => {
-                    draw_tsunami_frame(&mut frame, tsunami, map_layers, false);
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, None);
                 }
             }
 
@@ -319,20 +320,20 @@ fn draw_tsunami_frame<T>(
     frame: &mut Frame,
     payload: &T,
     map_layers: MapLayerConfig,
-    with_lines: bool,
+    lines: Option<&drawer_tsunami_line::AreaLevels>,
 ) where
     T: HasEpicenter + HasTime + HasTsunamiForecastLevels,
 {
     let main_view = frame.view;
 
     drawer_map::draw(frame, map_layers, Some(InsetRegion::Main));
-    if with_lines {
-        drawer_tsunami_line::draw(frame, InsetRegion::Main);
+    if let Some(levels) = lines {
+        drawer_tsunami_line::draw(frame, InsetRegion::Main, levels);
     }
     drawer_tsunami_legends::draw(frame, payload);
     drawer_epicenter::draw(frame, payload.epicenter(), ICON_RATIO_IN_Y_AXIS);
 
-    draw_insets(frame, payload.epicenter(), map_layers, with_lines);
+    draw_insets(frame, payload.epicenter(), map_layers, lines);
 
     frame.set_view(main_view, None);
     drawer_overlay::draw(frame, payload);
@@ -342,7 +343,7 @@ fn draw_insets(
     frame: &mut Frame,
     epicenters: &[Vertex<GeoDegree>],
     layers: MapLayerConfig,
-    with_lines: bool,
+    lines: Option<&drawer_tsunami_line::AreaLevels>,
 ) {
     let base_height = frame.view.size.y() as f32;
 
@@ -360,8 +361,8 @@ fn draw_insets(
 
         drawer_inset_frame::draw_background(frame);
         drawer_map::draw(frame, layers, Some(inset.region));
-        if with_lines {
-            drawer_tsunami_line::draw(frame, inset.region);
+        if let Some(levels) = lines {
+            drawer_tsunami_line::draw(frame, inset.region, levels);
         }
 
         // アイコンの大きさを本体の地図と揃える

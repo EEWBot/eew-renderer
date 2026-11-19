@@ -4,9 +4,11 @@ use crate::worker::pipelines::{TsunamiUniform, TSUNAMI_LEVEL_CAPACITY};
 use crate::worker::theme::Theme;
 use renderer_assets::QueryInterface;
 use renderer_types::InsetRegion;
+use std::ops::Range;
 
-/// 予報区ごとの発表レベルと線の色を、シェーダーに渡す形にまとめる。
-pub fn build_uniform<T>(theme: &Theme, tsunami_payload: &T) -> TsunamiUniform
+pub type AreaLevels = [u32; TSUNAMI_LEVEL_CAPACITY];
+
+pub fn area_levels<T>(tsunami_payload: &T) -> AreaLevels
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
@@ -24,6 +26,10 @@ where
         }
     }
 
+    levels
+}
+
+pub fn build_uniform(theme: &Theme, levels: &AreaLevels) -> TsunamiUniform {
     let opaque = |color: [f32; 3]| [color[0], color[1], color[2], 1.0];
 
     TsunamiUniform {
@@ -34,18 +40,35 @@ where
             opaque(theme.tsunami_colors.warning),
             opaque(theme.tsunami_colors.major_warning),
         ],
-        levels,
+        levels: *levels,
     }
 }
 
 /// 重大なレベルの線が隠れないよう、軽いレベルから順に描いて重ねる。
-pub fn draw(frame: &mut Frame, region: InsetRegion) {
+/// 発表のある予報区の線分だけを描き、発表のないレベルは描画自体を省く。
+pub fn draw(frame: &mut Frame, region: InsetRegion, levels: &AreaLevels) {
+    let areas = frame.resources.tsunami_area_ranges(region);
+    let mut ranges: Vec<Range<u32>> = Vec::new();
+
     for level in DRAW_ORDER {
-        frame.tsunami_lines(
-            frame.resources.tsunami_range(region),
-            frame.theme.tsunami_width,
-            level as u32,
-        );
+        let level = level as u32;
+
+        ranges.clear();
+        for (code, range) in areas {
+            if levels[*code as usize] != level {
+                continue;
+            }
+
+            // 線分列上で隣り合う予報区は1回の描画にまとめる
+            match ranges.last_mut() {
+                Some(last) if last.end == range.start => last.end = range.end,
+                _ => ranges.push(range.clone()),
+            }
+        }
+
+        if !ranges.is_empty() {
+            frame.tsunami_lines(&ranges, frame.theme.tsunami_width, level);
+        }
     }
 }
 

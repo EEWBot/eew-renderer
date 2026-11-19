@@ -275,9 +275,10 @@ impl<'a> Frame<'a> {
         self.pass.draw(0..SEGMENT_VERTEX_COUNT, segments);
     }
 
-    /// 津波予報区の線のうち、発表レベルが `level` (1以上) のものだけを、そのレベルの色で描く。
-    pub fn tsunami_lines(&mut self, segments: Range<u32>, width: f32, level: u32) {
-        if segments.is_empty() {
+    /// 津波予報区の線のうち、発表レベルが `level` (1以上) の予報区の線分範囲 `segments` を、
+    /// そのレベルの色で描く。
+    pub fn tsunami_lines(&mut self, segments: &[Range<u32>], width: f32, level: u32) {
+        if segments.iter().all(Range::is_empty) {
             return;
         }
 
@@ -294,7 +295,11 @@ impl<'a> Frame<'a> {
             .set_bind_group(1, &self.dynamic.tsunami_bind_group, &[]);
         self.pass
             .set_vertex_buffer(0, self.resources.tsunami_segments.slice(..));
-        self.pass.draw(0..SEGMENT_VERTEX_COUNT, segments);
+        for range in segments {
+            if !range.is_empty() {
+                self.pass.draw(0..SEGMENT_VERTEX_COUNT, range.clone());
+            }
+        }
     }
 
     /// 地図上の位置を中心に、画面上で一定の大きさのスプライトを描く。

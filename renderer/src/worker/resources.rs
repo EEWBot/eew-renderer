@@ -16,7 +16,7 @@ pub struct Resources {
     pref_line_ranges: Vec<Range<u32>>,
 
     pub tsunami_segments: wgpu::Buffer,
-    tsunami_ranges: [Range<u32>; InsetRegion::COUNT],
+    tsunami_area_ranges: [Vec<(u16, Range<u32>)>; InsetRegion::COUNT],
 
     pub sampler: wgpu::Sampler,
     pub intensity_texture: wgpu::BindGroup,
@@ -105,15 +105,18 @@ impl Resources {
         });
 
         let mut tsunami_instances = Vec::new();
-        let tsunami_ranges = std::array::from_fn(|i| {
-            let start = tsunami_instances.len() as u32;
+        let tsunami_area_ranges = std::array::from_fn(|i| {
+            let base = tsunami_instances.len() as u32;
             tsunami_instances.extend(tsunami.segments[i].iter().map(|&(x0, y0, x1, y1, code)| {
                 TsunamiSegmentInstance {
                     segment: [x0, y0, x1, y1],
                     code: code as u32,
                 }
             }));
-            start..tsunami_instances.len() as u32
+            tsunami.area_ranges[i]
+                .iter()
+                .map(|&(code, start, end)| (code, base + start..base + end))
+                .collect()
         });
         let tsunami_segments = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("tsunami segments"),
@@ -163,7 +166,7 @@ impl Resources {
             area_line_ranges,
             pref_line_ranges,
             tsunami_segments,
-            tsunami_ranges,
+            tsunami_area_ranges,
             sampler,
             intensity_texture,
             epicenter_texture,
@@ -179,8 +182,8 @@ impl Resources {
         }
     }
 
-    pub fn tsunami_range(&self, region: InsetRegion) -> Range<u32> {
-        self.tsunami_ranges[region.index()].clone()
+    pub fn tsunami_area_ranges(&self, region: InsetRegion) -> &[(u16, Range<u32>)] {
+        &self.tsunami_area_ranges[region.index()]
     }
 
     pub fn area_line_range(&self, scale: f32) -> Range<u32> {
