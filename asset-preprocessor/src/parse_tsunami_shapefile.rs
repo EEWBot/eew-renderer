@@ -150,15 +150,16 @@ pub fn read() -> (
     }
 
     let ranges = segments.each_ref().map(|region_segments| {
-        let mut ranges: Vec<TsunamiAreaRange> = Vec::new();
-        for (i, &(_, _, _, _, code)) in region_segments.iter().enumerate() {
-            let i = i as u32;
-            match ranges.last_mut() {
-                Some((last, _, end)) if *last == code => *end = i + 1,
-                _ => ranges.push((code, i, i + 1)),
-            }
-        }
-        ranges
+        let mut start = 0;
+        region_segments
+            .chunk_by(|a, b| a.4 == b.4)
+            .map(|chunk| {
+                let end = start + chunk.len() as u32;
+                let range: TsunamiAreaRange = (chunk[0].4, start, end);
+                start = end;
+                range
+            })
+            .collect::<Vec<_>>()
     });
 
     (segments, ranges, tsunami_area_code_buffer.into_buffer())
