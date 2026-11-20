@@ -141,6 +141,9 @@ impl Renderer {
         // 動的なデータは、描画命令を送信する前に書き込んでおけば反映される
         queue.write_buffer(&self.dynamic.uniforms, 0, &frame_data.uniforms);
         queue.write_buffer(&self.dynamic.vertices, 0, &frame_data.vertices);
+        if let Some(tsunami) = &frame_data.tsunami {
+            queue.write_buffer(&self.dynamic.tsunami, 0, bytemuck::bytes_of(tsunami));
+        }
         if let Some((y, rows, pixels)) = self.glyphs.take_dirty() {
             resources::write_texture(
                 queue,
@@ -186,7 +189,8 @@ impl Renderer {
                 label: Some("frame"),
             });
 
-        let frame_data = {
+        let mut tsunami_uniform = None;
+        let mut frame_data = {
             let pass = self.target.begin_pass(&mut encoder, theme.clear_color);
             let mut frame = Frame::new(
                 &self.resources,
@@ -211,11 +215,7 @@ impl Renderer {
                 }
                 FramePayload::TsunamiFirst(tsunami) => {
                     let levels = drawer_tsunami_line::area_levels(tsunami);
-                    self.gpu.queue.write_buffer(
-                        &self.dynamic.tsunami,
-                        0,
-                        bytemuck::bytes_of(&drawer_tsunami_line::build_uniform(theme, &levels)),
-                    );
+                    tsunami_uniform = Some(drawer_tsunami_line::build_uniform(theme, &levels));
                     draw_tsunami_frame(&mut frame, tsunami, map_layers, Some(&levels));
                 }
                 FramePayload::TsunamiSecond(tsunami) => {
@@ -225,6 +225,7 @@ impl Renderer {
 
             frame.finish()?
         };
+        frame_data.tsunami = tsunami_uniform;
 
         Ok((encoder, frame_data))
     }

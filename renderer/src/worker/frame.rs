@@ -2,7 +2,8 @@ use super::camera::Camera;
 use super::fonts::{Font, Fonts, GlyphCache, Offset, GLYPH_ATLAS_SIZE};
 use super::inset::Viewport;
 use super::pipelines::{
-    DrawUniform, Pipelines, PositionVertex, SpriteInstance, TexturedVertex, SEGMENT_VERTEX_COUNT,
+    DrawUniform, Pipelines, PositionVertex, SpriteInstance, TexturedVertex, TsunamiUniform,
+    SEGMENT_VERTEX_COUNT,
 };
 use super::resources::{Mesh, Resources};
 use super::theme::Theme;
@@ -133,6 +134,7 @@ pub struct StagedSprites {
 pub struct FrameData {
     pub uniforms: Vec<u8>,
     pub vertices: Vec<u8>,
+    pub tsunami: Option<TsunamiUniform>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -193,6 +195,7 @@ impl<'a> Frame<'a> {
         Ok(FrameData {
             uniforms: self.staging.uniforms,
             vertices: self.staging.vertices,
+            tsunami: None,
         })
     }
 
