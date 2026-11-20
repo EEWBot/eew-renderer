@@ -13,6 +13,8 @@ pub enum RenderingError {
     TooMuchGeometry,
     #[error("The request requires too much text to render")]
     TooMuchText,
+    #[error("Unknown tsunami forecast area code: {0}")]
+    UnknownTsunamiArea(u32),
 }
 
 #[allow(clippy::type_complexity)]

@@ -189,7 +189,16 @@ impl Renderer {
                 label: Some("frame"),
             });
 
-        let mut tsunami_uniform = None;
+        let tsunami_levels = match payload {
+            FramePayload::TsunamiFirst(tsunami) => {
+                Some(drawer_tsunami_line::area_levels(tsunami).map_err(FrameError::Rendering)?)
+            }
+            _ => None,
+        };
+        let tsunami_uniform = tsunami_levels
+            .as_ref()
+            .map(|levels| drawer_tsunami_line::build_uniform(theme, levels));
+
         let mut frame_data = {
             let pass = self.target.begin_pass(&mut encoder, theme.clear_color);
             let mut frame = Frame::new(
@@ -214,9 +223,7 @@ impl Renderer {
                     drawer_overlay::draw(&mut frame, earthquake);
                 }
                 FramePayload::TsunamiFirst(tsunami) => {
-                    let levels = drawer_tsunami_line::area_levels(tsunami);
-                    tsunami_uniform = Some(drawer_tsunami_line::build_uniform(theme, &levels));
-                    draw_tsunami_frame(&mut frame, tsunami, map_layers, Some(&levels));
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, tsunami_levels.as_ref());
                 }
                 FramePayload::TsunamiSecond(tsunami) => {
                     draw_tsunami_frame(&mut frame, tsunami, map_layers, None);

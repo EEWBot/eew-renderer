@@ -1,4 +1,4 @@
-use crate::model::津波情報;
+use crate::model::{津波情報, RenderingError};
 use crate::worker::frame::Frame;
 use crate::worker::pipelines::{TsunamiUniform, TSUNAMI_LEVEL_CAPACITY};
 use crate::worker::theme::Theme;
@@ -13,7 +13,7 @@ const _: () = assert!(
     "津波予報区の数がシェーダーの上限 (TSUNAMI_LEVEL_CAPACITY) を超えている"
 );
 
-pub fn area_levels<T>(tsunami_payload: &T) -> AreaLevels
+pub fn area_levels<T>(tsunami_payload: &T) -> Result<AreaLevels, RenderingError>
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
@@ -21,12 +21,13 @@ where
 
     for (level, areas) in tsunami_payload.forecast_levels().iter() {
         for area in areas {
-            let code = QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap();
+            let code = QueryInterface::tsunami_area_code_to_internal_code(*area)
+                .ok_or(RenderingError::UnknownTsunamiArea(area.0))?;
             levels[code as usize] = level as u32;
         }
     }
 
-    levels
+    Ok(levels)
 }
 
 pub fn build_uniform(theme: &Theme, levels: &AreaLevels) -> TsunamiUniform {
