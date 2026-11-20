@@ -123,6 +123,13 @@ impl Gpu {
             }
         };
 
+        let alignment = device.limits().min_uniform_buffer_offset_alignment as usize;
+        assert!(
+            super::frame::UNIFORM_STRIDE.is_multiple_of(alignment),
+            "UNIFORM_STRIDE ({}) must be a multiple of min_uniform_buffer_offset_alignment ({alignment})",
+            super::frame::UNIFORM_STRIDE,
+        );
+
         device.on_uncaptured_error(Arc::new(|error| {
             tracing::error!("UNRECOVERABLE ERROR (GPU): {error}");
             std::process::exit(1);
