@@ -127,7 +127,11 @@ impl Fonts {
                         max_x = max(max_x, bounds.max.x as i32);
                     }
 
-                    max_x - min_x
+                    if min_x <= max_x {
+                        max_x - min_x
+                    } else {
+                        0
+                    }
                 })
                 .max()
                 .unwrap_or(0)
