@@ -8,15 +8,15 @@ use std::ops::Range;
 
 pub type AreaLevels = [u32; TSUNAMI_LEVEL_CAPACITY];
 
+const _: () = assert!(
+    QueryInterface::TSUNAMI_AREA_CODE_COUNT <= TSUNAMI_LEVEL_CAPACITY,
+    "津波予報区の数がシェーダーの上限 (TSUNAMI_LEVEL_CAPACITY) を超えている"
+);
+
 pub fn area_levels<T>(tsunami_payload: &T) -> AreaLevels
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
-    assert!(
-        QueryInterface::tsunami_area_code_count() <= TSUNAMI_LEVEL_CAPACITY,
-        "津波予報区の数がシェーダーの上限を超えている"
-    );
-
     let mut levels = [0_u32; TSUNAMI_LEVEL_CAPACITY];
 
     for (level, areas) in tsunami_payload.forecast_levels().iter() {
