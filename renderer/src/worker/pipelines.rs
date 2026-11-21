@@ -53,7 +53,11 @@ pub struct TexturedVertex {
     pub uv: [f32; 2],
 }
 
-pub const SEGMENT_VERTEX_COUNT: u32 = 6 + 2 * 3 * 4;
+const CAP_SLICES: u32 = 4;
+
+pub const SEGMENT_VERTEX_COUNT: u32 = 6 + 2 * 3 * CAP_SLICES;
+
+const SHADER_CONSTANTS: &[(&str, f64)] = &[("CAP_SLICES", CAP_SLICES as f64)];
 
 pub struct Pipelines {
     pub draw_layout: wgpu::BindGroupLayout,
@@ -278,7 +282,10 @@ impl PipelineBuilder<'_> {
                 vertex: wgpu::VertexState {
                     module: self.shader,
                     entry_point: Some(vertex_entry),
-                    compilation_options: Default::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: SHADER_CONSTANTS,
+                        ..Default::default()
+                    },
                     buffers: &[Some(vertex_buffer)],
                 },
                 primitive: wgpu::PrimitiveState::default(),
@@ -301,7 +308,10 @@ impl PipelineBuilder<'_> {
                 fragment: Some(wgpu::FragmentState {
                     module: self.shader,
                     entry_point: Some(fragment_entry),
-                    compilation_options: Default::default(),
+                    compilation_options: wgpu::PipelineCompilationOptions {
+                        constants: SHADER_CONSTANTS,
+                        ..Default::default()
+                    },
                     targets: &[Some(wgpu::ColorTargetState {
                         format: COLOR_FORMAT,
                         blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),

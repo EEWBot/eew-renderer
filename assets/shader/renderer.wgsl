@@ -29,8 +29,7 @@ struct Tsunami {
 
 const PI: f32 = 3.14159265358979323846;
 
-// 線の端につける半円の分割数
-const CAP_SLICES: u32 = 4u;
+override CAP_SLICES: u32;
 
 struct ColorVertex {
     @builtin(position) position: vec4<f32>,
