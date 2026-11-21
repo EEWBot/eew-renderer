@@ -2,8 +2,7 @@ use super::camera::Camera;
 use super::fonts::{Font, Fonts, GlyphCache, Offset, GLYPH_ATLAS_SIZE};
 use super::inset::Viewport;
 use super::pipelines::{
-    DrawUniform, Pipelines, PositionVertex, SpriteInstance, TexturedVertex, TsunamiUniform,
-    SEGMENT_VERTEX_COUNT,
+    DrawUniform, Pipelines, PositionVertex, SpriteInstance, TexturedVertex, SEGMENT_VERTEX_COUNT,
 };
 use super::resources::{Mesh, Resources};
 use super::theme::Theme;
@@ -22,8 +21,6 @@ pub struct DynamicBuffers {
     pub uniforms: wgpu::Buffer,
     pub draw_bind_group: wgpu::BindGroup,
     pub vertices: wgpu::Buffer,
-    pub tsunami: wgpu::Buffer,
-    pub tsunami_bind_group: wgpu::BindGroup,
     pub glyph_texture: wgpu::Texture,
     pub glyph_bind_group: wgpu::BindGroup,
 }
@@ -134,7 +131,6 @@ pub struct StagedSprites {
 pub struct FrameData {
     pub uniforms: Vec<u8>,
     pub vertices: Vec<u8>,
-    pub tsunami: Option<TsunamiUniform>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -195,7 +191,6 @@ impl<'a> Frame<'a> {
         Ok(FrameData {
             uniforms: self.staging.uniforms,
             vertices: self.staging.vertices,
-            tsunami: None,
         })
     }
 
@@ -303,9 +298,7 @@ impl<'a> Frame<'a> {
         self.pass.draw(0..SEGMENT_VERTEX_COUNT, segments);
     }
 
-    /// 津波予報区の線のうち、発表レベルが `level` (1以上) の予報区の線分範囲 `segments` を、
-    /// そのレベルの色で描く。
-    pub fn tsunami_lines(&mut self, segments: &[Range<u32>], width: f32, level: u32) {
+    pub fn tsunami_lines(&mut self, segments: &[Range<u32>], width: f32, color: [f32; 3]) {
         if segments.iter().all(Range::is_empty) {
             return;
         }
@@ -313,14 +306,12 @@ impl<'a> Frame<'a> {
         if !self.bind_draw(
             self.view.offset,
             self.view.map_scale(),
-            [width, level as f32],
-            [0.0; 4],
+            [width, 0.0],
+            opaque(color),
         ) {
             return;
         }
-        self.pass.set_pipeline(&self.pipelines.tsunami_line);
-        self.pass
-            .set_bind_group(1, &self.dynamic.tsunami_bind_group, &[]);
+        self.pass.set_pipeline(&self.pipelines.line);
         self.pass
             .set_vertex_buffer(0, self.resources.tsunami_segments.slice(..));
         for range in segments {

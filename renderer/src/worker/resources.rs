@@ -1,4 +1,4 @@
-use super::pipelines::{PositionVertex, SegmentInstance, TsunamiSegmentInstance};
+use super::pipelines::{PositionVertex, SegmentInstance};
 use renderer_assets::QueryInterface;
 use renderer_types::InsetRegion;
 use std::ops::Range;
@@ -107,10 +107,9 @@ impl Resources {
         let mut tsunami_instances = Vec::new();
         let tsunami_area_ranges = std::array::from_fn(|i| {
             let base = tsunami_instances.len() as u32;
-            tsunami_instances.extend(tsunami.segments[i].iter().map(|&(x0, y0, x1, y1, code)| {
-                TsunamiSegmentInstance {
+            tsunami_instances.extend(tsunami.segments[i].iter().map(|&(x0, y0, x1, y1)| {
+                SegmentInstance {
                     segment: [x0, y0, x1, y1],
-                    code: code as u32,
                 }
             }));
             tsunami.area_ranges[i]

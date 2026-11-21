@@ -8,7 +8,7 @@ use crate::worker::frame::{
     VERTEX_CAPACITY,
 };
 use crate::worker::gpu::Gpu;
-use crate::worker::pipelines::{DrawUniform, Pipelines, TsunamiUniform};
+use crate::worker::pipelines::{DrawUniform, Pipelines};
 use crate::worker::resources::Resources;
 use crate::worker::target::RenderTarget;
 use image_buffer::RGBAImageData;
@@ -141,9 +141,6 @@ impl Renderer {
         // 動的なデータは、描画命令を送信する前に書き込んでおけば反映される
         queue.write_buffer(&self.dynamic.uniforms, 0, &frame_data.uniforms);
         queue.write_buffer(&self.dynamic.vertices, 0, &frame_data.vertices);
-        if let Some(tsunami) = &frame_data.tsunami {
-            queue.write_buffer(&self.dynamic.tsunami, 0, bytemuck::bytes_of(tsunami));
-        }
         if let Some((y, rows, pixels)) = self.glyphs.take_dirty() {
             resources::write_texture(
                 queue,
@@ -195,11 +192,8 @@ impl Renderer {
             }
             _ => None,
         };
-        let tsunami_uniform = tsunami_levels
-            .as_ref()
-            .map(|levels| drawer_tsunami_line::build_uniform(theme, levels));
 
-        let mut frame_data = {
+        let frame_data = {
             let pass = self.target.begin_pass(&mut encoder, theme.clear_color);
             let mut frame = Frame::new(
                 &self.resources,
@@ -232,7 +226,6 @@ impl Renderer {
 
             frame.finish()?
         };
-        frame_data.tsunami = tsunami_uniform;
 
         Ok((encoder, frame_data))
     }
@@ -269,21 +262,6 @@ fn create_dynamic_buffers(
         mapped_at_creation: false,
     });
 
-    let tsunami = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("tsunami"),
-        size: size_of::<TsunamiUniform>() as u64,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let tsunami_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("tsunami"),
-        layout: &pipelines.tsunami_layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 2,
-            resource: tsunami.as_entire_binding(),
-        }],
-    });
-
     let glyph_texture =
         resources::create_texture(device, "glyphs", GLYPH_ATLAS_SIZE, GLYPH_ATLAS_SIZE);
     let glyph_bind_group = resources::texture_bind_group(
@@ -297,8 +275,6 @@ fn create_dynamic_buffers(
         uniforms,
         draw_bind_group,
         vertices,
-        tsunami,
-        tsunami_bind_group,
         glyph_texture,
         glyph_bind_group,
     }

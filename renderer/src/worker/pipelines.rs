@@ -11,15 +11,6 @@ pub struct DrawUniform {
     pub color: [f32; 4],
 }
 
-pub const TSUNAMI_LEVEL_CAPACITY: usize = 128;
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct TsunamiUniform {
-    pub colors: [[f32; 4]; 5],
-    pub levels: [u32; TSUNAMI_LEVEL_CAPACITY],
-}
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PositionVertex {
@@ -30,13 +21,6 @@ pub struct PositionVertex {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SegmentInstance {
     pub segment: [f32; 4],
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct TsunamiSegmentInstance {
-    pub segment: [f32; 4],
-    pub code: u32,
 }
 
 #[repr(C)]
@@ -62,12 +46,10 @@ const SHADER_CONSTANTS: &[(&str, f64)] = &[("CAP_SLICES", CAP_SLICES as f64)];
 pub struct Pipelines {
     pub draw_layout: wgpu::BindGroupLayout,
     pub texture_layout: wgpu::BindGroupLayout,
-    pub tsunami_layout: wgpu::BindGroupLayout,
 
     pub fill: wgpu::RenderPipeline,
     pub mask: wgpu::RenderPipeline,
     pub line: wgpu::RenderPipeline,
-    pub tsunami_line: wgpu::RenderPipeline,
     pub sprite: wgpu::RenderPipeline,
     pub textured: wgpu::RenderPipeline,
 }
@@ -117,20 +99,6 @@ impl Pipelines {
             ],
         });
 
-        let tsunami_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("tsunami"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: NonZeroU64::new(size_of::<TsunamiUniform>() as u64),
-                },
-                count: None,
-            }],
-        });
-
         let builder = PipelineBuilder {
             device,
             shader: &shader,
@@ -142,11 +110,6 @@ impl Pipelines {
             with_texture: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("draw + texture"),
                 bind_group_layouts: &[Some(&draw_layout), Some(&texture_layout)],
-                ..Default::default()
-            }),
-            with_tsunami: device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("draw + tsunami"),
-                bind_group_layouts: &[Some(&draw_layout), Some(&tsunami_layout)],
                 ..Default::default()
             }),
         };
@@ -188,19 +151,6 @@ impl Pipelines {
             false,
         );
 
-        let tsunami_line = builder.build(
-            "tsunami line",
-            &builder.with_tsunami,
-            "vs_tsunami_line",
-            "fs_vertex_color",
-            wgpu::VertexBufferLayout {
-                array_stride: size_of::<TsunamiSegmentInstance>() as u64,
-                step_mode: wgpu::VertexStepMode::Instance,
-                attributes: &wgpu::vertex_attr_array![0 => Float32x4, 1 => Uint32],
-            },
-            false,
-        );
-
         let sprite = builder.build(
             "sprite",
             &builder.with_texture,
@@ -230,11 +180,9 @@ impl Pipelines {
         Self {
             draw_layout,
             texture_layout,
-            tsunami_layout,
             fill,
             mask,
             line,
-            tsunami_line,
             sprite,
             textured,
         }
@@ -246,7 +194,6 @@ struct PipelineBuilder<'a> {
     shader: &'a wgpu::ShaderModule,
     draw_only: wgpu::PipelineLayout,
     with_texture: wgpu::PipelineLayout,
-    with_tsunami: wgpu::PipelineLayout,
 }
 
 impl PipelineBuilder<'_> {

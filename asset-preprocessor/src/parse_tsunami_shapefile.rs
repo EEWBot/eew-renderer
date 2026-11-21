@@ -114,8 +114,7 @@ Please follow:
 pub type TsunamiAreaRange = (u16, u32, u32);
 
 pub fn read() -> (
-    // 線分 (mercator) と予報区の内部コード (main / okinawa / ogasawara)
-    [Vec<(f32, f32, f32, f32, u16)>; InsetRegion::COUNT],
+    [Vec<(f32, f32, f32, f32)>; InsetRegion::COUNT],
     [Vec<TsunamiAreaRange>; InsetRegion::COUNT],
     HashMap<u32, u16>, // tsunami_area_code_to_internal_code
 ) {
@@ -160,6 +159,13 @@ pub fn read() -> (
                 range
             })
             .collect::<Vec<_>>()
+    });
+
+    let segments = segments.map(|region_segments| {
+        region_segments
+            .into_iter()
+            .map(|(x0, y0, x1, y1, _)| (x0, y0, x1, y1))
+            .collect()
     });
 
     (segments, ranges, tsunami_area_code_buffer.into_buffer())

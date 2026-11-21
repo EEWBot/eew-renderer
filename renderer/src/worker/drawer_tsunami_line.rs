@@ -1,47 +1,35 @@
 use crate::model::{津波情報, RenderingError};
 use crate::worker::frame::Frame;
-use crate::worker::pipelines::{TsunamiUniform, TSUNAMI_LEVEL_CAPACITY};
 use crate::worker::theme::Theme;
 use renderer_assets::QueryInterface;
 use renderer_types::InsetRegion;
 use std::ops::Range;
 
-pub type AreaLevels = [u32; TSUNAMI_LEVEL_CAPACITY];
-
-const _: () = assert!(
-    QueryInterface::TSUNAMI_AREA_CODE_COUNT <= TSUNAMI_LEVEL_CAPACITY,
-    "津波予報区の数がシェーダーの上限 (TSUNAMI_LEVEL_CAPACITY) を超えている"
-);
+pub type AreaLevels = [Option<津波情報>; QueryInterface::TSUNAMI_AREA_CODE_COUNT];
 
 pub fn area_levels<T>(tsunami_payload: &T) -> Result<AreaLevels, RenderingError>
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
-    let mut levels = [0_u32; TSUNAMI_LEVEL_CAPACITY];
+    let mut levels = [None; QueryInterface::TSUNAMI_AREA_CODE_COUNT];
 
     for (level, areas) in tsunami_payload.forecast_levels().iter() {
         for area in areas {
             let code = QueryInterface::tsunami_area_code_to_internal_code(*area)
                 .ok_or(RenderingError::UnknownTsunamiArea(area.0))?;
-            levels[code as usize] = level as u32;
+            levels[code as usize] = Some(level);
         }
     }
 
     Ok(levels)
 }
 
-pub fn build_uniform(theme: &Theme, levels: &AreaLevels) -> TsunamiUniform {
-    let opaque = |color: [f32; 3]| [color[0], color[1], color[2], 1.0];
-
-    TsunamiUniform {
-        colors: [
-            [0.0; 4],
-            opaque(theme.tsunami_colors.forecast),
-            opaque(theme.tsunami_colors.advisory),
-            opaque(theme.tsunami_colors.warning),
-            opaque(theme.tsunami_colors.major_warning),
-        ],
-        levels: *levels,
+fn line_color(theme: &Theme, level: 津波情報) -> [f32; 3] {
+    match level {
+        津波情報::津波予報 => theme.tsunami_colors.forecast,
+        津波情報::津波注意報 => theme.tsunami_colors.advisory,
+        津波情報::津波警報 => theme.tsunami_colors.warning,
+        津波情報::大津波警報 => theme.tsunami_colors.major_warning,
     }
 }
 
@@ -52,11 +40,9 @@ pub fn draw(frame: &mut Frame, region: InsetRegion, levels: &AreaLevels) {
     let mut ranges: Vec<Range<u32>> = Vec::new();
 
     for level in DRAW_ORDER {
-        let level = level as u32;
-
         ranges.clear();
         for (code, range) in areas {
-            if levels[*code as usize] != level {
+            if levels[*code as usize] != Some(level) {
                 continue;
             }
 
@@ -68,7 +54,8 @@ pub fn draw(frame: &mut Frame, region: InsetRegion, levels: &AreaLevels) {
         }
 
         if !ranges.is_empty() {
-            frame.tsunami_lines(&ranges, frame.theme.tsunami_width, level);
+            let color = line_color(frame.theme, level);
+            frame.tsunami_lines(&ranges, frame.theme.tsunami_width, color);
         }
     }
 }

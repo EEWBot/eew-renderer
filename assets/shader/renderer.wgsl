@@ -18,23 +18,9 @@ struct Draw {
 @group(1) @binding(0) var color_texture: texture_2d<f32>;
 @group(1) @binding(1) var color_sampler: sampler;
 
-// 津波予報区の内部コード → 発表レベル (0: なし, 1: 予報, 2: 注意報, 3: 警報, 4: 大津波警報) と、
-// レベルごとの線の色。
-struct Tsunami {
-    colors: array<vec4<f32>, 5>,
-    levels: array<vec4<u32>, 32>,
-}
-
-@group(1) @binding(2) var<uniform> tsunami: Tsunami;
-
 const PI: f32 = 3.14159265358979323846;
 
 override CAP_SLICES: u32;
-
-struct ColorVertex {
-    @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-}
 
 struct TextureVertex {
     @builtin(position) position: vec4<f32>,
@@ -108,40 +94,12 @@ fn fs_fill() -> @location(0) vec4<f32> {
     return premultiply(draw.color);
 }
 
-// ---- 境界線 ----
-
 @vertex
 fn vs_line(
     @builtin(vertex_index) vertex_index: u32,
     @location(0) segment: vec4<f32>,
 ) -> @builtin(position) vec4<f32> {
     return segment_vertex(vertex_index, segment);
-}
-
-// ---- 津波予報区の線 ----
-
-@vertex
-fn vs_tsunami_line(
-    @builtin(vertex_index) vertex_index: u32,
-    @location(0) segment: vec4<f32>,
-    @location(1) code: u32,
-) -> ColorVertex {
-    let level = tsunami.levels[code / 4u][code % 4u];
-
-    var out: ColorVertex;
-    out.color = tsunami.colors[level];
-    if level != u32(draw.param.y) {
-        // CPU側で今回のレベルの予報区だけを描くので通常は通らないが、念のため面積 0 にして描かない
-        out.position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    } else {
-        out.position = segment_vertex(vertex_index, segment);
-    }
-    return out;
-}
-
-@fragment
-fn fs_vertex_color(in: ColorVertex) -> @location(0) vec4<f32> {
-    return premultiply(in.color);
 }
 
 // ---- スプライト (震度アイコン、震央) ----

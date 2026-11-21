@@ -113,9 +113,6 @@ pub struct QueryInterface;
 /// 線分 `(x0, y0, x1, y1)`。座標は投影済み (メルカトル)。
 pub type Segment = (f32, f32, f32, f32);
 
-/// 津波予報区の線分 `(x0, y0, x1, y1, 予報区の内部コード)`。座標は投影済み (メルカトル)。
-pub type TsunamiSegment = (f32, f32, f32, f32, u16);
-
 /// 頂点はすべて投影済み (メルカトル)。
 pub struct Geometries {
     pub vertices: &'static [(f32, f32)],
@@ -139,7 +136,7 @@ pub struct WorldGeometries {
 pub type TsunamiAreaRange = (u16, u32, u32);
 
 pub struct TsunamiGeometries {
-    pub segments: [&'static [TsunamiSegment]; InsetRegion::COUNT],
+    pub segments: [&'static [Segment]; InsetRegion::COUNT],
     pub area_ranges: [&'static [TsunamiAreaRange]; InsetRegion::COUNT],
 }
 
