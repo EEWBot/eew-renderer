@@ -33,8 +33,12 @@ impl VertexBuffer {
         }
     }
 
+    /// 投影済み (メルカトル) の頂点列にする。
     fn into_buffer(self) -> Vec<(f32, f32)> {
-        self.buffer.into_iter().map(|(x, y)| (x.0, y.0)).collect()
+        self.buffer
+            .into_iter()
+            .map(|(x, y)| crate::projection::to_mercator(x.0, y.0))
+            .collect()
     }
 }
 

@@ -1,96 +1,47 @@
-use crate::model::{津波情報, RenderingError};
+use crate::model::津波情報;
 use crate::worker::fonts::{Font, Offset, Origin};
-use crate::worker::vertex::{ShapeUniform, ShapeVertex};
-use crate::worker::FrameContext;
-use glium::backend::Facade;
-use glium::index::{NoIndices, PrimitiveType};
-use glium::{Surface, VertexBuffer};
+use crate::worker::frame::Frame;
 use renderer_types::Size;
-use rusttype::Scale;
-use std::ops::DerefMut;
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface, T>(
-    frame_context: &FrameContext<F, S>,
-    tsunami_payload: &T,
-) -> Result<(), RenderingError>
+pub fn draw<T>(frame: &mut Frame, tsunami_payload: &T)
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
-    let facade = frame_context.facade;
-    let resources = frame_context.resources;
-    let draw_parameters = frame_context.draw_parameters;
-    let theme = frame_context.theme;
+    let theme = frame.theme;
+    let image_size = frame.view.size;
 
-    let mut forecast_levels = tsunami_payload.forecast_levels().iter().fold(
-        Vec::<津波情報>::new(),
-        |mut v, (level, entries)| {
-            if !entries.is_empty() {
-                v.push(level)
-            }
-            v
-        },
-    );
+    let mut forecast_levels: Vec<津波情報> = tsunami_payload
+        .forecast_levels()
+        .iter()
+        .filter(|(_, entries)| !entries.is_empty())
+        .map(|(level, _)| level)
+        .collect();
     forecast_levels.sort();
 
-    forecast_levels
-        .iter()
-        .enumerate()
-        .for_each(|(i, forecast_level)| {
-            let (shape, text_origin) =
-                calculate_legend_position(frame_context.camera.image_size, i);
-            let shape = VertexBuffer::dynamic(facade, &shape).unwrap();
+    for (i, forecast_level) in forecast_levels.iter().enumerate() {
+        let (shape, text_origin) = calculate_legend_position(image_size, i);
 
-            let color = match forecast_level {
-                津波情報::津波予報 => theme.tsunami_colors.forecast,
-                津波情報::津波注意報 => theme.tsunami_colors.advisory,
-                津波情報::津波警報 => theme.tsunami_colors.warning,
-                津波情報::大津波警報 => theme.tsunami_colors.major_warning,
-            };
-            let color = [color[0], color[1], color[2], 1.0];
+        let color = theme.tsunami_colors.color_for(*forecast_level);
 
-            frame_context
-                .resources
-                .shader
-                .shape
-                .draw(
-                    frame_context.surface.borrow_mut().deref_mut(),
-                    &shape,
-                    NoIndices(PrimitiveType::TriangleStrip),
-                    &ShapeUniform { color },
-                    draw_parameters,
-                )
-                .unwrap();
+        frame.fill_shape(&shape, [color[0], color[1], color[2], 1.0]);
 
-            frame_context
-                .font_manager
-                .borrow_mut()
-                .deref_mut()
-                .draw_text(
-                    &forecast_level.to_string(),
-                    Font::BizUDPGothicBold,
-                    theme.tsunami_legend_color,
-                    Scale::uniform(22.0),
-                    Offset::new(
-                        Origin::RightDown,
-                        Origin::LeftUp,
-                        text_origin.0,
-                        text_origin.1,
-                    ),
-                    frame_context.camera.image_size.into(),
-                    resources,
-                    facade,
-                    frame_context.surface.borrow_mut().deref_mut(),
-                    draw_parameters,
-                );
-        });
-
-    Ok(())
+        frame.text(
+            &forecast_level.to_string(),
+            Font::BizUDPGothicBold,
+            theme.tsunami_legend_color,
+            22.0,
+            Offset::new(
+                Origin::RightDown,
+                Origin::LeftUp,
+                text_origin.0,
+                text_origin.1,
+            ),
+        );
+    }
 }
 
-fn calculate_legend_position(
-    image_size: Size<u32>,
-    index: usize,
-) -> ([ShapeVertex; 4], (i32, i32)) {
+/// 凡例の色見本 (三角形リスト) と、ラベルの位置。
+fn calculate_legend_position(image_size: Size<u32>, index: usize) -> ([[f32; 2]; 6], (i32, i32)) {
     let image_size = image_size.to_f32();
     let text_origin = (-300, -76 - 26 * index as i32);
 
@@ -101,24 +52,22 @@ fn calculate_legend_position(
     let shape_width = 46.8 / (image_size.x() / 2.0);
     let shape_height = 15.6 / (image_size.y() / 2.0);
 
-    let shape_left = x_origin - shape_text_gap - shape_width;
-    let shape_right = x_origin - shape_text_gap;
-    let shape_top = y_origin - shape_shape_gap / 2.0;
-    let shape_bottom = y_origin - shape_shape_gap / 2.0 - shape_height;
+    // 縁がにじまないよう、画素の境界に揃える
+    let snap_x = |x: f32| (x * image_size.x() / 2.0).round() / (image_size.x() / 2.0);
+    let snap_y = |y: f32| (y * image_size.y() / 2.0).round() / (image_size.y() / 2.0);
+
+    let left = snap_x(x_origin - shape_text_gap - shape_width);
+    let right = snap_x(x_origin - shape_text_gap);
+    let top = snap_y(y_origin - shape_shape_gap / 2.0);
+    let bottom = snap_y(y_origin - shape_shape_gap / 2.0 - shape_height);
 
     let shape = [
-        ShapeVertex {
-            position: [shape_left, shape_bottom],
-        },
-        ShapeVertex {
-            position: [shape_right, shape_bottom],
-        },
-        ShapeVertex {
-            position: [shape_left, shape_top],
-        },
-        ShapeVertex {
-            position: [shape_right, shape_top],
-        },
+        [left, bottom],
+        [right, bottom],
+        [left, top],
+        [left, top],
+        [right, bottom],
+        [right, top],
     ];
 
     (shape, text_origin)

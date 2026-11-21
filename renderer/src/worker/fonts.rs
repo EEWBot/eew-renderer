@@ -1,19 +1,12 @@
-use crate::worker::resources::Resources;
-use crate::worker::vertex::{TextUniform, TextVertex};
-use glium::backend::Facade;
-use glium::index::PrimitiveType;
-use glium::texture::{ClientFormat, MipmapsOption, RawImage2d, UncompressedFloatFormat};
-use glium::uniforms::MagnifySamplerFilter;
-use glium::{DrawParameters, IndexBuffer, Surface, Texture2d, VertexBuffer};
-use rusttype::gpu_cache::{Cache, CacheBuilder};
-use rusttype::{point, Point, Scale};
-use std::borrow::Cow;
+use ab_glyph::{point, Font as _, FontRef, GlyphId, OutlinedGlyph, Point, ScaleFont};
 use std::cmp::{max, min};
+use std::collections::HashMap;
+use std::ops::Range;
 use strum::{EnumIter, IntoEnumIterator};
 
-const FONT_CACHE_SIZE: u32 = 512;
+pub const GLYPH_ATLAS_SIZE: u32 = 512;
 
-#[derive(Copy, Clone, Debug, EnumIter)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, EnumIter)]
 pub enum Font {
     BizUDPGothicBold,
 }
@@ -38,191 +31,303 @@ impl FontInfo for Font {
     }
 }
 
-pub struct FontManager<'a> {
-    fonts: Vec<rusttype::Font<'a>>,
-    font_cache: Cache<'a>,
-    font_cache_texture: Texture2d,
+pub struct Fonts {
+    fonts: Vec<FontRef<'static>>,
 }
 
-impl FontManager<'_> {
-    pub fn new<F: ?Sized + Facade>(facade: &F) -> Self {
-        let fonts: Vec<_> = Font::iter()
-            .map(|f| rusttype::Font::try_from_bytes(f.font_binary()).unwrap())
-            .collect();
-        let font_cache = CacheBuilder::default()
-            .dimensions(FONT_CACHE_SIZE, FONT_CACHE_SIZE)
-            .multithread(true)
-            .build();
-        let image = RawImage2d {
-            data: Cow::Owned(vec![0u8; (FONT_CACHE_SIZE * FONT_CACHE_SIZE) as usize]),
-            width: FONT_CACHE_SIZE,
-            height: FONT_CACHE_SIZE,
-            format: ClientFormat::U8,
-        };
-        let font_cache_texture = Texture2d::with_format(
-            facade,
-            image,
-            UncompressedFloatFormat::U8,
-            MipmapsOption::NoMipmap,
-        )
-        .unwrap();
+const SUBPIXEL_STEPS: i32 = 4;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GlyphKey {
+    font: Font,
+    id: GlyphId,
+    size_bits: u32,
+    subpixel: [u8; 2],
+}
+
+impl GlyphKey {
+    fn size(&self) -> f32 {
+        f32::from_bits(self.size_bits)
+    }
+
+    fn subpixel_offset(&self) -> Point {
+        let step = SUBPIXEL_STEPS as f32;
+        point(
+            self.subpixel[0] as f32 / step,
+            self.subpixel[1] as f32 / step,
+        )
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct PlacedGlyph {
+    pub key: GlyphKey,
+    pub origin: [i32; 2],
+}
+
+impl Fonts {
+    pub fn new() -> Self {
+        let fonts = Font::iter()
+            .map(|f| FontRef::try_from_slice(f.font_binary()).unwrap())
+            .collect();
+
+        Self { fonts }
+    }
+
+    pub fn layout(
+        &self,
+        text: &str,
+        font_kind: Font,
+        size: f32,
+        offset: Offset,
+        image_dimension: (u32, u32),
+    ) -> Vec<PlacedGlyph> {
+        let font = self.fonts[font_kind.font_id()].as_scaled(size);
+        let ascent = font.ascent();
+        let descent = font.descent();
+        let line_gap = font.line_gap();
+
+        let layout_line = |line: &str, origin: Point| -> Vec<(GlyphId, Point)> {
+            let mut caret = origin.x;
+            let mut previous: Option<GlyphId> = None;
+            let mut glyphs = Vec::new();
+
+            for c in line.chars() {
+                let id = font.glyph_id(c);
+                if let Some(previous) = previous {
+                    caret += font.kern(previous, id);
+                }
+
+                glyphs.push((id, point(caret, origin.y)));
+                caret += font.h_advance(id);
+                previous = Some(id);
+            }
+
+            glyphs
+        };
+
+        let lines: Vec<&str> = text.lines().collect();
+
+        let text_width = if !offset.text_origin.uses_width() {
+            0
+        } else {
+            lines
+                .iter()
+                .map(|line| {
+                    let mut min_x = i32::MAX;
+                    let mut max_x = i32::MIN;
+
+                    for (id, position) in layout_line(line, point(0.0, ascent)) {
+                        let glyph = id.with_scale_and_position(size, position);
+                        let Some(outlined) = font.outline_glyph(glyph) else {
+                            continue;
+                        };
+                        let bounds = outlined.px_bounds();
+                        min_x = min(min_x, bounds.min.x as i32);
+                        max_x = max(max_x, bounds.max.x as i32);
+                    }
+
+                    if min_x <= max_x {
+                        max_x - min_x
+                    } else {
+                        0
+                    }
+                })
+                .max()
+                .unwrap_or(0)
+        };
+
+        let line_height = ascent - descent;
+
+        let place = |id: GlyphId, position: Point| -> PlacedGlyph {
+            let split = |v: f32| {
+                let steps = (v * SUBPIXEL_STEPS as f32).round() as i32;
+                (
+                    steps.div_euclid(SUBPIXEL_STEPS),
+                    steps.rem_euclid(SUBPIXEL_STEPS) as u8,
+                )
+            };
+            let (x, sub_x) = split(position.x);
+            let (y, sub_y) = split(position.y);
+
+            PlacedGlyph {
+                key: GlyphKey {
+                    font: font_kind,
+                    id,
+                    size_bits: size.to_bits(),
+                    subpixel: [sub_x, sub_y],
+                },
+                origin: [x, y],
+            }
+        };
+
+        lines
+            .iter()
+            .enumerate()
+            .flat_map(|(i, line)| {
+                let origin = offset.glyph_offset(
+                    image_dimension,
+                    (text_width as f32, line_height),
+                    ascent + (line_height + line_gap) * (i as f32 - lines.len() as f32 + 1.0),
+                );
+
+                layout_line(line, origin)
+            })
+            .map(|(id, position)| place(id, position))
+            .collect()
+    }
+
+    fn outline(&self, key: &GlyphKey) -> Option<OutlinedGlyph> {
+        let font = &self.fonts[key.font.font_id()];
+        font.outline_glyph(
+            key.id
+                .with_scale_and_position(key.size(), key.subpixel_offset()),
+        )
+    }
+}
+
+pub struct GlyphCache {
+    pixels: Vec<u8>,
+    cursor_x: u32,
+    cursor_y: u32,
+    row_height: u32,
+    entries: HashMap<GlyphKey, Option<CachedGlyph>>,
+    dirty: Option<Range<u32>>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct AtlasRect {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct CachedGlyph {
+    pub rect: AtlasRect,
+    pub offset: [i32; 2],
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct AtlasFull;
+
+impl GlyphCache {
+    const PADDING: u32 = 1;
+
+    pub fn new() -> Self {
         Self {
-            fonts,
-            font_cache,
-            font_cache_texture,
+            pixels: vec![0; (GLYPH_ATLAS_SIZE * GLYPH_ATLAS_SIZE * 4) as usize],
+            cursor_x: 0,
+            cursor_y: 0,
+            row_height: 0,
+            entries: HashMap::new(),
+            dirty: None,
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn draw_text<F: ?Sized + Facade, S: ?Sized + Surface>(
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn get_or_insert(
         &mut self,
-        text: &str,
-        font: Font,
-        color: [f32; 4],
-        scale: Scale,
-        offset: Offset,
-        image_dimension: (u32, u32),
-        resources: &Resources,
-        facade: &F,
-        surface: &mut S,
-        draw_params: &DrawParameters,
-    ) {
-        let font_id = font.font_id();
-        let font = &self.fonts[font_id];
-        let v_metrics = font.v_metrics(scale);
-        let lines = text.lines();
-
-        let text_width = lines
-            .clone()
-            .map(|l| {
-                font.layout(l, scale, point(0.0, v_metrics.ascent))
-                    .collect::<Vec<_>>()
-            })
-            .map(|v| {
-                let mut min_x = i32::MAX;
-                let mut max_x = i32::MIN;
-
-                v.iter()
-                    .filter_map(|glyph| glyph.pixel_bounding_box())
-                    .for_each(|rect| {
-                        min_x = min(min_x, rect.min.x);
-                        max_x = max(max_x, rect.max.x);
-                    });
-
-                max_x - min_x
-            })
-            .max()
-            .unwrap();
-
-        let line_count = lines.clone().count();
-        let glyphs: Vec<_> = lines
-            .enumerate()
-            .flat_map(|(i, l)| {
-                let line_height = v_metrics.ascent - v_metrics.descent;
-                let glyph_offset = offset.glyph_offset(
-                    image_dimension,
-                    (text_width as f32, line_height),
-                    v_metrics.ascent
-                        + (line_height + v_metrics.line_gap) * (i as f32 - line_count as f32 + 1.0),
-                );
-
-                font.layout(l, scale, glyph_offset).collect::<Vec<_>>()
-            })
-            .collect();
-
-        for glyph in &glyphs {
-            self.font_cache.queue_glyph(font_id, glyph.clone())
+        fonts: &Fonts,
+        key: GlyphKey,
+    ) -> Result<Option<CachedGlyph>, AtlasFull> {
+        if let Some(entry) = self.entries.get(&key) {
+            return Ok(*entry);
         }
-        self.font_cache
-            .cache_queued(|rect, data| {
-                self.font_cache_texture.main_level().write(
-                    glium::Rect {
-                        left: rect.min.x,
-                        bottom: rect.min.y,
-                        width: rect.width(),
-                        height: rect.height(),
-                    },
-                    RawImage2d {
-                        data: Cow::Borrowed(data),
-                        width: rect.width(),
-                        height: rect.height(),
-                        format: ClientFormat::U8,
-                    },
-                );
-            })
-            .unwrap();
 
-        let glyph_rects: Vec<_> = glyphs
-            .iter()
-            .filter_map(|glyph| self.font_cache.rect_for(font_id, glyph).ok().flatten())
-            .collect();
-        let vertices: Vec<TextVertex> = glyph_rects
-            .into_iter()
-            .flat_map(|(uv_rect, screen_rect)| {
-                let min = (
-                    screen_rect.min.x as f32 / image_dimension.0 as f32 * 2.0 - 1.0,
-                    screen_rect.min.y as f32 / image_dimension.1 as f32 * -2.0 + 1.0,
-                );
-                let max = (
-                    screen_rect.max.x as f32 / image_dimension.0 as f32 * 2.0 - 1.0,
-                    screen_rect.max.y as f32 / image_dimension.1 as f32 * -2.0 + 1.0,
-                );
+        let entry = match fonts.outline(&key) {
+            Some(glyph) => self.insert(&glyph)?,
+            None => None,
+        };
+        self.entries.insert(key, entry);
 
-                vec![
-                    TextVertex {
-                        position: [min.0, min.1],
-                        uv: [uv_rect.min.x, uv_rect.min.y],
-                    },
-                    TextVertex {
-                        position: [max.0, min.1],
-                        uv: [uv_rect.max.x, uv_rect.min.y],
-                    },
-                    TextVertex {
-                        position: [min.0, max.1],
-                        uv: [uv_rect.min.x, uv_rect.max.y],
-                    },
-                    TextVertex {
-                        position: [max.0, max.1],
-                        uv: [uv_rect.max.x, uv_rect.max.y],
-                    },
-                ]
-            })
-            .collect();
-        let indices: Vec<_> = (0..vertices.len() as u32 / 4)
-            .map(|v| v * 4)
-            .scan(true, |first_time, v| {
-                if *first_time {
-                    *first_time = false;
-                    Some(vec![v, v + 1, v + 2, v + 3])
-                } else {
-                    Some(vec![v - 1, v, v, v + 1, v + 2, v + 3])
-                }
-            })
-            .flatten()
-            .collect();
+        Ok(entry)
+    }
 
-        let vertex_buffer = VertexBuffer::dynamic(facade, &vertices).unwrap();
-        let index_buffer =
-            IndexBuffer::dynamic(facade, PrimitiveType::TriangleStrip, &indices).unwrap();
+    fn insert(&mut self, glyph: &OutlinedGlyph) -> Result<Option<CachedGlyph>, AtlasFull> {
+        let bounds = glyph.px_bounds();
+        let width = bounds.width() as u32;
+        let height = bounds.height() as u32;
 
-        resources
-            .shader
-            .text
-            .draw(
-                surface,
-                &vertex_buffer,
-                &index_buffer,
-                &TextUniform {
-                    font_texture: &self
-                        .font_cache_texture
-                        .sampled()
-                        .magnify_filter(MagnifySamplerFilter::Nearest),
-                    color,
-                },
-                draw_params,
-            )
-            .unwrap();
+        if width == 0 || height == 0 {
+            return Ok(None);
+        }
+
+        if width > GLYPH_ATLAS_SIZE {
+            return Err(AtlasFull);
+        }
+
+        let (mut x, mut y, mut row_height) = (self.cursor_x, self.cursor_y, self.row_height);
+        if x + width > GLYPH_ATLAS_SIZE {
+            x = 0;
+            y += row_height + Self::PADDING;
+            row_height = 0;
+        }
+
+        if y + height > GLYPH_ATLAS_SIZE {
+            return Err(AtlasFull);
+        }
+
+        let rect = AtlasRect {
+            x,
+            y,
+            width,
+            height,
+        };
+
+        glyph.draw(|x, y, coverage| {
+            if x >= width || y >= height {
+                return;
+            }
+
+            let value = (coverage.clamp(0.0, 1.0) * 255.0).round() as u8;
+            let index = (((rect.y + y) * GLYPH_ATLAS_SIZE + rect.x + x) * 4) as usize;
+            self.pixels[index..index + 4].fill(value);
+        });
+
+        self.cursor_x = x + width + Self::PADDING;
+        self.cursor_y = y;
+        self.row_height = max(row_height, height);
+        self.mark_dirty(rect.y..rect.y + rect.height);
+
+        Ok(Some(CachedGlyph {
+            rect,
+            offset: [bounds.min.x as i32, bounds.min.y as i32],
+        }))
+    }
+
+    pub fn clear(&mut self) {
+        let used = self.cursor_y + self.row_height;
+        self.pixels[..(used * GLYPH_ATLAS_SIZE * 4) as usize].fill(0);
+        self.cursor_x = 0;
+        self.cursor_y = 0;
+        self.row_height = 0;
+        self.entries.clear();
+        if used > 0 {
+            self.mark_dirty(0..used);
+        }
+    }
+
+    fn mark_dirty(&mut self, rows: Range<u32>) {
+        self.dirty = Some(match self.dirty.take() {
+            Some(dirty) => min(dirty.start, rows.start)..max(dirty.end, rows.end),
+            None => rows,
+        });
+    }
+
+    pub fn take_dirty(&mut self) -> Option<(u32, u32, &[u8])> {
+        let rows = self.dirty.take()?;
+        let row_bytes = (GLYPH_ATLAS_SIZE * 4) as usize;
+
+        Some((
+            rows.start,
+            rows.len() as u32,
+            &self.pixels[rows.start as usize * row_bytes..rows.end as usize * row_bytes],
+        ))
     }
 }
 
@@ -235,6 +340,15 @@ pub enum Origin {
     RightDown,
     Center,
     CenterDown,
+}
+
+impl Origin {
+    fn uses_width(self) -> bool {
+        match self {
+            Origin::LeftUp | Origin::LeftDown => false,
+            Origin::RightUp | Origin::RightDown | Origin::Center | Origin::CenterDown => true,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -260,7 +374,7 @@ impl Offset {
         image_dimension: (u32, u32),
         text_size: (f32, f32),
         ascent: f32,
-    ) -> Point<f32> {
+    ) -> Point {
         let x = self.x as f32;
         let y = self.y as f32;
 
@@ -290,8 +404,7 @@ impl Offset {
 
 #[cfg(test)]
 mod tests {
-    use crate::worker::fonts::{Offset, Origin};
-    use rusttype::point;
+    use super::*;
 
     #[test]
     fn test_offset() {
@@ -324,5 +437,71 @@ mod tests {
             offset.glyph_offset((100, 100), (10.0, 10.0), 0.0),
             point(45.0, 45.0)
         );
+    }
+
+    fn bounds(cache: &mut GlyphCache, fonts: &Fonts, glyph: &PlacedGlyph) -> Option<[i32; 4]> {
+        let cached = cache.get_or_insert(fonts, glyph.key).unwrap()?;
+        let x = glyph.origin[0] + cached.offset[0];
+        let y = glyph.origin[1] + cached.offset[1];
+        Some([
+            x,
+            y,
+            x + cached.rect.width as i32,
+            y + cached.rect.height as i32,
+        ])
+    }
+
+    #[test]
+    fn layout_places_text_at_the_anchor() {
+        let fonts = Fonts::new();
+        let glyphs = fonts.layout(
+            "2024年01月01日",
+            Font::BizUDPGothicBold,
+            20.0,
+            Offset::new(Origin::RightDown, Origin::RightDown, -20, -20),
+            (1024, 768),
+        );
+
+        assert_eq!(glyphs.len(), 11);
+
+        let mut cache = GlyphCache::new();
+        let all: Vec<_> = glyphs
+            .iter()
+            .filter_map(|g| bounds(&mut cache, &fonts, g))
+            .collect();
+        let max_x = all.iter().map(|b| b[2]).max().unwrap();
+        let max_y = all.iter().map(|b| b[3]).max().unwrap();
+
+        assert!((1000..=1005).contains(&max_x), "max_x = {max_x}");
+        assert!((735..=748).contains(&max_y), "max_y = {max_y}");
+    }
+
+    #[test]
+    fn atlas_packs_glyphs_without_overlap() {
+        let fonts = Fonts::new();
+        let glyphs = fonts.layout(
+            "津波注意報",
+            Font::BizUDPGothicBold,
+            22.0,
+            Offset::new(Origin::LeftUp, Origin::LeftUp, 0, 0),
+            (1024, 768),
+        );
+
+        let mut cache = GlyphCache::new();
+        let rects: Vec<_> = glyphs
+            .iter()
+            .filter_map(|g| cache.get_or_insert(&fonts, g.key).unwrap())
+            .map(|c| c.rect)
+            .collect();
+
+        assert_eq!(rects.len(), 5);
+        for pair in rects.windows(2) {
+            assert!(pair[0].x + pair[0].width < pair[1].x || pair[0].y != pair[1].y);
+        }
+
+        let (y, rows, pixels) = cache.take_dirty().unwrap();
+        assert_eq!(y, 0);
+        assert!(rows > 0);
+        assert!(pixels.contains(&255));
     }
 }

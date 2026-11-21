@@ -1,37 +1,22 @@
-use crate::frame_context::{FramePayload, HasEpicenter, HasTime, HasTsunamiForecastLevels};
-use crate::model::Message;
-use crate::worker::camera::Camera;
-use crate::worker::fonts::FontManager;
-use crate::worker::theme::Theme;
-use glium::backend::Facade;
-use glium::glutin::surface::{GlSurface, SwapInterval};
-use glium::{
-    draw_parameters::{Blend, LinearBlendingFactor, Stencil, StencilOperation, StencilTest},
-    framebuffer::{SimpleFrameBuffer, StencilRenderBuffer},
-    glutin::{
-        config::ConfigTemplateBuilder,
-        context::{ContextAttributesBuilder, NotCurrentGlContext},
-        display::{GetGlDisplay, GlDisplay},
-        surface::{SurfaceAttributesBuilder, WindowSurface},
-    },
-    texture::StencilFormat,
-    uniforms::MagnifySamplerFilter,
-    BlendingFunction, Display, DrawParameters, Surface, Texture2d,
+use crate::frame_context::{
+    FramePayload, HasEpicenter, HasTime, HasTsunamiForecastLevels, MapLayerConfig,
 };
-use glutin_winit::DisplayBuilder;
+use crate::model::{Message, RenderingError};
+use crate::worker::fonts::{Fonts, GlyphCache, GLYPH_ATLAS_SIZE};
+use crate::worker::frame::{
+    DynamicBuffers, Frame, FrameData, FrameError, StagedSprites, View, UNIFORM_CAPACITY,
+    VERTEX_CAPACITY,
+};
+use crate::worker::gpu::Gpu;
+use crate::worker::pipelines::{DrawUniform, Pipelines};
+use crate::worker::resources::Resources;
+use crate::worker::target::RenderTarget;
 use image_buffer::RGBAImageData;
 use renderer_types::*;
-use std::cell::RefCell;
 use std::error::Error;
-use std::num::NonZeroU32;
-use std::rc::Rc;
+use std::num::NonZeroU64;
 use std::time::Instant;
 use tokio::sync::mpsc;
-use winit::application::ApplicationHandler;
-use winit::event::{StartCause, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::window::{Window, WindowId};
-use winit::{raw_window_handle::HasWindowHandle, window::WindowAttributes};
 
 mod camera;
 mod drawer_epicenter;
@@ -42,76 +27,42 @@ mod drawer_overlay;
 mod drawer_tsunami_legends;
 mod drawer_tsunami_line;
 mod fonts;
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
-mod headless;
+mod frame;
+pub mod gpu;
 pub mod image_buffer;
 mod inset;
 mod notch;
+mod pipelines;
 mod resources;
-mod shader;
+mod target;
 mod theme;
-mod vertex;
 
 const DIMENSION: (u32, u32) = (1024, 768);
 const MAP_MARGIN_FACTOR: f32 = 1.2;
 const ICON_RATIO_IN_Y_AXIS: f32 = 0.05;
 
 pub async fn run(
-    rx: mpsc::Receiver<Message>,
-    headless: bool,
-    egl_device_index: usize,
-) -> Result<(), Box<dyn Error>> {
-    if headless {
-        run_headless(rx, egl_device_index).await
-    } else {
-        run_windowed(rx).await
-    }
-}
-
-async fn run_windowed(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn Error>> {
-    let event_loop = winit::event_loop::EventLoop::<Message>::with_user_event().build()?;
-
-    let proxy = event_loop.create_proxy();
-
-    tokio::spawn(async move {
-        while let Some(message) = rx.recv().await {
-            proxy.send_event(message).unwrap();
-        }
-
-        // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
-        // and the worker thread should keep waiting for the program’s error-handling routine,
-        // which is the correct behavior.
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
-        tracing::error!("An abnormal termination of the web thread was detected!");
-        std::process::exit(1);
-    });
-
-    event_loop.run_app(&mut App::default()).unwrap();
-
-    Ok(())
-}
-
-async fn run_headless(
     mut rx: mpsc::Receiver<Message>,
-    egl_device_index: usize,
+    gpu_options: gpu::GpuOptions,
 ) -> Result<(), Box<dyn Error>> {
-    let context = create_headless_context(egl_device_index)?;
-
-    log_gl_info(&context);
-
-    let resources = resources::Resources::load(&context);
-    let mut font_manager = FontManager::new(&context);
-    let render_target = RenderTarget::new(&context);
+    let mut renderer = Renderer::new(Gpu::new(&gpu_options).await?);
 
     while let Some(message) = rx.recv().await {
-        render_frame(
-            &context,
-            &render_target,
-            &resources,
-            &mut font_manager,
-            message,
-        );
+        let Message::FrameRequest((frame_context, response_socket)) = message;
+
+        let result = match renderer.render(&frame_context) {
+            Ok(image) => Ok(image),
+            Err(RenderError::Request(e)) => {
+                tracing::warn!(
+                    "Rejected a request: {e} ({})",
+                    frame_context.request_identity
+                );
+                Err(e)
+            }
+            Err(RenderError::Readback(e)) => return Err(e.into()),
+        };
+
+        let _ = response_socket.send(result);
     }
 
     // rx.recv() failing directly indicates that the Web thread has terminated abnormally,
@@ -119,304 +70,214 @@ async fn run_headless(
     // which is the correct behavior.
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-    tracing::error!("An abnormal termination of the web thread was detected!");
-    std::process::exit(1);
+    Err("An abnormal termination of the web thread was detected!".into())
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "ios")))]
-fn create_headless_context(
-    egl_device_index: usize,
-) -> Result<Rc<glium::backend::Context>, Box<dyn Error>> {
-    headless::create(egl_device_index)
+#[derive(thiserror::Error, Debug)]
+enum RenderError {
+    /// リクエストの内容が原因で描画できなかった。レンダラは使い続けられる。
+    #[error(transparent)]
+    Request(#[from] RenderingError),
+    /// GPUからの読み戻しに失敗した。回復できない。
+    #[error(transparent)]
+    Readback(#[from] target::ReadError),
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
-fn create_headless_context(_: usize) -> Result<Rc<glium::backend::Context>, Box<dyn Error>> {
-    Err("Headless mode requires EGL, which is not available on this platform".into())
+struct Renderer {
+    gpu: Gpu,
+    target: RenderTarget,
+    pipelines: Pipelines,
+    resources: Resources,
+    dynamic: DynamicBuffers,
+    fonts: Fonts,
+    glyphs: GlyphCache,
 }
 
-fn log_gl_info<F: Facade>(facade: &F) {
-    let context = facade.get_context();
+impl Renderer {
+    fn new(gpu: Gpu) -> Self {
+        let device = &gpu.device;
 
-    tracing::info!("GL_VENDOR: {}", context.get_opengl_vendor_string());
-    tracing::info!("GL_RENDERER: {}", context.get_opengl_renderer_string());
-    tracing::info!("GL_VERSION: {}", context.get_opengl_version_string());
-}
-
-const STRAIGHT_ALPHA_BLEND: Blend = Blend {
-    color: BlendingFunction::Addition {
-        source: LinearBlendingFactor::SourceAlpha,
-        destination: LinearBlendingFactor::OneMinusSourceAlpha,
-    },
-    alpha: BlendingFunction::Max,
-    constant_value: (0.0, 0.0, 0.0, 0.0),
-};
-
-const PREMULTIPLIED_ALPHA_BLEND: Blend = Blend {
-    color: BlendingFunction::Addition {
-        source: LinearBlendingFactor::One,
-        destination: LinearBlendingFactor::OneMinusSourceAlpha,
-    },
-    alpha: BlendingFunction::Addition {
-        source: LinearBlendingFactor::One,
-        destination: LinearBlendingFactor::OneMinusSourceAlpha,
-    },
-    constant_value: (0.0, 0.0, 0.0, 0.0),
-};
-
-pub struct FrameContext<'a, 'b, 'c, F: ?Sized + Facade, S: ?Sized + Surface> {
-    pub facade: &'a F,
-    pub surface: Rc<RefCell<S>>,
-    pub theme: &'a Theme,
-    pub resources: &'a resources::Resources<'a>,
-    pub font_manager: Rc<RefCell<&'a mut FontManager<'b>>>,
-    pub draw_parameters: &'c DrawParameters<'c>,
-
-    pub premultiplied_draw_parameters: &'c DrawParameters<'c>,
-    pub camera: Camera,
-}
-
-#[derive(Default)]
-struct App<'a> {
-    display: Option<Display<WindowSurface>>,
-    window: Option<Window>,
-    resources: Option<resources::Resources<'a>>,
-    font_manager: Option<FontManager<'a>>,
-    render_target: Option<RenderTarget>,
-}
-
-impl ApplicationHandler<Message> for App<'_> {
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
-        if cause != StartCause::Init {
-            return;
-        }
-
-        let (display, window) = create_gl_context(event_loop);
-
-        log_gl_info(&display);
-
-        let resources = resources::Resources::load(&display);
-        let font_manager = FontManager::new(&display);
-
-        self.render_target = Some(RenderTarget::new(&display));
-        self.display = Some(display);
-        self.window = Some(window);
-        self.resources = Some(resources);
-        self.font_manager = Some(font_manager);
-    }
-
-    fn resumed(&mut self, _: &ActiveEventLoop) {}
-
-    fn user_event(&mut self, _: &ActiveEventLoop, event: Message) {
-        let display = self.display.as_ref().unwrap();
-        let render_target = self.render_target.as_ref().unwrap();
-        let resources = self.resources.as_ref().unwrap();
-        let font_manager = self.font_manager.as_mut().unwrap();
-
-        render_frame(display, render_target, resources, font_manager, event);
-        present(display, &render_target.texture);
-    }
-
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
-        match event {
-            WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => {
-                if let Some(display) = self.display.as_ref() {
-                    display.resize((size.width, size.height));
-                }
-            }
-            WindowEvent::RedrawRequested => {
-                if let (Some(display), Some(render_target)) =
-                    (self.display.as_ref(), self.render_target.as_ref())
-                {
-                    present(display, &render_target.texture);
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-struct RenderTarget {
-    texture: Texture2d,
-    stencil_buffer: StencilRenderBuffer,
-}
-
-impl RenderTarget {
-    fn new<F: ?Sized + Facade>(facade: &F) -> Self {
-        let image_size = Size::from(DIMENSION);
-
-        let texture = Texture2d::empty(facade, image_size.x(), image_size.y()).unwrap();
-        let stencil_buffer =
-            StencilRenderBuffer::new(facade, StencilFormat::I8, image_size.x(), image_size.y())
-                .unwrap();
+        let target = RenderTarget::new(device, Size::from(DIMENSION));
+        let pipelines = Pipelines::new(device);
+        let resources = Resources::load(device, &gpu.queue, &pipelines.texture_layout);
+        let dynamic = create_dynamic_buffers(device, &pipelines, &resources);
 
         Self {
-            texture,
-            stencil_buffer,
+            gpu,
+            target,
+            pipelines,
+            resources,
+            dynamic,
+            fonts: Fonts::new(),
+            glyphs: GlyphCache::new(),
         }
     }
 
-    fn frame_buffer<F: ?Sized + Facade>(&self, facade: &F) -> SimpleFrameBuffer<'_> {
-        SimpleFrameBuffer::with_stencil_buffer(facade, &self.texture, &self.stencil_buffer).unwrap()
+    fn render(
+        &mut self,
+        frame_context: &crate::frame_context::FrameContext,
+    ) -> Result<RGBAImageData, RenderError> {
+        let start_at = Instant::now();
+
+        let theme = &theme::DEFAULT;
+        let payload = &frame_context.payload;
+
+        let bounding_box = calculate_bounding_box(payload);
+        let camera = camera::Camera::fit(&bounding_box, Size::from(DIMENSION))
+            .with_margin(MAP_MARGIN_FACTOR);
+
+        let had_glyphs = !self.glyphs.is_empty();
+        let (mut encoder, frame_data) = match self.record(theme, payload, &camera) {
+            Err(FrameError::GlyphAtlasFull) if had_glyphs => {
+                self.glyphs.clear();
+                self.record(theme, payload, &camera)
+            }
+            result => result,
+        }
+        .map_err(RenderingError::from)?;
+
+        let queue = &self.gpu.queue;
+
+        // 動的なデータは、描画命令を送信する前に書き込んでおけば反映される
+        queue.write_buffer(&self.dynamic.uniforms, 0, &frame_data.uniforms);
+        queue.write_buffer(&self.dynamic.vertices, 0, &frame_data.vertices);
+        if let Some((y, rows, pixels)) = self.glyphs.take_dirty() {
+            resources::write_texture(
+                queue,
+                &self.dynamic.glyph_texture,
+                0,
+                y,
+                GLYPH_ATLAS_SIZE,
+                rows,
+                pixels,
+            );
+        }
+
+        self.target.copy_to_readback(&mut encoder);
+        queue.submit([encoder.finish()]);
+
+        let t_before_bufcpy = Instant::now();
+
+        let image = self.target.read(&self.gpu.device)?;
+
+        let t_done = Instant::now();
+
+        // GPUでの描画の完了待ちは BufCpy 側に含まれる
+        tracing::info!(
+            "Render: {:?} BufCpy: {:?} ({})",
+            t_before_bufcpy - start_at,
+            t_done - t_before_bufcpy,
+            frame_context.request_identity,
+        );
+
+        Ok(image)
+    }
+
+    fn record(
+        &mut self,
+        theme: &theme::Theme,
+        payload: &FramePayload,
+        camera: &camera::Camera,
+    ) -> Result<(wgpu::CommandEncoder, FrameData), FrameError> {
+        let mut encoder = self
+            .gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("frame"),
+            });
+
+        let tsunami_levels = match payload {
+            FramePayload::TsunamiFirst(tsunami) => {
+                Some(drawer_tsunami_line::area_levels(tsunami).map_err(FrameError::Rendering)?)
+            }
+            _ => None,
+        };
+
+        let frame_data = {
+            let pass = self.target.begin_pass(&mut encoder, theme.clear_color);
+            let mut frame = Frame::new(
+                &self.resources,
+                &self.pipelines,
+                &self.dynamic,
+                &self.fonts,
+                &mut self.glyphs,
+                theme,
+                pass,
+                View::from_camera(camera),
+            );
+
+            let map_layers = payload.map_layers();
+
+            match payload {
+                FramePayload::Earthquake(earthquake) => {
+                    drawer_map::draw(&mut frame, map_layers, None);
+                    drawer_intensity_icon::draw_all(&mut frame, earthquake);
+                    let epicenters = drawer_epicenter::prepare(&mut frame, earthquake.epicenter());
+                    drawer_epicenter::draw(&mut frame, epicenters.as_ref(), ICON_RATIO_IN_Y_AXIS);
+                    drawer_overlay::draw(&mut frame, earthquake);
+                }
+                FramePayload::TsunamiFirst(tsunami) => {
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, tsunami_levels.as_ref());
+                }
+                FramePayload::TsunamiSecond(tsunami) => {
+                    draw_tsunami_frame(&mut frame, tsunami, map_layers, None);
+                }
+            }
+
+            frame.finish()?
+        };
+
+        Ok((encoder, frame_data))
     }
 }
 
-fn render_frame<F: ?Sized + Facade>(
-    facade: &F,
-    target: &RenderTarget,
-    resources: &resources::Resources<'_>,
-    font_manager: &mut FontManager<'_>,
-    event: Message,
-) {
-    let Message::FrameRequest((request_frame_context, response_socket)) = event;
+fn create_dynamic_buffers(
+    device: &wgpu::Device,
+    pipelines: &Pipelines,
+    resources: &Resources,
+) -> DynamicBuffers {
+    let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("draw uniforms"),
+        size: UNIFORM_CAPACITY as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let draw_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("draw"),
+        layout: &pipelines.draw_layout,
+        entries: &[wgpu::BindGroupEntry {
+            binding: 0,
+            resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                buffer: &uniforms,
+                offset: 0,
+                size: NonZeroU64::new(size_of::<DrawUniform>() as u64),
+            }),
+        }],
+    });
 
-    let start_at = std::time::Instant::now();
+    let vertices = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("dynamic vertices"),
+        size: VERTEX_CAPACITY as u64,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
 
-    let font_manager = Rc::new(RefCell::new(font_manager));
-
-    let image_size = Size::from(DIMENSION);
-
-    let bounding_box = calculate_bounding_box(&request_frame_context.payload);
-
-    let camera = camera::Camera::fit(&bounding_box, image_size).with_margin(MAP_MARGIN_FACTOR);
-
-    let draw_parameters = DrawParameters {
-        multisampling: false,
-        blend: STRAIGHT_ALPHA_BLEND,
-        ..Default::default()
-    };
-
-    let premultiplied_draw_parameters = DrawParameters {
-        blend: PREMULTIPLIED_ALPHA_BLEND,
-        ..draw_parameters.clone()
-    };
-
-    let t_before_alloc = Instant::now();
-
-    let frame_buffer = Rc::new(RefCell::new(target.frame_buffer(facade)));
-
-    let t_before_render = Instant::now();
-
-    let frame_context = FrameContext {
-        facade,
-        surface: frame_buffer.clone(),
-        theme: &theme::DEFAULT,
-        resources,
-        font_manager,
-        draw_parameters: &draw_parameters,
-        premultiplied_draw_parameters: &premultiplied_draw_parameters,
-        camera,
-    };
-
-    let clear_color = frame_context.theme.clear_color;
-    frame_buffer.borrow_mut().clear(
-        None,
-        Some((
-            clear_color[0],
-            clear_color[1],
-            clear_color[2],
-            clear_color[3],
-        )),
-        false,
-        None,
-        Some(0),
+    let glyph_texture =
+        resources::create_texture(device, "glyphs", GLYPH_ATLAS_SIZE, GLYPH_ATLAS_SIZE);
+    let glyph_bind_group = resources::texture_bind_group(
+        device,
+        &pipelines.texture_layout,
+        &glyph_texture,
+        &resources.sampler,
     );
 
-    let map_layers = request_frame_context.payload.map_layers();
-
-    match &request_frame_context.payload {
-        FramePayload::Earthquake(earthquake) => {
-            drawer_map::draw(&frame_context, map_layers, None);
-            drawer_intensity_icon::draw_all(&frame_context, earthquake);
-            drawer_epicenter::draw(&frame_context, earthquake);
-            drawer_overlay::draw(&frame_context, earthquake);
-        }
-        FramePayload::TsunamiFirst(tsunami) => {
-            draw_tsunami_frame(&frame_context, tsunami, map_layers, true);
-        }
-        FramePayload::TsunamiSecond(tsunami) => {
-            draw_tsunami_frame(&frame_context, tsunami, map_layers, false);
-        }
+    DynamicBuffers {
+        uniforms,
+        draw_bind_group,
+        vertices,
+        glyph_texture,
+        glyph_bind_group,
     }
-
-    let t_before_bufcpy = Instant::now();
-
-    let image: RGBAImageData = target.texture.read();
-
-    let t_done = Instant::now();
-
-    tracing::info!(
-        "Init: {:?} Alloc: {:?} Render: {:?} BufCpy: {:?} ({})",
-        t_before_alloc - start_at,
-        t_before_render - t_before_alloc,
-        t_before_bufcpy - t_before_render,
-        t_done - t_before_bufcpy,
-        request_frame_context.request_identity,
-    );
-
-    let _ = response_socket.send(Ok(image));
-}
-
-fn present(display: &Display<WindowSurface>, texture: &Texture2d) {
-    let frame = display.draw();
-    texture
-        .as_surface()
-        .fill(&frame, MagnifySamplerFilter::Nearest);
-    if let Err(err) = frame.finish() {
-        tracing::warn!("Failed to present frame: {err:?}");
-    }
-}
-
-fn create_gl_context(event_loop: &ActiveEventLoop) -> (Display<WindowSurface>, Window) {
-    let window_attributes = WindowAttributes::default()
-        .with_title("eew-renderer")
-        .with_inner_size(winit::dpi::PhysicalSize::new(DIMENSION.0, DIMENSION.1))
-        .with_resizable(false);
-    let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
-
-    let (window, gl_config) = display_builder
-        .build(event_loop, ConfigTemplateBuilder::new(), |mut configs| {
-            configs.next().unwrap()
-        })
-        .unwrap();
-
-    let window = window.unwrap();
-
-    let size = window.inner_size();
-    let attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-        window.window_handle().unwrap().as_raw(),
-        NonZeroU32::new(size.width).unwrap_or(NonZeroU32::new(1).unwrap()),
-        NonZeroU32::new(size.height).unwrap_or(NonZeroU32::new(1).unwrap()),
-    );
-
-    let surface = unsafe {
-        gl_config
-            .display()
-            .create_window_surface(&gl_config, &attributes)
-            .unwrap()
-    };
-
-    let attributes =
-        ContextAttributesBuilder::new().build(Some(window.window_handle().unwrap().as_raw()));
-
-    let current_context = unsafe {
-        gl_config
-            .display()
-            .create_context(&gl_config, &attributes)
-            .unwrap()
-    }
-    .make_current(&surface)
-    .unwrap();
-
-    surface
-        .set_swap_interval(&current_context, SwapInterval::DontWait)
-        .unwrap();
-
-    (
-        Display::from_context_surface(current_context, surface).unwrap(),
-        window,
-    )
 }
 
 /// マップの描画範囲を決定する。
@@ -462,103 +323,71 @@ pub fn calculate_bounding_box(payload: &FramePayload) -> BoundingBox<GeoDegree> 
     }
 }
 
-fn draw_tsunami_frame<F: ?Sized + Facade, S: ?Sized + Surface, T>(
-    frame_context: &FrameContext<F, S>,
+fn draw_tsunami_frame<T>(
+    frame: &mut Frame,
     payload: &T,
-    map_layers: crate::frame_context::MapLayerConfig,
-    with_lines: bool,
+    map_layers: MapLayerConfig,
+    lines: Option<&drawer_tsunami_line::AreaLevels>,
 ) where
     T: HasEpicenter + HasTime + HasTsunamiForecastLevels,
 {
-    let facade = frame_context.facade;
+    let main_view = frame.view;
 
-    let epicenter_buffer = drawer_epicenter::create_vertex_buffer(facade, payload.epicenter());
-    let levels = with_lines.then(|| drawer_tsunami_line::build_levels_texture(facade, payload));
+    drawer_map::draw(frame, map_layers, Some(InsetRegion::Main));
+    if let Some(levels) = lines {
+        drawer_tsunami_line::draw(frame, InsetRegion::Main, levels);
+    }
+    drawer_tsunami_legends::draw(frame, payload);
+    let epicenters = drawer_epicenter::prepare(frame, payload.epicenter());
+    drawer_epicenter::draw(frame, epicenters.as_ref(), ICON_RATIO_IN_Y_AXIS);
 
-    drawer_map::draw(frame_context, map_layers, Some(InsetRegion::Main));
-    if let Some(levels) = &levels {
-        drawer_tsunami_line::draw(frame_context, InsetRegion::Main, levels);
-    }
-    drawer_tsunami_legends::draw(frame_context, payload);
-    if let Some(buffer) = &epicenter_buffer {
-        drawer_epicenter::draw_vertex_buffer(frame_context, buffer, ICON_RATIO_IN_Y_AXIS);
-    }
-    draw_insets(
-        frame_context,
-        epicenter_buffer.as_ref(),
-        map_layers,
-        levels.as_ref(),
-    );
-    drawer_overlay::draw(frame_context, payload);
+    draw_insets(frame, epicenters.as_ref(), map_layers, lines);
+
+    frame.set_view(main_view, None);
+    drawer_overlay::draw(frame, payload);
 }
 
-fn draw_insets<F: ?Sized + Facade, S: ?Sized + Surface>(
-    base: &FrameContext<F, S>,
-    epicenter_buffer: Option<&glium::VertexBuffer<vertex::EpicenterVertex>>,
-    layers: crate::frame_context::MapLayerConfig,
-    levels: Option<&glium::texture::UnsignedTexture1d>,
+fn draw_insets(
+    frame: &mut Frame,
+    epicenters: Option<&StagedSprites>,
+    layers: MapLayerConfig,
+    lines: Option<&drawer_tsunami_line::AreaLevels>,
 ) {
+    let base_height = frame.view.size.y() as f32;
+
     for inset in inset::ALL_INSETS {
         let camera = inset.camera();
         let notch = inset.notch.as_ref().map(|n| notch::resolve(&camera, n));
 
-        let mut draw_parameters = base.draw_parameters.clone();
-        draw_parameters.viewport = Some(inset.viewport);
-        if notch.is_some() {
-            draw_parameters.stencil =
-                stencil_params(StencilTest::IfEqual { mask: 0xff }, StencilOperation::Keep);
-        }
+        frame.set_view(View::from_camera(&camera), Some(inset.viewport));
 
-        let premultiplied_draw_parameters = DrawParameters {
-            blend: PREMULTIPLIED_ALPHA_BLEND,
-            ..draw_parameters.clone()
-        };
-
-        let frame_context = FrameContext {
-            facade: base.facade,
-            surface: base.surface.clone(),
-            theme: base.theme,
-            resources: base.resources,
-            font_manager: base.font_manager.clone(),
-            draw_parameters: &draw_parameters,
-            premultiplied_draw_parameters: &premultiplied_draw_parameters,
-            camera,
-        };
-
+        // 切り欠きがある場合は、残す側のステンシルを1にして、そこにだけ描く
         if let Some(notch) = &notch {
-            drawer_inset_frame::draw_stencil_mask(&frame_context, notch);
+            frame.set_stencil_reference(1);
+            drawer_inset_frame::draw_stencil_mask(frame, notch);
         }
-        drawer_inset_frame::draw_background(&frame_context);
-        drawer_map::draw(&frame_context, layers, Some(inset.region));
-        if let Some(levels) = levels {
-            drawer_tsunami_line::draw(&frame_context, inset.region, levels);
+
+        drawer_inset_frame::draw_background(frame);
+        drawer_map::draw(frame, layers, Some(inset.region));
+        if let Some(levels) = lines {
+            drawer_tsunami_line::draw(frame, inset.region, levels);
         }
-        if let Some(buffer) = epicenter_buffer {
-            let icon_ratio = ICON_RATIO_IN_Y_AXIS
-                * (base.camera.image_size.y() as f32 / inset.viewport.height as f32);
-            drawer_epicenter::draw_vertex_buffer(&frame_context, buffer, icon_ratio);
-        }
+
+        // アイコンの大きさを本体の地図と揃える
+        let icon_ratio = ICON_RATIO_IN_Y_AXIS * (base_height / inset.viewport.height as f32);
+        drawer_epicenter::draw(frame, epicenters, icon_ratio);
+
         drawer_inset_frame::draw_border_and_label(
-            &frame_context,
+            frame,
             &inset.border_sides,
             notch.as_ref(),
             inset.label,
         );
-    }
-}
 
-fn stencil_params(test: StencilTest, operation: StencilOperation) -> Stencil {
-    Stencil {
-        test_clockwise: test,
-        reference_value_clockwise: 1,
-        fail_operation_clockwise: operation,
-        pass_depth_fail_operation_clockwise: operation,
-        depth_pass_operation_clockwise: operation,
-        test_counter_clockwise: test,
-        reference_value_counter_clockwise: 1,
-        fail_operation_counter_clockwise: operation,
-        pass_depth_fail_operation_counter_clockwise: operation,
-        depth_pass_operation_counter_clockwise: operation,
-        ..Default::default()
+        // 後続の描画が切り抜かれないよう、ステンシルを0に戻す
+        if let Some(notch) = &notch {
+            frame.set_stencil_reference(0);
+            drawer_inset_frame::draw_stencil_mask(frame, notch);
+        }
     }
 }

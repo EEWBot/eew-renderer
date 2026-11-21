@@ -1,6 +1,25 @@
 #![allow(clippy::eq_op)]
-use crate::worker::vertex::TsunamiLineColors;
+use crate::model::津波情報;
 use renderer_macros::{rgb, rgba};
+
+#[derive(Copy, Clone, Debug)]
+pub struct TsunamiLineColors {
+    pub forecast: [f32; 3],
+    pub advisory: [f32; 3],
+    pub warning: [f32; 3],
+    pub major_warning: [f32; 3],
+}
+
+impl TsunamiLineColors {
+    pub fn color_for(&self, level: 津波情報) -> [f32; 3] {
+        match level {
+            津波情報::津波予報 => self.forecast,
+            津波情報::津波注意報 => self.advisory,
+            津波情報::津波警報 => self.warning,
+            津波情報::大津波警報 => self.major_warning,
+        }
+    }
+}
 
 pub struct Theme {
     pub clear_color: [f32; 4],
