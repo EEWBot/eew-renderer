@@ -157,14 +157,19 @@ impl RenderTarget {
         rx.recv().map_err(|_| ReadError::MapCallbackDropped)??;
 
         let bytes_per_row = (self.size.x() * BYTES_PER_PIXEL) as usize;
-        let mut data = Vec::with_capacity(bytes_per_row * self.size.y() as usize);
 
-        {
+        let data = {
             let mapped = slice.get_mapped_range()?;
-            for row in mapped.chunks_exact(self.padded_bytes_per_row as usize) {
-                data.extend_from_slice(&row[..bytes_per_row]);
+            if self.padded_bytes_per_row as usize == bytes_per_row {
+                mapped.to_vec()
+            } else {
+                let mut data = Vec::with_capacity(bytes_per_row * self.size.y() as usize);
+                for row in mapped.chunks_exact(self.padded_bytes_per_row as usize) {
+                    data.extend_from_slice(&row[..bytes_per_row]);
+                }
+                data
             }
-        }
+        };
 
         self.readback.unmap();
 
