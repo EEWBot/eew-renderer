@@ -202,7 +202,7 @@ impl QueryInterface {
             .copied()
     }
 
-    pub const TSUNAMI_AREA_CODE_COUNT: usize = TSUNAMI_AREA_CODE_COUNT;
+    pub const TSUNAMI_AREA_CODE_COUNT: usize = TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len();
 
     pub fn query_bounding_box_by_area(
         area_code: codes::地震情報細分区域,

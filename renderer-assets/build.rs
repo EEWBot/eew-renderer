@@ -19,7 +19,6 @@ fn main() {
 
     let (tsunami_segments, tsunami_area_ranges, tsunami_area_code_to_internal_code) =
         parse_tsunami_shapefile::read();
-    let tsunami_area_code_count: usize = tsunami_area_code_to_internal_code.len();
 
     let (lake_vertices, lake_indices) = parse_lake_shapefile::read();
 
@@ -92,7 +91,6 @@ fn main() {
         const_declaration!(TSUNAMI_SEGMENTS = tsunami_segments),
         const_declaration!(TSUNAMI_AREA_RANGES = tsunami_area_ranges),
         const_declaration!(TSUNAMI_AREA_CODE_TO_INTERNAL_CODE = tsunami_area_code_to_internal_code),
-        const_declaration!(TSUNAMI_AREA_CODE_COUNT = tsunami_area_code_count),
     ]
     .join("\n");
 
