@@ -1,6 +1,5 @@
 use crate::model::{津波情報, RenderingError};
 use crate::worker::frame::Frame;
-use crate::worker::theme::Theme;
 use renderer_assets::QueryInterface;
 use renderer_types::InsetRegion;
 use std::ops::Range;
@@ -24,15 +23,6 @@ where
     Ok(levels)
 }
 
-fn line_color(theme: &Theme, level: 津波情報) -> [f32; 3] {
-    match level {
-        津波情報::津波予報 => theme.tsunami_colors.forecast,
-        津波情報::津波注意報 => theme.tsunami_colors.advisory,
-        津波情報::津波警報 => theme.tsunami_colors.warning,
-        津波情報::大津波警報 => theme.tsunami_colors.major_warning,
-    }
-}
-
 /// 重大なレベルの線が隠れないよう、軽いレベルから順に描いて重ねる。
 /// 発表のある予報区の線分だけを描き、発表のないレベルは描画自体を省く。
 pub fn draw(frame: &mut Frame, region: InsetRegion, levels: &AreaLevels) {
@@ -54,7 +44,7 @@ pub fn draw(frame: &mut Frame, region: InsetRegion, levels: &AreaLevels) {
         }
 
         if !ranges.is_empty() {
-            let color = line_color(frame.theme, level);
+            let color = frame.theme.tsunami_colors.color_for(level);
             frame.tsunami_lines(&ranges, frame.theme.tsunami_width, color);
         }
     }

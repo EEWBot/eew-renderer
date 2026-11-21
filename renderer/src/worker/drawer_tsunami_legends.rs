@@ -21,12 +21,7 @@ where
     for (i, forecast_level) in forecast_levels.iter().enumerate() {
         let (shape, text_origin) = calculate_legend_position(image_size, i);
 
-        let color = match forecast_level {
-            津波情報::津波予報 => theme.tsunami_colors.forecast,
-            津波情報::津波注意報 => theme.tsunami_colors.advisory,
-            津波情報::津波警報 => theme.tsunami_colors.warning,
-            津波情報::大津波警報 => theme.tsunami_colors.major_warning,
-        };
+        let color = theme.tsunami_colors.color_for(*forecast_level);
 
         frame.fill_shape(&shape, [color[0], color[1], color[2], 1.0]);
 
