@@ -69,11 +69,8 @@ struct Cli {
     #[clap(default_value_t = 512)]
     image_cache_capacity: u64,
 
-    #[clap(long, env, default_value_t = false)]
-    headless: bool,
-
-    #[clap(long, env, default_value_t = 0)]
-    egl_device_index: usize,
+    #[command(flatten)]
+    gpu: worker::gpu::GpuOptions,
 
     #[clap(long, env, default_value = "embedded")]
     intensity_stations_source: IntensityStationsSource,
@@ -93,19 +90,19 @@ struct Cli {
 
 #[derive(thiserror::Error)]
 enum ConfigError {
-    #[error("HTTPヘッダの形式が不正 (NAME:VALUE である必要がある)")]
+    #[error("malformed HTTP header (expected NAME:VALUE)")]
     MalformedHeader,
 
-    #[error("HTTPヘッダ名が不正: {0:?}")]
+    #[error("invalid HTTP header name: {0:?}")]
     InvalidHeaderName(String),
 
-    #[error("HTTPヘッダ {0:?} の値が不正")]
+    #[error("invalid value for HTTP header {0:?}")]
     InvalidHeaderValue(String),
 
-    #[error("INTENSITY_STATIONS_CF_ACCESS_CLIENT_ID と _SECRET は両方指定する必要がある")]
+    #[error("INTENSITY_STATIONS_CF_ACCESS_CLIENT_ID and _SECRET must be specified together")]
     IncompleteCfAccessCredential,
 
-    #[error("INTENSITY_STATIONS_POLL_INTERVAL に 0 は指定できない")]
+    #[error("INTENSITY_STATIONS_POLL_INTERVAL must not be 0")]
     ZeroPollInterval,
 }
 
@@ -181,7 +178,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "Minimum Response Interval: {}",
         cli.minimum_response_interval
     );
-    tracing::info!("Headless: {}", cli.headless);
     tracing::info!("Intensity Stations: {}", cli.intensity_stations_source);
 
     init_intensity_stations(&cli).await;
@@ -193,7 +189,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Message>(16);
 
-    let (headless, egl_device_index) = (cli.headless, cli.egl_device_index);
+    let gpu_options = cli.gpu.clone();
 
     let listener = tokio::net::TcpListener::bind(&cli.listen).await.unwrap();
     tracing::info!("Listening on {}", cli.listen);
@@ -215,8 +211,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     });
 
-    if let Err(e) = worker::run(rx, headless, egl_device_index).await {
-        tracing::error!("UNRECOVERABLE ERROR (Worker): {e:?}");
+    if let Err(e) = worker::run(rx, gpu_options).await {
+        tracing::error!("UNRECOVERABLE ERROR (Worker): {e}");
         std::process::exit(1);
     }
 

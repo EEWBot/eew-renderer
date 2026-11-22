@@ -1,82 +1,58 @@
-use crate::worker::vertex::TsunamiUniform;
-use crate::worker::FrameContext;
-use glium::backend::Facade;
-use glium::texture::{
-    ClientFormat, MipmapsOption, RawImage1d, UncompressedUintFormat, UnsignedTexture1d,
-};
-use glium::Surface;
+use crate::model::{津波情報, RenderingError};
+use crate::worker::frame::Frame;
 use renderer_assets::QueryInterface;
 use renderer_types::InsetRegion;
-use std::borrow::Cow;
-use std::ops::DerefMut;
+use std::ops::Range;
 
-pub fn build_levels_texture<F: ?Sized + Facade, T>(
-    facade: &F,
-    tsunami_payload: &T,
-) -> UnsignedTexture1d
+pub type AreaLevels = [Option<津波情報>; QueryInterface::TSUNAMI_AREA_CODE_COUNT];
+
+pub fn area_levels<T>(tsunami_payload: &T) -> Result<AreaLevels, RenderingError>
 where
     T: crate::frame_context::HasTsunamiForecastLevels,
 {
-    let area_code_count = QueryInterface::tsunami_area_code_count();
+    let mut levels = [None; QueryInterface::TSUNAMI_AREA_CODE_COUNT];
 
-    let mut levels = vec![0_u8; area_code_count];
+    for (level, areas) in tsunami_payload.forecast_levels().iter() {
+        for area in areas {
+            let code = QueryInterface::tsunami_area_code_to_internal_code(*area)
+                .ok_or(RenderingError::UnknownTsunamiArea(area.0))?;
+            levels[code as usize] = Some(level);
+        }
+    }
 
-    tsunami_payload
-        .forecast_levels()
-        .iter()
-        .for_each(|(level, areas)| {
-            areas.iter().for_each(|area| {
-                levels
-                    [QueryInterface::tsunami_area_code_to_internal_code(*area).unwrap() as usize] =
-                    level as u8
-            })
-        });
-
-    let levels = RawImage1d {
-        data: Cow::from(&levels),
-        width: levels.len() as u32,
-        format: ClientFormat::U8,
-    };
-
-    UnsignedTexture1d::with_format(
-        facade,
-        levels,
-        UncompressedUintFormat::U8,
-        MipmapsOption::NoMipmap,
-    )
-    .unwrap()
+    Ok(levels)
 }
 
-pub fn draw<F: ?Sized + Facade, S: ?Sized + Surface>(
-    frame_context: &FrameContext<F, S>,
-    region: InsetRegion,
-    levels: &UnsignedTexture1d,
-) {
-    let resources = frame_context.resources;
-    let offset = frame_context.camera.offset;
-    let scale = frame_context.camera.scale;
-    let draw_parameters = frame_context.draw_parameters;
-    let theme = frame_context.theme;
+/// 重大なレベルの線が隠れないよう、軽いレベルから順に描いて重ねる。
+/// 発表のある予報区の線分だけを描き、発表のないレベルは描画自体を省く。
+pub fn draw(frame: &mut Frame, region: InsetRegion, levels: &AreaLevels) {
+    let areas = frame.resources.tsunami_area_ranges(region);
+    let mut ranges: Vec<Range<u32>> = Vec::new();
 
-    resources
-        .shader
-        .tsunami
-        .draw(
-            frame_context.surface.borrow_mut().deref_mut(),
-            &frame_context.resources.buffer.tsunami_vertex,
-            frame_context
-                .resources
-                .buffer
-                .get_tsunami_indices_by_region(region),
-            &TsunamiUniform {
-                dimension: frame_context.camera.image_size.to_f32().into(),
-                offset: offset.into(),
-                zoom: scale,
-                colors: theme.tsunami_colors,
-                levels,
-                line_width: theme.tsunami_width,
-            },
-            draw_parameters,
-        )
-        .unwrap();
+    for level in DRAW_ORDER {
+        ranges.clear();
+        for (code, range) in areas {
+            if levels[*code as usize] != Some(level) {
+                continue;
+            }
+
+            // 線分列上で隣り合う予報区は1回の描画にまとめる
+            match ranges.last_mut() {
+                Some(last) if last.end == range.start => last.end = range.end,
+                _ => ranges.push(range.clone()),
+            }
+        }
+
+        if !ranges.is_empty() {
+            let color = frame.theme.tsunami_colors.color_for(level);
+            frame.tsunami_lines(&ranges, frame.theme.tsunami_width, color);
+        }
+    }
 }
+
+const DRAW_ORDER: [津波情報; 4] = [
+    津波情報::津波予報,
+    津波情報::津波注意報,
+    津波情報::津波警報,
+    津波情報::大津波警報,
+];

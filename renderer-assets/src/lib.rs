@@ -46,7 +46,7 @@ fn resolve(parsed: ParsedStations) -> Result<IntensityStations, StationLoadError
             .min_by(|(_, a), (_, b)| {
                 let a = center.euclidean_distance(&Vertex::<GeoDegree>::new(a.0, a.1));
                 let b = center.euclidean_distance(&Vertex::<GeoDegree>::new(b.0, b.1));
-                a.partial_cmp(&b).expect("観測点距離が何故かNaN")
+                a.partial_cmp(&b).expect("station distance is NaN")
             })
             .map(|(offset, _)| range.start_i + offset)
             .ok_or(StationLoadError::AreaWithoutStation(*area_code))?;
@@ -110,11 +110,17 @@ fn stations() -> &'static StationStore {
 
 pub struct QueryInterface;
 
+/// 線分 `(x0, y0, x1, y1)`。座標は投影済み (メルカトル)。
+pub type Segment = (f32, f32, f32, f32);
+
+/// 頂点はすべて投影済み (メルカトル)。
 pub struct Geometries {
     pub vertices: &'static [(f32, f32)],
     pub map_triangles: [&'static [u32]; InsetRegion::COUNT],
-    pub area_lines: &'static [&'static [u32]],
-    pub pref_lines: &'static [&'static [u32]],
+    /// LODごとの線分列
+    pub area_lines: &'static [&'static [Segment]],
+    /// LODごとの線分列
+    pub pref_lines: &'static [&'static [Segment]],
 }
 
 pub struct LakeGeometries {
@@ -127,9 +133,11 @@ pub struct WorldGeometries {
     pub indices: &'static [u32],
 }
 
+pub type TsunamiAreaRange = (u16, u32, u32);
+
 pub struct TsunamiGeometries {
-    pub vertices: &'static [(f32, f32, u16)],
-    pub indices: [&'static [u32]; InsetRegion::COUNT],
+    pub segments: [&'static [Segment]; InsetRegion::COUNT],
+    pub area_ranges: [&'static [TsunamiAreaRange]; InsetRegion::COUNT],
 }
 
 impl QueryInterface {
@@ -175,8 +183,8 @@ impl QueryInterface {
 
     pub fn tsunami_geometries() -> TsunamiGeometries {
         TsunamiGeometries {
-            vertices: TSUNAMI_VERTICES,
-            indices: TSUNAMI_INDICES,
+            segments: TSUNAMI_SEGMENTS,
+            area_ranges: TSUNAMI_AREA_RANGES,
         }
     }
 
@@ -194,9 +202,7 @@ impl QueryInterface {
             .copied()
     }
 
-    pub fn tsunami_area_code_count() -> usize {
-        TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len()
-    }
+    pub const TSUNAMI_AREA_CODE_COUNT: usize = TSUNAMI_AREA_CODE_TO_INTERNAL_CODE.len();
 
     pub fn query_bounding_box_by_area(
         area_code: codes::地震情報細分区域,

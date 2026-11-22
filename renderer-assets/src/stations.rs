@@ -9,47 +9,47 @@ use serde::Deserialize;
 #[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 pub enum StationLoadError {
-    #[error("intensity_stations.jsonが不正")]
+    #[error("invalid intensity_stations.json")]
     Json(#[from] serde_json::Error),
 
-    #[error("観測点[{index}]の{field}が不正: {value:?}")]
+    #[error("station[{index}] has invalid {field}: {value:?}")]
     Field {
         index: usize,
         field: &'static str,
         value: String,
     },
 
-    #[error("観測点[{index}]の座標が有限でない")]
+    #[error("station[{index}] has non-finite coordinates")]
     NonFiniteCoordinate { index: usize },
 
-    #[error("観測点[{index}]の座標が範囲外: (lat: {lat}, lon: {lon})")]
+    #[error("station[{index}] coordinates out of range: (lat: {lat}, lon: {lon})")]
     CoordinateOutOfRange { index: usize, lat: f32, lon: f32 },
 
-    #[error("観測点code {0} が重複している")]
+    #[error("duplicate station code {0}")]
     DuplicateStationCode(u32),
 
-    #[error("未対応の観測点マスター: schema_version={version}, source_kind={source_kind}")]
+    #[error("unsupported station master: schema_version={version}, source_kind={source_kind}")]
     UnsupportedMaster { version: u32, source_kind: String },
 
-    #[error("観測点マスターのリリース情報が不正")]
+    #[error("invalid station master release info")]
     InvalidRelease,
 
-    #[error("{field}の日時が不正: {value:?}")]
+    #[error("invalid timestamp in {field}: {value:?}")]
     InvalidTimestamp { field: &'static str, value: String },
 
-    #[error("観測点[{index}]に有効なmetadataが無い")]
+    #[error("station[{index}] has no valid metadata")]
     MissingMetadata { index: usize },
 
-    #[error("区域{area_code}に異なる都道府県コードが含まれる")]
+    #[error("area {area_code} contains stations from different prefectures")]
     InconsistentPrefecture { area_code: u32 },
 
-    #[error("地図上にあるarea {0} がintensity_stations.jsonに無い")]
+    #[error("area {0} on the map is missing from intensity_stations.json")]
     AreaWithoutStation(u32),
 
-    #[error("intensity_stations.jsonは既に初期化されている")]
+    #[error("intensity_stations.json is already initialized")]
     AlreadyInitialized,
 
-    #[error("intensity_stations.jsonがまだ初期化されていない")]
+    #[error("intensity_stations.json is not initialized yet")]
     NotInitialized,
 }
 

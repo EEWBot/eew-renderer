@@ -6,13 +6,13 @@ use url::Url;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SourceParseError {
-    #[error("空のパスは指定できない (例: file:/data/intensity_stations.json)")]
+    #[error("path must not be empty (e.g. file:/data/intensity_stations.json)")]
     EmptyPath,
 
-    #[error("URLとして解釈できない: {0}")]
+    #[error("invalid URL: {0}")]
     Url(#[from] url::ParseError),
 
-    #[error("sourceは `embedded` / `file:<PATH>` / `http(s)://<URL>` のいずれかである必要がある")]
+    #[error("source must be one of `embedded`, `file:<PATH>` or `http(s)://<URL>`")]
     UnknownScheme,
 }
 

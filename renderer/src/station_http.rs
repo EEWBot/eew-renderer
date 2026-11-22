@@ -10,19 +10,19 @@ const TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Debug, thiserror::Error)]
 pub enum HttpSourceError {
-    #[error("HTTP clientを構築できない: {0}")]
+    #[error("failed to build HTTP client: {0}")]
     Client(#[source] reqwest::Error),
 
-    #[error("HTTPリクエストに失敗: {0}")]
+    #[error("HTTP request failed: {0}")]
     Request(#[source] reqwest::Error),
 
-    #[error("想定外のHTTP status: {0}")]
+    #[error("unexpected HTTP status: {0}")]
     UnexpectedStatus(StatusCode),
 
     #[error(transparent)]
     Load(#[from] renderer_assets::StationLoadError),
 
-    #[error("blocking taskの実行に失敗: {0}")]
+    #[error("blocking task failed: {0}")]
     Join(#[from] tokio::task::JoinError),
 }
 

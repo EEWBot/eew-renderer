@@ -9,7 +9,7 @@ const DEBOUNCE: Duration = Duration::from_millis(300);
 
 #[derive(Debug, thiserror::Error)]
 pub enum FileLoadError {
-    #[error("{path} を読めない: {source}")]
+    #[error("failed to read {path}: {source}")]
     Io {
         path: PathBuf,
         #[source]

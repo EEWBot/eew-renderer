@@ -37,8 +37,12 @@ impl VertexBuffer {
         }
     }
 
+    /// 投影済み (メルカトル) の頂点列にする。
     fn into_buffer(self) -> Vec<(f32, f32)> {
-        self.buffer.into_iter().map(|(x, y)| (x.0, y.0)).collect()
+        self.buffer
+            .into_iter()
+            .map(|(x, y)| crate::projection::to_mercator(x.0, y.0))
+            .collect()
     }
 }
 
@@ -211,10 +215,10 @@ pub fn read(
 ) -> (
     HashMap<codes::地震情報細分区域, BoundingBox<GeoDegree>>, // area_bounding_box
     HashMap<codes::地震情報細分区域, Vertex<GeoDegree>>,      // area_centers
-    Vec<(f32, f32)>,                                          // vertex_buffer
+    Vec<(f32, f32)>,                                          // vertex_buffer (mercator)
     [Vec<u32>; InsetRegion::COUNT], // map_indices (main / okinawa / ogasawara)
-    Vec<Vec<u32>>,                  // area_lines
-    Vec<Vec<u32>>,                  // pref_lines
+    Vec<Vec<(f32, f32, f32, f32)>>, // area_lines (LODごとの線分列, mercator)
+    Vec<Vec<(f32, f32, f32, f32)>>, // pref_lines (LODごとの線分列, mercator)
     Vec<(f32, usize)>,              // scale_level_map
 ) {
     let shapefile = Shapefile::new(
@@ -317,8 +321,8 @@ pub fn read(
         (100.0_f32.powf(0.24), 0.117),
     ];
 
-    let area_lines = gen_lod(&mut vertex_buffer, &lod_details, &area_lines);
-    let pref_lines = gen_lod(&mut vertex_buffer, &lod_details, &pref_lines);
+    let area_lines = gen_lod(&lod_details, &area_lines);
+    let pref_lines = gen_lod(&lod_details, &pref_lines);
 
     let scale_level_map = lod_details
         .into_iter()
@@ -380,11 +384,8 @@ fn cut_rings(rings: &[&Ring], cut_points: &[Point]) -> Vec<Line> {
     lines
 }
 
-fn gen_lod(
-    vertex_buffer: &mut VertexBuffer,
-    lod_details: &[(f32, f64)],
-    base_lines: &[&Line],
-) -> Vec<Vec<u32>> {
+/// LODごとに、簡略化した境界線を投影済みの線分列にする。
+fn gen_lod(lod_details: &[(f32, f64)], base_lines: &[&Line]) -> Vec<Vec<(f32, f32, f32, f32)>> {
     let geo_lines: Vec<geo::LineString> = base_lines
         .iter()
         .map(|l| geo::LineString::from(*l))
@@ -392,19 +393,16 @@ fn gen_lod(
 
     lod_details
         .iter()
-        .map(|(_, e)| geo_lines.iter().map(|l| l.simplify(*e)).collect_vec())
-        .map(|l| {
-            let mut v = Vec::new();
-            for l in l {
-                let l =
-                    l.0.iter()
-                        .map(|c| (Of32::from(c.x as f32), Of32::from(c.y as f32)))
-                        .map(|v| vertex_buffer.insert(v) as u32);
-                v.extend(l);
-                v.push(0);
-            }
-            v.pop();
-            v
+        .map(|(_, e)| {
+            geo_lines
+                .iter()
+                .map(|l| l.simplify(*e))
+                .flat_map(|l| {
+                    crate::projection::to_mercator_segments(
+                        l.0.iter().map(|c| (c.x as f32, c.y as f32)),
+                    )
+                })
+                .collect()
         })
         .collect()
 }
