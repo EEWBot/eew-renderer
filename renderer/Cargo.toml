@@ -48,6 +48,9 @@ axum-client-ip = "1.0.0"
 strum_macros = "0.28.0"
 
 
+[features]
+renderdoc-capture = []
+
 [build-dependencies]
 prost-build = "0.14.0"
 

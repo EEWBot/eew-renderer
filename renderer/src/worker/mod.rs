@@ -19,6 +19,8 @@ use std::time::Instant;
 use tokio::sync::mpsc;
 
 mod camera;
+#[cfg(feature = "renderdoc-capture")]
+mod capture;
 mod drawer_epicenter;
 mod drawer_inset_frame;
 mod drawer_intensity_icon;
@@ -47,10 +49,21 @@ pub async fn run(
 ) -> Result<(), Box<dyn Error>> {
     let mut renderer = Renderer::new(Gpu::new(&gpu_options).await?);
 
+    #[cfg(feature = "renderdoc-capture")]
+    let device = {
+        tracing::info!("Graphics debugger capture is enabled for every frame");
+        renderer.gpu.device.clone()
+    };
+
     while let Some(message) = rx.recv().await {
         let Message::FrameRequest((frame_context, response_socket)) = message;
 
-        let result = match renderer.render(&frame_context) {
+        #[cfg(feature = "renderdoc-capture")]
+        let rendered = capture::capture(&device, || renderer.render(&frame_context));
+        #[cfg(not(feature = "renderdoc-capture"))]
+        let rendered = renderer.render(&frame_context);
+
+        let result = match rendered {
             Ok(image) => Ok(image),
             Err(RenderError::Request(e)) => {
                 tracing::warn!(
