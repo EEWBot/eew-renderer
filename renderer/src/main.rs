@@ -90,19 +90,19 @@ struct Cli {
 
 #[derive(thiserror::Error)]
 enum ConfigError {
-    #[error("HTTPヘッダの形式が不正 (NAME:VALUE である必要がある)")]
+    #[error("malformed HTTP header (expected NAME:VALUE)")]
     MalformedHeader,
 
-    #[error("HTTPヘッダ名が不正: {0:?}")]
+    #[error("invalid HTTP header name: {0:?}")]
     InvalidHeaderName(String),
 
-    #[error("HTTPヘッダ {0:?} の値が不正")]
+    #[error("invalid value for HTTP header {0:?}")]
     InvalidHeaderValue(String),
 
-    #[error("INTENSITY_STATIONS_CF_ACCESS_CLIENT_ID と _SECRET は両方指定する必要がある")]
+    #[error("INTENSITY_STATIONS_CF_ACCESS_CLIENT_ID and _SECRET must be specified together")]
     IncompleteCfAccessCredential,
 
-    #[error("INTENSITY_STATIONS_POLL_INTERVAL に 0 は指定できない")]
+    #[error("INTENSITY_STATIONS_POLL_INTERVAL must not be 0")]
     ZeroPollInterval,
 }
 

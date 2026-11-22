@@ -46,7 +46,7 @@ fn resolve(parsed: ParsedStations) -> Result<IntensityStations, StationLoadError
             .min_by(|(_, a), (_, b)| {
                 let a = center.euclidean_distance(&Vertex::<GeoDegree>::new(a.0, a.1));
                 let b = center.euclidean_distance(&Vertex::<GeoDegree>::new(b.0, b.1));
-                a.partial_cmp(&b).expect("観測点距離が何故かNaN")
+                a.partial_cmp(&b).expect("station distance is NaN")
             })
             .map(|(offset, _)| range.start_i + offset)
             .ok_or(StationLoadError::AreaWithoutStation(*area_code))?;
