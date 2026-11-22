@@ -183,15 +183,15 @@ impl RenderTarget {
 
 #[derive(thiserror::Error, Debug)]
 pub enum ReadError {
-    #[error("GPUの完了待ちに失敗: {0}")]
+    #[error("failed to wait for GPU completion: {0}")]
     Poll(#[from] wgpu::PollError),
 
-    #[error("読み戻しバッファのマップ結果を受け取れなかった")]
+    #[error("readback buffer map callback was dropped")]
     MapCallbackDropped,
 
-    #[error("読み戻しバッファのマップに失敗: {0}")]
+    #[error("failed to map readback buffer: {0}")]
     Map(#[from] wgpu::BufferAsyncError),
 
-    #[error("読み戻しバッファの参照に失敗: {0}")]
+    #[error("failed to access readback buffer: {0}")]
     MapRange(#[from] wgpu::MapRangeError),
 }

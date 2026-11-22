@@ -17,26 +17,26 @@ pub struct GpuOptions {
 
 #[derive(thiserror::Error, Debug)]
 pub enum GpuError {
-    #[error("GPUアダプタが1つも見つからない")]
+    #[error("no GPU adapter found")]
     NoAdapter,
 
-    #[error("GPUアダプタ #{index} は存在しない ({count} 個のアダプタが見つかった)")]
+    #[error("GPU adapter #{index} does not exist ({count} adapters found)")]
     AdapterIndexOutOfRange { index: usize, count: usize },
 
     #[error(
-        "GPUアダプタ #{index} ({name}) はソフトウェアレンダラ (--allow-software-rendering で許可できる)"
+        "GPU adapter #{index} ({name}) is a software renderer (allow it with --allow-software-rendering)"
     )]
     SoftwareAdapterNotAllowed { index: usize, name: String },
 
     #[error(
-        "ハードウェアGPUアダプタが見つからない (ソフトウェアレンダリングは --allow-software-rendering で許可できる)"
+        "no hardware GPU adapter found (allow software rendering with --allow-software-rendering)"
     )]
     NoHardwareAdapter,
 
-    #[error("デバイスの作成に失敗: {0}")]
+    #[error("failed to create device: {0}")]
     RequestDevice(#[from] wgpu::RequestDeviceError),
 
-    #[error("{attempted} 個のGPUアダプタすべてでデバイスの作成に失敗 (最後のエラー: {last})")]
+    #[error("failed to create device on all {attempted} GPU adapters (last error: {last})")]
     AllAdaptersFailed {
         attempted: usize,
         last: wgpu::RequestDeviceError,
@@ -106,7 +106,9 @@ impl Gpu {
                 }
                 Err(error) if explicit => return Err(error.into()),
                 Err(error) => {
-                    tracing::warn!("GPU Adapter #{index} ({name}): デバイスの作成に失敗: {error}");
+                    tracing::warn!(
+                        "GPU Adapter #{index} ({name}): failed to create device: {error}"
+                    );
                     last_error = Some(error);
                 }
             }
