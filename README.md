@@ -113,6 +113,22 @@ The file must use the
 [`jma-station-master` schema version 1](https://github.com/EEWBot/jma-station-master#%E5%87%BA%E5%8A%9B).
 If the initial load fails, the server exits.
 
+### Capturing a frame with RenderDoc
+
+For debugging, headless frames can be captured with [RenderDoc](https://renderdoc.org/) and inspected draw call by draw call.
+When built with the `renderdoc-capture` feature (off by default), every rendered frame is captured automatically.
+Requests served from the image cache are not rendered, so they produce no capture.
+
+wgpu only enables RenderDoc when its `wgpu-hal` crate is built with debug assertions.
+Debug builds work as is; for release builds, enable them for `wgpu-hal` alone:
+
+```sh
+cargo build --release --features renderdoc-capture --config 'profile.release.package.wgpu-hal.debug-assertions=true'
+```
+
+Launch the binary from RenderDoc (Launch Application), then send requests.
+Each capture covers the whole `render` call, including command recording, submission, waiting for the GPU and readback.
+
 ## Compatibility
 
 Rendering uses [wgpu](https://wgpu.rs/), and a hardware GPU is required by default.
