@@ -89,12 +89,11 @@ impl Gpu {
             let adapter = &adapters[index];
             let name = &candidates[index].name;
 
-            // GLバックエンドでも動かせるよう、downlevel相当の制限に収める
             let result = adapter
                 .request_device(&wgpu::DeviceDescriptor {
                     label: Some("eew-renderer"),
                     required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_defaults(),
+                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
                     ..Default::default()
                 })
                 .await;
